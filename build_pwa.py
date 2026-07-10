@@ -221,10 +221,13 @@ function hideField(store,n){
   return false;
 }
 
-// Campos condicionales: se habilitan solo si se cumple la regla; si no, se bloquean y limpian.
-// TIPO_DEPOSITO solo aplica cuando TIPO_ROCA = "Depósito" (una litología es roca O depósito, no ambas).
+// Campos condicionales: se muestran/habilitan solo si se cumple la regla; si no, se limpian.
+//  modo 'bloquear' = se deshabilita y atenúa · modo 'ocultar' = se esconde por completo.
 const CONDICIONALES = {
-  TIPO_DEPOSITO: v => v['TIPO_ROCA']==='Depósito',
+  // Una litología es roca O depósito: TIPO_DEPOSITO solo con TIPO_ROCA = "Depósito".
+  TIPO_DEPOSITO: {modo:'bloquear', regla: v => v['TIPO_ROCA']==='Depósito'},
+  // Granulometría solo para siliciclásticos y piroclásticos (la cascada tiene opciones solo para esos).
+  GRANULOMETRIA: {modo:'ocultar', regla: v => opciones('GRANULOMETRIA', v['NOMBRE_ROCA']).length>0},
 };
 
 // Construye el DOM de un formulario para (store, registro). Devuelve {node, getData}
@@ -275,32 +278,38 @@ function formulario(store, reg, ctx){
   });
   cont.append(rowWrap);
 
-  // habilita/bloquea campos condicionales según los valores actuales
+  // habilita/oculta campos condicionales según los valores actuales
   function aplicarCondicionales(){
     const v={};for(const k in inputs)v[k]=inputs[k].value;
     for(const cn in CONDICIONALES){
       const inp=inputs[cn]; if(!inp)continue;
-      const ok=CONDICIONALES[cn](v);
-      inp.disabled=!ok;
-      const fld=inp.closest('.fld'); if(fld)fld.style.opacity=ok?'':'0.5';
+      const {modo,regla}=CONDICIONALES[cn];
+      const ok=regla(v);
+      const fld=inp.closest('.fld');
+      if(modo==='ocultar'){ if(fld)fld.style.display=ok?'':'none'; }
+      else { inp.disabled=!ok; if(fld)fld.style.opacity=ok?'':'0.5'; }
       if(!ok){ if(inp.value)inp.value=''; inp.required=false; }
       else { const cd=cs.find(c=>c.nombre===cn); if(cd&&cd.obligatorio)inp.required=true; }
     }
   }
-  aplicarCondicionales();
-
-  // cascadas: al cambiar el padre, repoblar hijos
-  cont.addEventListener('change',e=>{
-    const changed=e.target.name; if(!changed)return;
+  // repuebla recursivamente los selects hijos de 'parentName' (cadena TIPO_ROCA→NOMBRE_ROCA→GRANULOMETRIA)
+  function repoblarHijosDe(parentName, parentValue){
     Object.values(inputs).forEach(inp=>{
-      if(inp.tagName==='SELECT' && inp.dataset.cascadaPadre===changed){
+      if(inp.tagName==='SELECT' && inp.dataset.cascadaPadre===parentName){
         const campo=cs.find(c=>c.nombre===inp.name);
-        const cur=inp.value;
         inp.innerHTML='';inp.append(el('option',{value:''},'— seleccionar —'));
-        opciones(campo.dominio, e.target.value).forEach(o=>inp.append(el('option',{value:o.value},o.label)));
-        inp.value=''; // reset porque cambió el padre
+        opciones(campo.dominio, parentValue).forEach(o=>inp.append(el('option',{value:o.value},o.label)));
+        inp.value='';
+        repoblarHijosDe(inp.name,'');   // nietos: su padre quedó vacío
       }
     });
+  }
+  aplicarCondicionales();
+
+  // cascadas: al cambiar el padre, repoblar hijos (y nietos)
+  cont.addEventListener('change',e=>{
+    const changed=e.target.name; if(!changed)return;
+    repoblarHijosDe(changed, e.target.value);
     aplicarCondicionales();
     // dominio abierto "agregar nuevo"
     if(e.target.tagName==='SELECT' && e.target.value==='__add__'){
@@ -952,7 +961,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v11';
+const CACHE='geoterreno-cdc-v12';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
