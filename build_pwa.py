@@ -469,7 +469,9 @@ async function renderPunto(app){
   const guardarPunto=async()=>{
     const d=f.getData();Object.assign(curPunto,d);curPunto._parent=curProyecto.id;
     curPunto.ID_PROYECTO=curProyecto.ID_PROYECTO||curProyecto.id;
-    await put('punto',curPunto);return curPunto;
+    await put('punto',curPunto);
+    if(vista.id==='__new__')vista={n:'punto',id:curPunto.id};  // fija id real: evita re-crear punto vacío al re-render
+    return curPunto;
   };
 
   // --- secciones hijas ---
@@ -485,7 +487,12 @@ async function renderPunto(app){
       el('button',{class:'btn '+(h.clase==='lito'?'':'orange')+' mini',onclick:async()=>{
         await guardarPunto();
         const reg={id:uid(),_parent:curPunto.id};
-        await put(h.store,reg);renderPunto(app);
+        await put(h.store,reg);
+        await renderPunto(app);
+        requestAnimationFrame(()=>{const bs=document.querySelectorAll('.child-block[data-store="'+h.store+'"]');
+          const last=bs[bs.length-1];if(last){last.scrollIntoView({behavior:'smooth',block:'center'});
+          const inp=last.querySelector('input,select,textarea');if(inp)inp.focus({preventScroll:true});}});
+        toast(h.titulo+' agregada — completa los campos');
       }},'+ Agregar '+h.titulo.toLowerCase())));
     app.append(card);
   }
@@ -497,7 +504,7 @@ async function renderPunto(app){
 }
 
 function bloqueHijo(h,reg,i,litos){
-  const b=el('div',{class:'child-block'+(h.clase==='lito'?' lito':'')});
+  const b=el('div',{class:'child-block'+(h.clase==='lito'?' lito':''),'data-store':h.store});
   const hd=el('div',{class:'hd'});
   hd.append(el('span',{class:'n'},h.titulo+' '+(i+1)));
   hd.append(el('button',{class:'btn del mini',onclick:async()=>{await del(h.store,reg.id);renderPunto($('#app'));}},'Eliminar'));
@@ -775,7 +782,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v5';
+const CACHE='geoterreno-cdc-v6';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
