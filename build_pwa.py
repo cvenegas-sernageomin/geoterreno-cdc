@@ -221,6 +221,12 @@ function hideField(store,n){
   return false;
 }
 
+// Campos condicionales: se habilitan solo si se cumple la regla; si no, se bloquean y limpian.
+// TIPO_DEPOSITO solo aplica cuando TIPO_ROCA = "Depósito" (una litología es roca O depósito, no ambas).
+const CONDICIONALES = {
+  TIPO_DEPOSITO: v => v['TIPO_ROCA']==='Depósito',
+};
+
 // Construye el DOM de un formulario para (store, registro). Devuelve {node, getData}
 function formulario(store, reg, ctx){
   const cont=el('div');
@@ -269,6 +275,20 @@ function formulario(store, reg, ctx){
   });
   cont.append(rowWrap);
 
+  // habilita/bloquea campos condicionales según los valores actuales
+  function aplicarCondicionales(){
+    const v={};for(const k in inputs)v[k]=inputs[k].value;
+    for(const cn in CONDICIONALES){
+      const inp=inputs[cn]; if(!inp)continue;
+      const ok=CONDICIONALES[cn](v);
+      inp.disabled=!ok;
+      const fld=inp.closest('.fld'); if(fld)fld.style.opacity=ok?'':'0.5';
+      if(!ok){ if(inp.value)inp.value=''; inp.required=false; }
+      else { const cd=cs.find(c=>c.nombre===cn); if(cd&&cd.obligatorio)inp.required=true; }
+    }
+  }
+  aplicarCondicionales();
+
   // cascadas: al cambiar el padre, repoblar hijos
   cont.addEventListener('change',e=>{
     const changed=e.target.name; if(!changed)return;
@@ -281,6 +301,7 @@ function formulario(store, reg, ctx){
         inp.value=''; // reset porque cambió el padre
       }
     });
+    aplicarCondicionales();
     // dominio abierto "agregar nuevo"
     if(e.target.tagName==='SELECT' && e.target.value==='__add__'){
       const campo=cs.find(c=>c.nombre===e.target.name);
@@ -931,7 +952,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v10';
+const CACHE='geoterreno-cdc-v11';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
