@@ -692,24 +692,6 @@ const MODELO = {
       ],
       "fuente": "Lista de Dominios.xlsx"
     },
-    "TEXTURA": {
-      "tipo": "simple",
-      "valores": [
-        "Holocristalina",
-        "hipocristalina",
-        "holohialina",
-        "hopovítrea",
-        "Fanerítica",
-        "Afanítica",
-        "Microcristalina",
-        "Criptocristalina",
-        "Porfírica",
-        "Piroclástica",
-        "Vítrea",
-        "Vesicular"
-      ],
-      "fuente": "Lista de Dominios.xlsx"
-    },
     "GRADO_CONFIANZA": {
       "tipo": "simple",
       "valores": [
@@ -819,6 +801,68 @@ const MODELO = {
         ]
       },
       "fuente": "Lista de Dominios.xlsx"
+    },
+    "TEXTURA": {
+      "tipo": "cascada",
+      "padre": "TIPO_ROCA",
+      "mapa": {
+        "Intrusiva": [
+          "Fanerítica",
+          "Fanerítica de grano grueso",
+          "Fanerítica de grano medio",
+          "Fanerítica de grano fino",
+          "Porfírica",
+          "Equigranular",
+          "Inequigranular",
+          "Pegmatítica",
+          "Aplítica",
+          "Holocristalina"
+        ],
+        "Volcánica": [
+          "Afanítica",
+          "Porfírica",
+          "Vítrea",
+          "Hipocristalina",
+          "Holohialina",
+          "Microcristalina",
+          "Criptocristalina",
+          "Vesicular",
+          "Amigdaloidal",
+          "Traquítica (fluidal)",
+          "Piroclástica"
+        ],
+        "Sedimentaria": [
+          "Clástica (detrítica)",
+          "Bioclástica",
+          "Cristalina",
+          "Oolítica",
+          "Micrítica",
+          "Matriz-soportada",
+          "Clasto-soportada",
+          "Amorfa/precipitada"
+        ],
+        "Metamórfica": [
+          "Foliada",
+          "No foliada (granoblástica)",
+          "Granoblástica",
+          "Lepidoblástica",
+          "Nematoblástica",
+          "Porfidoblástica",
+          "Esquistosa",
+          "Gnéisica",
+          "Milonítica",
+          "Cataclástica"
+        ],
+        "Depósito": [
+          "Matriz-soportada",
+          "Clasto-soportada",
+          "Masiva",
+          "Estratificada",
+          "Gradada"
+        ]
+      },
+      "fuente": "propuesto (el CDC trae TEXTURA como lista plana ígnea; sublistas por tipo de roca)",
+      "confirmar": true
     },
     "ESTRUCTURA_TIPO_ROCA": {
       "tipo": "cascada",
@@ -1738,6 +1782,7 @@ const MODELO = {
     }
   },
   "avisos": [
+    "TEXTURA: convertida a cascada por TIPO_ROCA (sublistas PROPUESTAS, CONFIRMAR).",
     "ESTRUCTURA_TIPO_ROCA: la sublista Metamórfica trae <=1 valor en el origen (incompleta).",
     "ESTRUCTURA_TIPO_ROCA: sin estructuras para Intrusiva/Depósito en el origen.",
     "TIPO_MEDIDA_ESTRUCTURAL: cascada PROVISIONAL (codigos/descripciones desalineados en el origen).",
