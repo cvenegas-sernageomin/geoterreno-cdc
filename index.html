@@ -1875,12 +1875,22 @@ function tipoWidget(campo){
 }
 const esPK = (store,n)=> n===pkDe(store);
 const esFK = n => ['ID_PUNTO_CONTROL','ID_PROYECTO','ID_LITOLOGIA','ID_ESQUEMA','ID_FOTOGRAFIA','ID_FOTOGRAFIA_ASOCIADA'].includes(n);
+// Claves de negocio que el usuario SÍ nombra (visibles/editables); el resto de ids son técnicos y se ocultan.
+const NOMBRABLES = new Set(['ID_PROYECTO','ID_PUNTO_CONTROL','ID_MUESTRA']);
+function hideField(store,n){
+  if((store!=='proyecto'&&store!=='punto') && (n==='ID_PUNTO_CONTROL'||n==='ID_PROYECTO')) return true; // FK a padre en hijas
+  if(store==='punto' && n==='ID_PROYECTO') return true;                                                  // FK proyecto en punto
+  if(n===pkDe(store)) return !NOMBRABLES.has(n);                                                          // PK propio: ocultar salvo nombrables
+  if(n==='ID_LITOLOGIA') return store==='litologia';                                                      // FK selector en estructural/foto; PK oculto en litología
+  if(['ID_ESTRUCTURA','ID_CONTACTO','ID_FOTOGRAFIA','ID_ESQUEMA'].includes(n)) return true;               // ids técnicos
+  return false;
+}
 
 // Construye el DOM de un formulario para (store, registro). Devuelve {node, getData}
 function formulario(store, reg, ctx){
   const cont=el('div');
   const inputs={};
-  const cs=campos(store).filter(c=> !esPK(store,c.nombre) && !(esFK(c.nombre) && c.nombre!=='ID_LITOLOGIA'&&c.nombre!=='ID_FOTOGRAFIA_ASOCIADA'&&c.nombre!=='ID_ESQUEMA'));
+  const cs=campos(store).filter(c=> !hideField(store,c.nombre));
   const rowWrap=el('div',{class:'row'});
   cs.forEach(campo=>{
     const n=campo.nombre;
@@ -2135,6 +2145,43 @@ function editorProyecto(p){
   }},'Guardar'), el('button',{class:'btn sec',onclick:()=>nav({n:'home'})},'Cancelar'));
 }
 
+// -------- Convención de nombres (autonumeración estilo StraboSpot) --------
+function namingCfg(pr){
+  const d={pc:{on:false,prefix:'PC-',pad:3,next:1}, smp:{on:false,prefix:'M-',pad:3,next:1}};
+  const n=(pr&&pr._naming)||{};
+  return {pc:Object.assign({},d.pc,n.pc), smp:Object.assign({},d.smp,n.smp)};
+}
+function fmtName(c){return c.prefix+String(c.next).padStart(c.pad||0,'0');}
+
+function editorNaming(pr){
+  const app=$('#app');app.innerHTML='';$('#fab').innerHTML='';$('#btnBack').style.display='';
+  $('#ttl').textContent='Convención de nombres';$('#ctx').textContent=pr.NOMBRE_PROYECTO||'';
+  const cfg=namingCfg(pr);
+  const fld=(lab,inp)=>el('div',{class:'fld'},el('label',{},lab),inp);
+  const seccion=(titulo,c,ayuda)=>{
+    const card=el('div',{class:'card'});card.append(el('h2',{},titulo));
+    const on=el('input',{type:'checkbox'});on.checked=c.on;
+    const pre=el('input',{type:'text',value:c.prefix});
+    const pad=el('input',{type:'number',min:'0',max:'6',value:c.pad,inputmode:'numeric'});
+    const nxt=el('input',{type:'number',min:'1',value:c.next,inputmode:'numeric'});
+    const prev=el('div',{class:'muted',style:'margin-top:4px'});
+    const upd=()=>{prev.textContent='Ejemplo: '+pre.value+String(nxt.value||1).padStart(+pad.value||0,'0');};
+    [pre,pad,nxt].forEach(i=>i.addEventListener('input',upd));upd();
+    const lblOn=el('label',{class:'btnbar',style:'cursor:pointer'},on,el('span',{style:'font-weight:600'},'Activar autonumeración'));
+    card.append(lblOn,el('div',{class:'row'},fld('Prefijo',pre),fld('Dígitos (ceros)',pad),fld('Próximo número',nxt)),
+      el('div',{class:'nota'},ayuda),prev);
+    card._get=()=>({on:on.checked,prefix:pre.value,pad:+pad.value||0,next:Math.max(1,+nxt.value||1)});
+    app.append(card);return card;
+  };
+  const cPc=seccion('📍 Puntos de control (ID_PUNTO_CONTROL)',cfg.pc,
+    'Cada punto nuevo toma el número siguiente automáticamente al guardar. Puedes editarlo a mano en el punto.');
+  const cSm=seccion('🧪 Muestras (ID_MUESTRA)',cfg.smp,
+    'Cada muestra nueva toma el número siguiente al agregarla.');
+  $('#fab').append(
+    el('button',{class:'btn',onclick:async()=>{pr._naming={pc:cPc._get(),smp:cSm._get()};await put('proyecto',pr);toast('Convención guardada');nav({n:'proyecto',id:pr.id});}},'Guardar'),
+    el('button',{class:'btn sec',onclick:()=>nav({n:'proyecto',id:pr.id})},'Cancelar'));
+}
+
 // -------- Proyecto: puntos de control --------
 async function renderProyecto(app){
   curProyecto=await get('proyecto',vista.id);
@@ -2147,7 +2194,8 @@ async function renderProyecto(app){
   const head=el('div',{class:'card'});
   head.append(el('h2',{},'Proyecto'),
     el('div',{class:'btnbar'},
-      el('button',{class:'btn sec mini',onclick:()=>editorProyecto(curProyecto)},'✎ Editar proyecto')));
+      el('button',{class:'btn sec mini',onclick:()=>editorProyecto(curProyecto)},'✎ Editar proyecto'),
+      el('button',{class:'btn sec mini',onclick:()=>editorNaming(curProyecto)},'🔤 Convención de nombres')));
   app.append(head);
   const card=el('div',{class:'card'});
   card.append(el('h2',{},'Puntos de control ('+puntos.length+')'));
@@ -2171,6 +2219,7 @@ async function renderPunto(app){
   // punto nuevo: precarga colector y campos constantes recordados + fecha/hora automáticas
   curPunto = nuevo ? Object.assign({id:uid(),_parent:curProyecto.id}, stickyGet(), ahora())
                    : await get('punto',vista.id);
+  if(nuevo){const c=namingCfg(curProyecto).pc; if(c.on){curPunto.ID_PUNTO_CONTROL=fmtName(c);curPunto._idPreview=curPunto.ID_PUNTO_CONTROL;}}
   if(!curPunto)return nav({n:'proyecto',id:curProyecto.id});
   $('#btnBack').style.display='';
   $('#ttl').textContent = curPunto.ID_PUNTO_CONTROL || (nuevo?'Nuevo punto':'Punto');
@@ -2203,6 +2252,13 @@ async function renderPunto(app){
   const guardarPunto=async()=>{
     const d=f.getData();Object.assign(curPunto,d);curPunto._parent=curProyecto.id;
     curPunto.ID_PROYECTO=curProyecto.ID_PROYECTO||curProyecto.id;
+    // autonumeración del ID de punto: al primer guardado, si el usuario no lo cambió, asigna y avanza el correlativo
+    const nc=namingCfg(curProyecto).pc;
+    if(nc.on && !curPunto._idDone && (!curPunto.ID_PUNTO_CONTROL || curPunto.ID_PUNTO_CONTROL===curPunto._idPreview)){
+      curPunto.ID_PUNTO_CONTROL=fmtName(nc);
+      const full=namingCfg(curProyecto);full.pc.next=nc.next+1;curProyecto._naming=full;await put('proyecto',curProyecto);
+    }
+    curPunto._idDone=true;
     await put('punto',curPunto);
     stickySet(curPunto);  // recuerda colector/proyección/etc. para el próximo punto
     if(vista.id==='__new__')vista={n:'punto',id:curPunto.id};  // fija id real: evita re-crear punto vacío al re-render
@@ -2222,6 +2278,8 @@ async function renderPunto(app){
       el('button',{class:'btn '+(h.clase==='lito'?'':'orange')+' mini',onclick:async()=>{
         await guardarPunto();
         const reg={id:uid(),_parent:curPunto.id};
+        if(h.store==='muestreo'){const sc=namingCfg(curProyecto).smp;
+          if(sc.on){reg.ID_MUESTRA=fmtName(sc);const full=namingCfg(curProyecto);full.smp.next=sc.next+1;curProyecto._naming=full;await put('proyecto',curProyecto);}}
         await put(h.store,reg);
         await renderPunto(app);
         requestAnimationFrame(()=>{const bs=document.querySelectorAll('.child-block[data-store="'+h.store+'"]');
