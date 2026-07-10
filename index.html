@@ -92,6 +92,9 @@
   .mapbox{height:320px;width:100%;border:1px solid var(--bd);border-radius:12px;z-index:0;overflow:hidden}
   .leaflet-control-savetiles a{font-size:15px;line-height:26px}
   #satthumb img{width:120px;height:90px}
+  .sensorwrap{display:flex;gap:6px;align-items:stretch}
+  .sensorwrap input{flex:1;min-width:0}
+  .sensorwrap .btn{white-space:nowrap;padding:0 13px;font-size:16px}
 </style>
 </head>
 <body>
@@ -1858,7 +1861,7 @@ function tipoWidget(campo){
   const n=campo.nombre;
   if(campo.dominio) return 'select';
   if(/^(LAT|LONG)/.test(n)||/Lat$|Long$/.test(n)) return 'number';
-  if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|PRECISION|RUMBO/.test(n)) return 'number';
+  if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|RUMBO|ORIENTACION/.test(n)) return 'number';
   if(n==='FECHA') return 'date';
   if(n==='HORA') return 'time';
   if(/DESCRIPCION|OBSERVACION|COMENTARIO|RELACION_LITOLOGIA|DISTRIBUCION/.test(n)) return 'textarea';
@@ -1907,7 +1910,9 @@ function formulario(store, reg, ctx){
       if(reg[n])inp.value=reg[n];
     }
     inputs[n]=inp;
-    fld.append(inp);
+    const sensor = tipoSensor(n);
+    if(sensor && w==='number') fld.append(sensorInput(inp,sensor));
+    else fld.append(inp);
     if(campo.nota) fld.append(el('div',{class:'nota'},campo.nota));
     rowWrap.append(fld);
   });
@@ -2019,6 +2024,61 @@ function georasterToJPG(gr,maxdim){
   cx.putImageData(img,0,0);return cv.toDataURL('image/jpeg',.8).split(',')[1];
 }
 function b64ToBytes(b64){const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
+
+// ============================ Sensores de orientación (brújula / clinómetro) ============================
+// Portado de catastro-remociones: webkitCompassHeading (norte real iOS), alpha (Android absoluto),
+// media circular (correcta cerca de 0°/360°), dip por inclinación |beta|.
+let orientPermOK=false;
+async function ensureOrientPerm(){
+  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+    if(orientPermOK)return true;
+    try{const p=await DeviceOrientationEvent.requestPermission();if(p!=='granted')return false;orientPermOK=true;}catch{return false;}
+  }
+  return true;
+}
+function headingFromEvent(e){
+  if(typeof e.webkitCompassHeading==='number')return e.webkitCompassHeading;   // iOS: norte magnético real
+  if(e.alpha!=null)return (360-e.alpha)%360;                                     // Android orientación absoluta
+  return null;
+}
+function circularMean(ds){if(!ds.length)return null;const r=ds.map(d=>d*Math.PI/180);
+  const x=r.reduce((s,v)=>s+Math.cos(v),0)/r.length,y=r.reduce((s,v)=>s+Math.sin(v),0)/r.length;
+  return (Math.round(Math.atan2(y,x)*180/Math.PI)+360)%360;}
+function medirSensor(modo){ // modo: 'brujula'(azimut 0-360) | 'dip'(inclinación 0-90)
+  return new Promise(async res=>{
+    if(!(await ensureOrientPerm())){res(null);return;}
+    const hs=[],bs=[];
+    const evt = ('ondeviceorientationabsolute' in window) ? 'deviceorientationabsolute' : 'deviceorientation';
+    const on=e=>{const h=headingFromEvent(e);if(h!=null)hs.push(h);if(e.beta!=null)bs.push(Math.abs(e.beta));
+      if((modo==='brujula'?hs.length:bs.length)>=6){window.removeEventListener(evt,on);fin();}};
+    const fin=()=>{window.removeEventListener(evt,on);
+      if(modo==='brujula')res(hs.length?circularMean(hs):null);
+      else res(bs.length?Math.min(90,Math.round(bs.reduce((s,b)=>s+b,0)/bs.length)):null);};
+    window.addEventListener(evt,on);
+    setTimeout(fin,2500);
+  });
+}
+// qué sensor aplica a cada campo numérico
+const RE_AZIMUT=/^(AZIMUT|RUMBO_CONTACTO|ORIENTACION_FOTO|ORIENTACION_MUESTRA)$/;
+const RE_DIP=/(MANTEO_BUZAMIENTO|MANTEO_CONTACTO)$/;
+function tipoSensor(n){ if(RE_AZIMUT.test(n))return 'brujula'; if(RE_DIP.test(n))return 'dip'; return null; }
+// envuelve un input numérico con su botón de sensor
+function sensorInput(inp,modo){
+  const wrap=el('div',{class:'sensorwrap'});
+  const btn=el('button',{type:'button',class:'btn '+(modo==='brujula'?'blue':'orange')+' mini',
+    title: modo==='brujula'?'Medir azimut con la brújula del teléfono':'Medir inclinación (apoya el teléfono en el plano)'},
+    modo==='brujula'?'🧭':'📐');
+  btn.addEventListener('click',async()=>{
+    const orig=btn.textContent;btn.textContent='⏳';btn.disabled=true;
+    const v=await medirSensor(modo);
+    btn.disabled=false;btn.textContent=orig;
+    if(v==null){toast('Sin sensor de orientación; ingresa el valor manual');return;}
+    inp.value=Math.round(v);inp.dispatchEvent(new Event('change',{bubbles:true}));
+    toast((modo==='brujula'?'Azimut ':'Inclinación ')+Math.round(v)+'°');
+  });
+  wrap.append(inp,btn);
+  return wrap;
+}
 
 // ============================ Estado / navegación ============================
 let vista={n:'home'}; // {n:'home'} | {n:'proyecto',id} | {n:'punto',id}
