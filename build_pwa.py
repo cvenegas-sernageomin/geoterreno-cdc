@@ -141,6 +141,12 @@ const uid = ()=> 'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2200);}
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+// Campos "pegajosos": se recuerdan entre puntos (por dispositivo) para no re-escribirlos cada vez.
+const STICKY=['GEOLOGO','PROYECCION','FUENTE_COORDENADAS','METODO_UBICACION'];
+function stickyGet(){try{return JSON.parse(localStorage.getItem('gt-sticky')||'{}');}catch(e){return {};}}
+function stickySet(reg){const s=stickyGet();STICKY.forEach(k=>{if(reg[k])s[k]=reg[k];});localStorage.setItem('gt-sticky',JSON.stringify(s));}
+function ahora(){const d=new Date();return {FECHA:d.toISOString().slice(0,10),HORA:d.toTimeString().slice(0,5)};}
+
 // Mapa store -> tabla del modelo
 const STORE2TBL = {proyecto:'TBL_PROYECTO',punto:'PUNTO_CONTROL',litologia:'TBL_LITOLOGIA',
   estructural:'TBL_DATOS_ESTRUCTURALES',contacto:'TBL_CONTACTO',muestreo:'TBL_MUESTREO',
@@ -496,7 +502,9 @@ function nav0Punto(){curPunto=null;nav({n:'punto',id:'__new__'});}
 // -------- Punto de control + hijas --------
 async function renderPunto(app){
   const nuevo = vista.id==='__new__';
-  curPunto = nuevo ? {id:uid(),_parent:curProyecto.id} : await get('punto',vista.id);
+  // punto nuevo: precarga colector y campos constantes recordados + fecha/hora automáticas
+  curPunto = nuevo ? Object.assign({id:uid(),_parent:curProyecto.id}, stickyGet(), ahora())
+                   : await get('punto',vista.id);
   if(!curPunto)return nav({n:'proyecto',id:curProyecto.id});
   $('#btnBack').style.display='';
   $('#ttl').textContent = curPunto.ID_PUNTO_CONTROL || (nuevo?'Nuevo punto':'Punto');
@@ -530,6 +538,7 @@ async function renderPunto(app){
     const d=f.getData();Object.assign(curPunto,d);curPunto._parent=curProyecto.id;
     curPunto.ID_PROYECTO=curProyecto.ID_PROYECTO||curProyecto.id;
     await put('punto',curPunto);
+    stickySet(curPunto);  // recuerda colector/proyección/etc. para el próximo punto
     if(vista.id==='__new__')vista={n:'punto',id:curPunto.id};  // fija id real: evita re-crear punto vacío al re-render
     return curPunto;
   };
@@ -842,7 +851,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v7';
+const CACHE='geoterreno-cdc-v8';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
