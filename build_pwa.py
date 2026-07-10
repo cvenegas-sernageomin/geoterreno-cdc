@@ -142,7 +142,7 @@ function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clea
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 // Campos "pegajosos": se recuerdan entre puntos (por dispositivo) para no re-escribirlos cada vez.
-const STICKY=['GEOLOGO','PROYECCION','FUENTE_COORDENADAS','METODO_UBICACION'];
+const STICKY=['GEOLOGO','PROYECCION','FUENTE_COORDENADAS','METODO_UBICACION','CONTEXTO_GEOMORFOLOGICO','NOMBRE_LOCALIDAD'];
 function stickyGet(){try{return JSON.parse(localStorage.getItem('gt-sticky')||'{}');}catch(e){return {};}}
 function stickySet(reg){const s=stickyGet();STICKY.forEach(k=>{if(reg[k])s[k]=reg[k];});localStorage.setItem('gt-sticky',JSON.stringify(s));}
 function ahora(){const d=new Date();return {FECHA:d.toISOString().slice(0,10),HORA:d.toTimeString().slice(0,5)};}
@@ -491,7 +491,8 @@ async function renderProyecto(app){
     card.append(el('div',{class:'list-item',onclick:()=>nav({n:'punto',id:pt.id})},
       el('div',{class:'t'},el('b',{},pt.ID_PUNTO_CONTROL||('Punto '+(i+1))),
         el('small',{},(pt['Coordenadas Geográficas Decimales_Lat']||pt.LAT||'—')+', '+(pt['Coordenadas Geográficas Decimales_Long']||pt.LONG||'—')+' · '+(pt.FECHA||'')) ),
-      el('span',{class:'pill'},(pt._nlito||0)+' lito')));
+      el('span',{class:'pill'},(pt._nlito||0)+' lito'),
+      el('button',{class:'btn sec mini',title:'Duplicar (sin coordenadas)',onclick:async(e)=>{e.stopPropagation();const np=await duplicarPunto(pt.id);toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉')));
   });
   app.append(card);
   $('#fab').append(el('button',{class:'btn',onclick:()=>nav0Punto()},'+ Nuevo punto'),
@@ -568,6 +569,7 @@ async function renderPunto(app){
 
   $('#fab').append(
     el('button',{class:'btn',onclick:async()=>{await guardarPunto();toast('Punto guardado');nav({n:'proyecto',id:curProyecto.id});}},'✓ Guardar punto'),
+    el('button',{class:'btn sec',onclick:async()=>{await guardarPunto();const np=await duplicarPunto(curPunto.id);toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉ Duplicar'),
     el('button',{class:'btn sec',onclick:()=>guardarPunto().then(()=>nav({n:'proyecto',id:curProyecto.id}))},'Volver'),
     nuevo?null:el('button',{class:'btn del',onclick:async()=>{if(confirm('¿Eliminar este punto y sus datos asociados?')){await borrarPunto(curPunto.id);nav({n:'proyecto',id:curProyecto.id});}}},'🗑'));
 }
@@ -636,6 +638,26 @@ function bloqueEsquema(reg){
 async function borrarPunto(id){
   for(const h of HIJAS){const its=await childrenOf(h.store,id);for(const it of its)await del(h.store,it.id);}
   await del('punto',id);
+}
+
+// Duplica un punto con sus datos DESCRIPTIVOS (litología, estructurales, contactos, muestreo),
+// pero deja en blanco las coordenadas y NO copia fotos/esquemas/imagen satelital (son propios del sitio).
+async function duplicarPunto(srcId){
+  const src=await get('punto',srcId); if(!src)return null;
+  const np=Object.assign({},src,{id:uid(),_parent:src._parent},ahora());
+  ['Coordenadas Geográficas Decimales_Lat','Coordenadas Geográficas Decimales_Long','COTA','PRECISION_GPS','ID_PUNTO_CONTROL']
+    .forEach(k=>np[k]='');
+  delete np._satelital; delete np._satBounds;   // la vista satelital es del sitio anterior
+  await put('punto',np);
+  // litologías (remapear ids para reenlazar estructurales)
+  const mapLito={};
+  for(const li of await childrenOf('litologia',srcId)){const n=Object.assign({},li,{id:uid(),_parent:np.id});mapLito[li.id]=n.id;await put('litologia',n);}
+  for(const store of ['estructural','contacto','muestreo']){
+    for(const it of await childrenOf(store,srcId)){const n=Object.assign({},it,{id:uid(),_parent:np.id});
+      if(n.ID_LITOLOGIA&&mapLito[n.ID_LITOLOGIA])n.ID_LITOLOGIA=mapLito[n.ID_LITOLOGIA];
+      await put(store,n);}
+  }
+  return np;
 }
 
 // -------- GPS --------
@@ -851,7 +873,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v8';
+const CACHE='geoterreno-cdc-v9';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
