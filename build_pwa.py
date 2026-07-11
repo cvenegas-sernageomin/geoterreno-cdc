@@ -150,6 +150,7 @@ const MODELO = __MODELO_JSON__;
 </script>
 <script>
 "use strict";
+const APP_VER = 'v20';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -602,7 +603,7 @@ async function render(){
 // -------- Home: proyectos --------
 async function renderHome(app){
   $('#btnBack').style.display='none';
-  $('#ttl').textContent='Proyectos'; $('#ctx').textContent='Captura de geología básica en terreno';
+  $('#ttl').textContent='Proyectos'; $('#ctx').textContent='Captura de geología básica · '+APP_VER;
   const ps=await all('proyecto');
   const card=el('div',{class:'card'});
   card.append(el('h2',{},'Proyectos ('+ps.length+')'));
@@ -1274,7 +1275,12 @@ window.addEventListener('error',e=>{if(!db)pantallaError('Error al iniciar',(e.m
     return pantallaError('No se pudo abrir la base de datos', m);
   }
   try{ render(); }catch(e){ pantallaError('Error al dibujar', String(e&&e.message||e)); }
-  if('serviceWorker' in navigator){try{await navigator.serviceWorker.register('sw.js');}catch(e){}}
+  if('serviceWorker' in navigator){
+    // auto-actualiza: cuando el nuevo SW toma control, recarga una vez para tomar la última versión
+    let recargando=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{if(recargando)return;recargando=true;location.reload();});
+    try{await navigator.serviceWorker.register('sw.js');}catch(e){}
+  }
 })();
 </script>
 </body>
@@ -1325,7 +1331,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v19';
+const CACHE='geoterreno-cdc-v20';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
