@@ -142,7 +142,7 @@
 const MODELO = {
   "modelo": "Captura de datos de geologia basica en terreno",
   "version": "1.0",
-  "generado": "2026-07-10",
+  "generado": "2026-07-11",
   "crs_defecto": "EPSG:4326",
   "nota_crs": "Coordenadas geograficas decimales. UTM SIRGAS 18S/19S por proyecto si se requiere.",
   "tablas": {
@@ -1009,7 +1009,6 @@ const MODELO = {
       "tipo": "cascada",
       "padre": "TIPO_ROCA",
       "mapa": {
-        "Intrusiva": [],
         "Sedimentaria": [
           "Laminación paralela",
           "Lineación de partición",
@@ -1093,10 +1092,66 @@ const MODELO = {
           "Silicificacion",
           "Oxidacion de hierro"
         ],
-        "Metamórfica": [],
-        "Depósito": []
+        "Intrusiva": [
+          "Foliación magmática",
+          "Lineación magmática",
+          "Bandeamiento magmático (layering)",
+          "Schlieren",
+          "Enclaves microgranulares (máficos)",
+          "Xenolitos",
+          "Autolitos",
+          "Diques sinplutónicos",
+          "Dique de aplita",
+          "Dique/bolsón de pegmatita",
+          "Cumulado (bandeado de densidades)",
+          "Zonación del plutón",
+          "Cavidades miarolíticas",
+          "Estructura orbicular",
+          "Textura rapakivi",
+          "Contacto interno entre pulsos",
+          "Brecha intrusiva",
+          "Stoping (bloques de techo)"
+        ],
+        "Metamórfica": [
+          "Foliación / esquistosidad",
+          "Bandeamiento gnéisico",
+          "Clivaje pizarroso",
+          "Clivaje de crenulación",
+          "Lineación mineral",
+          "Lineación de estiramiento",
+          "Pliegues intrafoliales",
+          "Pliegues ptigmáticos",
+          "Boudinage",
+          "Porfidoblastos",
+          "Sombras de presión",
+          "Venas de segregación (cuarzo)",
+          "Estructura milonítica",
+          "Estructura S-C",
+          "Augen (ojos)",
+          "Kink bands",
+          "Mullions",
+          "Rodding",
+          "Migmatita (leucosoma/melanosoma)"
+        ],
+        "Depósito": [
+          "Estratificación",
+          "Laminación",
+          "Gradación normal",
+          "Gradación inversa",
+          "Imbricación de clastos",
+          "Canal",
+          "Lente",
+          "Estructura masiva (sin estructura)",
+          "Clasto-soportado",
+          "Matriz-soportado",
+          "Grietas de desecación",
+          "Paleosuelo",
+          "Bloques erráticos",
+          "Estratificación cruzada",
+          "Superficie de erosión interna"
+        ]
       },
-      "fuente": "Lista de Dominios.xlsx",
+      "fuente": "Lista de Dominios.xlsx (Sed/Volc) + propuestas estándar (Intr/Met/Dep)",
       "confirmar": true
     },
     "TIPO_MEDIDA_ESTRUCTURAL": {
@@ -1289,8 +1344,7 @@ const MODELO = {
     "NOMBRE_ROCA: agregados nombres piroclásticos a Volcánica (PROPUESTO): Toba, Ignimbrita, Tefra, Brecha piroclástica, Aglomerado volcánico, Lapillita",
     "GRANULOMETRIA: cascada por NOMBRE_ROCA; solo siliciclásticos (Udden-Wentworth) y piroclásticos (Fisher). Escala anterior (TAMANO_GRANO) descartada.",
     "TEXTURA: convertida a cascada por TIPO_ROCA (sublistas PROPUESTAS, CONFIRMAR).",
-    "ESTRUCTURA_TIPO_ROCA: la sublista Metamórfica trae <=1 valor en el origen (incompleta).",
-    "ESTRUCTURA_TIPO_ROCA: sin estructuras para Intrusiva/Depósito en el origen.",
+    "ESTRUCTURA_TIPO_ROCA: Intrusiva/Metamórfica/Depósito pobladas con listas PROPUESTAS (CONFIRMAR).",
     "TIPO_MEDIDA_ESTRUCTURAL: RECONSTRUIDA por categoría (sublistas planares/lineales, PROPUESTO, CONFIRMAR).",
     "TIPO_FALLA: lista nueva construida (CONFIRMAR).",
     "TIPO_ALTERACION: poblada desde diagrama v3 / estandar (CONFIRMAR).",
@@ -1303,7 +1357,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v22';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v23';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -1515,19 +1569,25 @@ const ICONO=L.icon({iconUrl:'vendor/images/marker-icon.png',iconRetinaUrl:'vendo
 let mapa=null, marcador=null, gtLayer=null, savetiles=null;
 const inLat='Coordenadas Geográficas Decimales_Lat', inLon='Coordenadas Geográficas Decimales_Long';
 
+// capa satelital Esri + control de tiles offline (usado por el mapa del punto y el del proyecto)
+function capaSatelital(map){
+  const tl=(L.tileLayer.offline?L.tileLayer.offline:L.tileLayer)(ESRI_URL,{attribution:'Tiles © Esri',maxZoom:19,crossOrigin:true});
+  tl.addTo(map);
+  if(L.control&&L.control.savetiles){
+    const st=L.control.savetiles(tl,{zoomlevels:[13,14,15,16,17],
+      confirm(l,cb){if(confirm('¿Descargar tiles satelitales de esta área (zoom 13-17) para uso offline?'))cb();},
+      confirmRemoval(l,cb){if(confirm('¿Borrar tiles guardados?'))cb();},saveText:'⬇️',rmText:'🗑️'});
+    st.addTo(map); return st;
+  }
+  return null;
+}
+
 function initMapPunto(reg, f){
   const la=parseFloat(reg[inLat]), lo=parseFloat(reg[inLon]);
   const lat=isNaN(la)?-33.45:la, lon=isNaN(lo)?-70.65:lo;
   if(mapa){try{mapa.remove();}catch(e){}mapa=null;}
   mapa=L.map('map',{center:[lat,lon],zoom:isNaN(la)?5:16});
-  const tl=(L.tileLayer.offline?L.tileLayer.offline:L.tileLayer)(ESRI_URL,{attribution:'Tiles © Esri',maxZoom:19,crossOrigin:true});
-  tl.addTo(mapa);
-  if(L.control&&L.control.savetiles){
-    savetiles=L.control.savetiles(tl,{zoomlevels:[13,14,15,16,17],
-      confirm(l,cb){if(confirm('¿Descargar tiles satelitales de esta área (zoom 13-17) para uso offline?'))cb();},
-      confirmRemoval(l,cb){if(confirm('¿Borrar tiles guardados?'))cb();},saveText:'⬇️',rmText:'🗑️'});
-    savetiles.addTo(mapa);
-  }
+  savetiles=capaSatelital(mapa);
   marcador=L.marker([lat,lon],{draggable:true,icon:ICONO}).addTo(mapa);
   const iLat=()=>f.node.querySelector('[name="'+inLat+'"]'), iLon=()=>f.node.querySelector('[name="'+inLon+'"]');
   const sync=()=>{const ll=marcador.getLatLng();if(iLat())iLat().value=ll.lat.toFixed(6);if(iLon())iLon().value=ll.lng.toFixed(6);
@@ -2022,9 +2082,7 @@ function bloqueFoto(reg,litos){
   f.node.addEventListener('change',async()=>{Object.assign(reg,f.getData());await put('foto',reg);});
   return wrap;
 }
-function comprimir(file,max,q){return new Promise(res=>{const img=new Image();const rd=new FileReader();
-  rd.onload=()=>{img.onload=()=>{let{width:w,height:h}=img;if(w>max||h>max){const s=max/Math.max(w,h);w*=s;h*=s;}
-    const cv=el('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);res(cv.toDataURL('image/jpeg',q));};img.src=rd.result;};rd.readAsDataURL(file);});}
+const comprimir=(file,max,q)=>cargarImagen(file,max,q).then(r=>r.dataUrl);   // alias de cargarImagen (sin duplicar lógica canvas)
 
 // -------- Esquema (canvas) --------
 function bloqueEsquema(reg){
@@ -2167,10 +2225,7 @@ function legendaSimbologia(){
 async function initMapaVista(puntos){
   if(mapaVista){try{mapaVista.remove();}catch(e){}mapaVista=null;}
   mapaVista=L.map('projmap',{zoomControl:true});
-  const tl=(L.tileLayer.offline?L.tileLayer.offline:L.tileLayer)(ESRI_URL,{attribution:'Tiles © Esri',maxZoom:19,crossOrigin:true});
-  tl.addTo(mapaVista);
-  if(L.control&&L.control.savetiles){L.control.savetiles(tl,{zoomlevels:[13,14,15,16,17],
-    confirm(l,cb){if(confirm('¿Descargar tiles del área para uso offline?'))cb();},confirmRemoval(l,cb){if(confirm('¿Borrar tiles?'))cb();},saveText:'⬇️',rmText:'🗑️'}).addTo(mapaVista);}
+  capaSatelital(mapaVista);
   const pts=[];
   for(const p of puntos){
     const lat=parseFloat(p['Coordenadas Geográficas Decimales_Lat']), lon=parseFloat(p['Coordenadas Geográficas Decimales_Long']);

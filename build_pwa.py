@@ -163,7 +163,7 @@ const MODELO = __MODELO_JSON__;
 </script>
 <script>
 "use strict";
-const APP_VER = 'v22';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v23';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -375,19 +375,25 @@ const ICONO=L.icon({iconUrl:'vendor/images/marker-icon.png',iconRetinaUrl:'vendo
 let mapa=null, marcador=null, gtLayer=null, savetiles=null;
 const inLat='Coordenadas Geográficas Decimales_Lat', inLon='Coordenadas Geográficas Decimales_Long';
 
+// capa satelital Esri + control de tiles offline (usado por el mapa del punto y el del proyecto)
+function capaSatelital(map){
+  const tl=(L.tileLayer.offline?L.tileLayer.offline:L.tileLayer)(ESRI_URL,{attribution:'Tiles © Esri',maxZoom:19,crossOrigin:true});
+  tl.addTo(map);
+  if(L.control&&L.control.savetiles){
+    const st=L.control.savetiles(tl,{zoomlevels:[13,14,15,16,17],
+      confirm(l,cb){if(confirm('¿Descargar tiles satelitales de esta área (zoom 13-17) para uso offline?'))cb();},
+      confirmRemoval(l,cb){if(confirm('¿Borrar tiles guardados?'))cb();},saveText:'⬇️',rmText:'🗑️'});
+    st.addTo(map); return st;
+  }
+  return null;
+}
+
 function initMapPunto(reg, f){
   const la=parseFloat(reg[inLat]), lo=parseFloat(reg[inLon]);
   const lat=isNaN(la)?-33.45:la, lon=isNaN(lo)?-70.65:lo;
   if(mapa){try{mapa.remove();}catch(e){}mapa=null;}
   mapa=L.map('map',{center:[lat,lon],zoom:isNaN(la)?5:16});
-  const tl=(L.tileLayer.offline?L.tileLayer.offline:L.tileLayer)(ESRI_URL,{attribution:'Tiles © Esri',maxZoom:19,crossOrigin:true});
-  tl.addTo(mapa);
-  if(L.control&&L.control.savetiles){
-    savetiles=L.control.savetiles(tl,{zoomlevels:[13,14,15,16,17],
-      confirm(l,cb){if(confirm('¿Descargar tiles satelitales de esta área (zoom 13-17) para uso offline?'))cb();},
-      confirmRemoval(l,cb){if(confirm('¿Borrar tiles guardados?'))cb();},saveText:'⬇️',rmText:'🗑️'});
-    savetiles.addTo(mapa);
-  }
+  savetiles=capaSatelital(mapa);
   marcador=L.marker([lat,lon],{draggable:true,icon:ICONO}).addTo(mapa);
   const iLat=()=>f.node.querySelector('[name="'+inLat+'"]'), iLon=()=>f.node.querySelector('[name="'+inLon+'"]');
   const sync=()=>{const ll=marcador.getLatLng();if(iLat())iLat().value=ll.lat.toFixed(6);if(iLon())iLon().value=ll.lng.toFixed(6);
@@ -882,9 +888,7 @@ function bloqueFoto(reg,litos){
   f.node.addEventListener('change',async()=>{Object.assign(reg,f.getData());await put('foto',reg);});
   return wrap;
 }
-function comprimir(file,max,q){return new Promise(res=>{const img=new Image();const rd=new FileReader();
-  rd.onload=()=>{img.onload=()=>{let{width:w,height:h}=img;if(w>max||h>max){const s=max/Math.max(w,h);w*=s;h*=s;}
-    const cv=el('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);res(cv.toDataURL('image/jpeg',q));};img.src=rd.result;};rd.readAsDataURL(file);});}
+const comprimir=(file,max,q)=>cargarImagen(file,max,q).then(r=>r.dataUrl);   // alias de cargarImagen (sin duplicar lógica canvas)
 
 // -------- Esquema (canvas) --------
 function bloqueEsquema(reg){
@@ -1027,10 +1031,7 @@ function legendaSimbologia(){
 async function initMapaVista(puntos){
   if(mapaVista){try{mapaVista.remove();}catch(e){}mapaVista=null;}
   mapaVista=L.map('projmap',{zoomControl:true});
-  const tl=(L.tileLayer.offline?L.tileLayer.offline:L.tileLayer)(ESRI_URL,{attribution:'Tiles © Esri',maxZoom:19,crossOrigin:true});
-  tl.addTo(mapaVista);
-  if(L.control&&L.control.savetiles){L.control.savetiles(tl,{zoomlevels:[13,14,15,16,17],
-    confirm(l,cb){if(confirm('¿Descargar tiles del área para uso offline?'))cb();},confirmRemoval(l,cb){if(confirm('¿Borrar tiles?'))cb();},saveText:'⬇️',rmText:'🗑️'}).addTo(mapaVista);}
+  capaSatelital(mapaVista);
   const pts=[];
   for(const p of puntos){
     const lat=parseFloat(p['Coordenadas Geográficas Decimales_Lat']), lon=parseFloat(p['Coordenadas Geográficas Decimales_Long']);
@@ -1434,7 +1435,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v22';
+const CACHE='geoterreno-cdc-v23';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
