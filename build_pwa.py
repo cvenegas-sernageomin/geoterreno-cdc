@@ -112,6 +112,7 @@ HTML = r"""<!DOCTYPE html>
   .mapbox{height:320px;width:100%;border:1px solid var(--bd);border-radius:12px;z-index:0;overflow:hidden}
   .leaflet-control-savetiles a{font-size:15px;line-height:26px}
   #satthumb img{width:120px;height:90px}
+  .medbar{flex:0 0 100%;width:100%;background:var(--surface2);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin-bottom:9px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .sensorwrap{display:flex;gap:6px;align-items:stretch}
   .sensorwrap input{flex:1;min-width:0}
   .sensorwrap .btn{white-space:nowrap;padding:0 13px;font-size:16px}
@@ -476,8 +477,9 @@ async function medirEstructura(modo, onTick){   // modo: 'plano' | 'linea'
 // barra de medición para bloques con plano (estructural, contacto)
 function barraMedicion(store, f){
   const map=PLANO_CAMPOS[store]; if(!map)return null;
-  const bar=el('div',{class:'btnbar'});
-  const status=el('span',{class:'muted'});
+  const bar=el('div',{class:'medbar'});
+  bar.append(el('span',{class:'muted',style:'font-weight:700'},'📡 Medir:'));
+  const status=el('span',{class:'muted',style:'flex-basis:100%'});
   const setV=(campo,val)=>{if(!campo||val==null)return;const i=f.node.querySelector('[name="'+campo+'"]');
     if(i){i.value=Math.round(val);i.dispatchEvent(new Event('change',{bubbles:true}));}};
   const medir=async(modo)=>{
@@ -764,7 +766,14 @@ function bloqueHijo(h,reg,i,litos){
   else {
     const f=formulario(h.store,reg,{litologias:litos});
     b.append(f.node);
-    const barra=barraMedicion(h.store,f); if(barra)b.append(barra);
+    const barra=barraMedicion(h.store,f);
+    if(barra){
+      const map=PLANO_CAMPOS[h.store];
+      const anchor=f.node.querySelector('[name="'+map.rumbo+'"]');
+      const fld=anchor&&anchor.closest('.fld');
+      if(fld) fld.parentNode.insertBefore(barra, fld);   // justo antes de los números (rumbo/manteo/…)
+      else b.append(barra);
+    }
     b._save=async()=>{Object.assign(reg,f.getData());await put(h.store,reg);};
     // guardar al vuelo (blur)
     f.node.addEventListener('change',()=>b._save());
@@ -1053,7 +1062,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v14';
+const CACHE='geoterreno-cdc-v15';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
