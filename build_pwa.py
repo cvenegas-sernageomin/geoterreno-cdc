@@ -125,7 +125,10 @@ HTML = r"""<!DOCTYPE html>
   .medbar{flex:0 0 100%;width:100%;background:var(--surface2);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin-bottom:9px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .mapfull{height:66vh;min-height:340px;width:100%;border-radius:10px;overflow:hidden;z-index:0}
   .mapbig{height:calc(100vh - 162px);height:calc(100dvh - 162px);min-height:320px;width:100%;border-radius:10px;overflow:hidden;z-index:0}
-  .mapcard{padding:0;margin-bottom:6px;overflow:hidden}
+  .mapcard{padding:0;margin-bottom:6px;overflow:hidden;position:relative}
+  .drawbanner{position:absolute;top:8px;left:8px;right:8px;z-index:500;background:rgba(20,30,22,.92);color:#fff;border-radius:9px;padding:8px 10px;display:flex;gap:8px;align-items:center;font-size:12px;box-shadow:0 3px 12px rgba(0,0,0,.4)}
+  .drawbanner span{flex:1}
+  .drawbanner .btn{padding:6px 10px}
   .modtoggle{display:flex;gap:8px;margin-bottom:8px}
   .modtoggle .btn{flex:1;font-size:13px;padding:8px}
   .fab.compact{padding:6px 10px}
@@ -160,7 +163,7 @@ const MODELO = __MODELO_JSON__;
 </script>
 <script>
 "use strict";
-const APP_VER = 'v21';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v22';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -191,12 +194,12 @@ function campos(store){return (MODELO.tablas[STORE2TBL[store]]||{}).campos||[];}
 function pkDe(store){return (MODELO.tablas[STORE2TBL[store]]||{}).pk;}
 
 // ============================ IndexedDB ============================
-const DB='captura-terreno', VER=2;
+const DB='captura-terreno', VER=3;
 let db;
 function openDB(){return new Promise((res,rej)=>{
   let done=false; const finish=(fn,v)=>{if(!done){done=true;fn(v);}};
   const r=indexedDB.open(DB,VER);
-  r.onupgradeneeded=()=>{const d=r.result;STORES.concat(['fotomapa']).forEach(s=>{if(!d.objectStoreNames.contains(s)){const os=d.createObjectStore(s,{keyPath:'id'});
+  r.onupgradeneeded=()=>{const d=r.result;STORES.concat(['fotomapa','linea']).forEach(s=>{if(!d.objectStoreNames.contains(s)){const os=d.createObjectStore(s,{keyPath:'id'});
     if(s!=='proyecto')os.createIndex('parent','_parent',{unique:false});}});};
   r.onsuccess=()=>{db=r.result;
     db.onversionchange=()=>{try{db.close();}catch(e){}};   // libera para que otra instancia pueda actualizar
@@ -603,6 +606,7 @@ $('#btnBack').addEventListener('click',()=>{
 let curProyecto=null, curPunto=null;
 
 async function render(){
+  dibujando=false;   // corta el modo dibujo de líneas al navegar
   const app=$('#app'); app.innerHTML=''; $('#fab').innerHTML=''; $('#fab').className='fab';
   if(vista.n==='home') return renderHome(app);
   if(vista.n==='proyecto') return renderProyecto(app);
@@ -1000,6 +1004,7 @@ async function renderMapa(app){
   const conC=puntos.filter(p=>!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Lat']))&&!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Long'])));
   $('#fab').className='fab compact';
   $('#fab').append(
+    el('button',{class:'btn blue mini',onclick:iniciarDibujoLinea},'✏️ Línea'),
     el('button',{class:'btn sec mini',onclick:legendaSimbologia},'ⓘ'),
     el('span',{class:'muted',style:'flex:1;align-self:center;font-size:11px'},conC.length+'/'+puntos.length+' pts'),
     el('button',{class:'btn sec mini',onclick:()=>{const b=document.querySelector('a.savetiles');if(b)b.click();else toast('Descarga offline no disponible');}},'⬇️ Tiles'),
@@ -1036,6 +1041,22 @@ async function initMapaVista(puntos){
     m.on('click',()=>{curPunto=null;vista={n:'punto',id:p.id};render();});
     pts.push([lat,lon]);
   }
+  // --- líneas geológicas (contactos/fallas) del proyecto ---
+  const lineas=await childrenOf('linea',curProyecto.id);
+  for(const L2 of lineas){
+    if(!L2.geom||L2.geom.length<2)continue;
+    const pl=L.polyline(L2.geom, estiloLinea(L2)).addTo(mapaVista);
+    pl.on('click',ev=>{ if(dibujando)return; L.DomEvent.stop(ev);
+      formLinea(L2, async()=>{await put('linea',L2);initMapaVista(_puntosMapa);},
+                    async()=>{await del('linea',L2.id);initMapaVista(_puntosMapa);}); });
+  }
+  _puntosMapa=puntos;
+  // click en el mapa: si está el modo dibujo activo, agrega vértice
+  mapaVista.on('click',ev=>{ if(!dibujando)return;
+    _verts.push([ev.latlng.lat,ev.latlng.lng]);
+    if(_tmpLine)_tmpLine.setLatLngs(_verts); else _tmpLine=L.polyline(_verts,{color:'#12a4ff',weight:3,dashArray:'5,5'}).addTo(mapaVista);
+    _tmpMk.push(L.circleMarker(ev.latlng,{radius:4,color:'#12a4ff',fillColor:'#12a4ff',fillOpacity:1,weight:1}).addTo(mapaVista));
+    bannerDibujo(); });
   if(pts.length)mapaVista.fitBounds(pts,{padding:[46,46],maxZoom:17}); else mapaVista.setView([-33.45,-70.65],5);
   setTimeout(()=>mapaVista.invalidateSize(),160);
 }
@@ -1074,6 +1095,50 @@ function svgEstructura(e,cx,cy){
   if(lineaPura)s+=simboloLinea(cx,cy,az,dip,'#1a5fb4');
   return s;
 }
+// ---- Líneas geológicas (contactos/fallas) dibujadas sobre el satelital ----
+const LINEA_TIPOS=['Contacto estratigráfico','Contacto intrusivo','Falla','Discordancia','Eje de pliegue','Dique','Otro'];
+const LINEA_CERTEZA=['Observado','Inferido','Cubierto'];
+const LINEA_COLOR={'Contacto estratigráfico':'#1a1a1a','Contacto intrusivo':'#8e44ad','Falla':'#c0392b','Discordancia':'#d35400','Eje de pliegue':'#16739e','Dique':'#2e7d32','Otro':'#444'};
+const LINEA_DASH={'Observado':null,'Inferido':'10,7','Cubierto':'2,7'};
+function estiloLinea(l){return {color:LINEA_COLOR[l.TIPO]||'#444', weight:3.5, opacity:.95, dashArray:LINEA_DASH[l.CERTEZA]||null};}
+let dibujando=false,_verts=[],_tmpLine=null,_tmpMk=[],_puntosMapa=[];
+function limpiarTemp(){ if(mapaVista){ if(_tmpLine)mapaVista.removeLayer(_tmpLine); _tmpMk.forEach(m=>mapaVista.removeLayer(m)); } _tmpLine=null;_tmpMk=[];_verts=[]; }
+function bannerDibujo(){
+  const cont=document.querySelector('.mapcard'); if(!cont)return;
+  let b=document.getElementById('drawbanner'); if(b)b.remove();
+  b=el('div',{id:'drawbanner',class:'drawbanner'},
+    el('span',{},'✏️ Toca el mapa para trazar ('+_verts.length+' vértices)'),
+    el('button',{class:'btn mini',onclick:terminarDibujo},'✓ Terminar'),
+    el('button',{class:'btn sec mini',onclick:e=>{const v=_verts;if(v.length){v.pop();if(_tmpMk.length){mapaVista.removeLayer(_tmpMk.pop());}if(_tmpLine)_tmpLine.setLatLngs(v);}bannerDibujo();}},'↶'),
+    el('button',{class:'btn del mini',onclick:cancelarDibujo},'✕'));
+  cont.append(b);
+}
+function iniciarDibujoLinea(){ if(!mapaVista)return; dibujando=true; limpiarTemp(); mapaVista.getContainer().style.cursor='crosshair'; bannerDibujo(); toast('Modo dibujo: toca el mapa'); }
+function cancelarDibujo(){ dibujando=false; limpiarTemp(); const b=document.getElementById('drawbanner');if(b)b.remove(); if(mapaVista)mapaVista.getContainer().style.cursor=''; }
+function terminarDibujo(){
+  if(_verts.length<2){toast('Traza al menos 2 puntos');return;}
+  const l={id:uid(),_parent:curProyecto.id,geom:_verts.slice(),TIPO:LINEA_TIPOS[0],CERTEZA:LINEA_CERTEZA[0],NOTA:''};
+  const b=document.getElementById('drawbanner');if(b)b.remove();
+  dibujando=false; limpiarTemp(); if(mapaVista)mapaVista.getContainer().style.cursor='';
+  formLinea(l, async()=>{await put('linea',l);initMapaVista(_puntosMapa);toast('Línea guardada');}, null);
+}
+function formLinea(linea,onSave,onDelete){
+  const ov=el('div',{class:'fmov',onclick:e=>{if(e.target===ov)ov.remove();}});
+  const box=el('div',{class:'card',style:'max-width:400px;width:92vw'});
+  box.append(el('h2',{},'✏️ Línea geológica'));
+  const selT=el('select');LINEA_TIPOS.forEach(t=>selT.append(el('option',{value:t},t)));selT.value=linea.TIPO||LINEA_TIPOS[0];
+  const selC=el('select');LINEA_CERTEZA.forEach(t=>selC.append(el('option',{value:t},t)));selC.value=linea.CERTEZA||LINEA_CERTEZA[0];
+  const nota=el('textarea',{rows:2});nota.value=linea.NOTA||'';
+  const fld=(lab,inp)=>el('div',{class:'fld'},el('label',{},lab),inp);
+  box.append(el('div',{class:'row'},fld('Tipo',selT),fld('Certeza',selC)),fld('Nota',nota));
+  box.append(el('div',{class:'muted',style:'font-size:11px'},(linea.geom||[]).length+' vértices'));
+  const bar=el('div',{class:'btnbar'});
+  bar.append(el('button',{class:'btn',onclick:()=>{linea.TIPO=selT.value;linea.CERTEZA=selC.value;linea.NOTA=nota.value;ov.remove();onSave();}},'Guardar'));
+  if(onDelete)bar.append(el('button',{class:'btn del',onclick:()=>{if(confirm('¿Eliminar esta línea?')){ov.remove();onDelete();}}},'Eliminar'));
+  bar.append(el('button',{class:'btn sec',onclick:()=>ov.remove()},'Cancelar'));
+  box.append(bar);ov.append(box);document.body.append(ov);
+}
+
 function iconoPunto(estr,mus){
   const cx=30,cy=30;let inner='';
   (estr||[]).forEach(e=>inner+=svgEstructura(e,cx,cy));       // símbolos estructurales orientados
@@ -1187,10 +1252,20 @@ async function exportKMZ(){
       overlays+='<GroundOverlay><name>GeoTIFF '+esc(pr.NOMBRE_PROYECTO||'')+'</name><Icon><href>'+fn+'</href></Icon>'
         +'<LatLonBox><north>'+b.north+'</north><south>'+b.south+'</south><east>'+b.east+'</east><west>'+b.west+'</west></LatLonBox></GroundOverlay>\n';}
   }
-  const kml='<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Captura de terreno</name>\n'+overlays+pk+'</Document></kml>';
+  // líneas geológicas -> LineString con color por tipo
+  let lineasKml=''; let nLin=0;
+  const toKmlColor=hex=>{const h=(hex||'#444444').replace('#','');return 'ff'+h.slice(4,6)+h.slice(2,4)+h.slice(0,2);};
+  for(const l of await all('linea')){
+    if(!l.geom||l.geom.length<2)continue; nLin++;
+    const coords=l.geom.map(c=>c[1]+','+c[0]+',0').join(' ');
+    lineasKml+='<Placemark><name>'+esc((l.TIPO||'')+(l.CERTEZA?' — '+l.CERTEZA:''))+'</name><description>'+esc(l.NOTA||'')+'</description>'
+      +'<Style><LineStyle><color>'+toKmlColor(LINEA_COLOR[l.TIPO])+'</color><width>3</width></LineStyle></Style>'
+      +'<LineString><tessellate>1</tessellate><coordinates>'+coords+'</coordinates></LineString></Placemark>\n';
+  }
+  const kml='<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Captura de terreno</name>\n'+overlays+lineasKml+pk+'</Document></kml>';
   files.unshift({name:'doc.kml',data:new TextEncoder().encode(kml)});
   descargar('captura_terreno.kmz',zipStore(files));
-  toast('KMZ exportado ('+n+' puntos'+(files.length>1?', '+(files.length-1)+' imágenes)':')'));
+  toast('KMZ exportado ('+n+' puntos'+(nLin?', '+nLin+' líneas':'')+(files.length>1?', imágenes':'')+')');
 }
 
 // -------- ZIP store-only (sin compresión) --------
@@ -1359,7 +1434,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v21';
+const CACHE='geoterreno-cdc-v22';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
