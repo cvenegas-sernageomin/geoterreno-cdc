@@ -202,7 +202,7 @@ function tipoWidget(campo){
   const n=campo.nombre;
   if(campo.dominio) return 'select';
   if(/^(LAT|LONG)/.test(n)||/Lat$|Long$/.test(n)) return 'number';
-  if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|RUMBO|ORIENTACION/.test(n)) return 'number';
+  if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|RUMBO|ORIENTACION|TREND|PLUNGE/.test(n)) return 'number';
   if(n==='FECHA') return 'date';
   if(n==='HORA') return 'time';
   if(/DESCRIPCION|OBSERVACION|COMENTARIO|RELACION_LITOLOGIA|DISTRIBUCION/.test(n)) return 'textarea';
@@ -273,7 +273,8 @@ function formulario(store, reg, ctx){
     }
     inputs[n]=inp;
     const sensor = tipoSensor(n);
-    if(sensor && w==='number') fld.append(sensorInput(inp,sensor));
+    // en tablas con plano (estructural/contacto) se usa la barra de medición combinada, no botones sueltos
+    if(sensor && w==='number' && !PLANO_CAMPOS[store]) fld.append(sensorInput(inp,sensor));
     else fld.append(inp);
     if(campo.nota) fld.append(el('div',{class:'nota'},campo.nota));
     rowWrap.append(fld);
@@ -407,6 +408,94 @@ function georasterToJPG(gr,maxdim){
   cx.putImageData(img,0,0);return cv.toDataURL('image/jpeg',.8).split(',')[1];
 }
 function b64ToBytes(b64){const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
+
+// ============================ Clinómetro (plano + lineación) ============================
+// Mide rumbo/manteo (y trend/plunge de una línea) con los sensores del teléfono.
+// Muestrea 3 s, calcula el vector normal al plano (eje Z del teléfono) y el eje mayor (eje Y)
+// en marco Este-Norte-Arriba, y promedia los VECTORES (media esférica, correcta cerca de 0/360°).
+const CLINO_MS = 3000;         // duración del muestreo (3 s, aprobado)
+const D2R = Math.PI/180, R2D = 180/Math.PI;
+const PLANO_CAMPOS = {
+  estructural: {rumbo:'AZIMUT', manteo:'MANTEO_BUZAMIENTO', trend:'TREND', plunge:'PLUNGE', conf:'GRADO_CONFIANZA_ESTRUCTURA'},
+  contacto:    {rumbo:'RUMBO_CONTACTO', manteo:'MANTEO_CONTACTO', conf:'GRADO_CONFIANZA_CONTACTO'},
+};
+// alpha absoluto por plataforma (Android: alpha absoluto; iOS: 360 - webkitCompassHeading)
+function anglesFromEvent(e){
+  let a=e.alpha;
+  if(typeof e.webkitCompassHeading==='number') a=(360-e.webkitCompassHeading);
+  if(a==null||e.beta==null||e.gamma==null) return null;
+  return {a:a*D2R, b:e.beta*D2R, g:e.gamma*D2R};
+}
+// vectores en mundo ENU: n = normal a la pantalla (eje Z), L = eje mayor del teléfono (eje Y)
+function ejesMundo(a,b,g){
+  const cA=Math.cos(a),sA=Math.sin(a),cB=Math.cos(b),sB=Math.sin(b),cG=Math.cos(g),sG=Math.sin(g);
+  const n=[cA*sG+sA*sB*cG, sA*sG-cA*sB*cG, cB*cG];
+  const L=[-sA*cB, cA*cB, sB];
+  return {n,L};
+}
+function normaliza(v){const m=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/m,v[1]/m,v[2]/m];}
+function media(vecs){const s=[0,0,0];vecs.forEach(v=>{s[0]+=v[0];s[1]+=v[1];s[2]+=v[2];});return normaliza(s);}
+function planoDeNormal(n){
+  if(n[2]<0)n=[-n[0],-n[1],-n[2]];                       // hemisferio superior
+  const dip=Math.acos(Math.max(-1,Math.min(1,n[2])))*R2D;
+  const dipDir=((Math.atan2(n[0],n[1])*R2D)+180+360)%360;
+  const strike=(dipDir-90+360)%360;                      // regla de la mano derecha
+  return {rumbo:strike, manteo:dip};
+}
+function lineaDeVector(L){
+  if(L[2]>0)L=[-L[0],-L[1],-L[2]];                       // apunta hacia abajo (plunge ≥ 0)
+  const plunge=-Math.asin(Math.max(-1,Math.min(1,L[2])))*R2D;
+  const trend=((Math.atan2(L[0],L[1])*R2D)+360)%360;
+  return {trend, plunge};
+}
+function dispersionGrados(vecs,m){    // ángulo medio entre cada lectura y la media (calidad)
+  if(!vecs.length)return 99;
+  let s=0;vecs.forEach(v=>{const d=Math.max(-1,Math.min(1,v[0]*m[0]+v[1]*m[1]+v[2]*m[2]));s+=Math.acos(Math.abs(d));});
+  return (s/vecs.length)*R2D;
+}
+async function medirEstructura(modo, onTick){   // modo: 'plano' | 'linea'
+  if(!(await ensureOrientPerm())) return null;
+  const evt=('ondeviceorientationabsolute' in window)?'deviceorientationabsolute':'deviceorientation';
+  const normals=[], lines=[];
+  return new Promise(res=>{
+    const on=e=>{const ang=anglesFromEvent(e);if(!ang)return;const {n,L}=ejesMundo(ang.a,ang.b,ang.g);
+      normals.push(n[2]<0?[-n[0],-n[1],-n[2]]:n);
+      lines.push(L[2]>0?[-L[0],-L[1],-L[2]]:L);};
+    window.addEventListener(evt,on);
+    const t0=Date.now(); let iv=null;
+    if(onTick){iv=setInterval(()=>onTick(Math.max(0,Math.ceil((CLINO_MS-(Date.now()-t0))/1000))),250);}
+    setTimeout(()=>{window.removeEventListener(evt,on);if(iv)clearInterval(iv);
+      if(!normals.length){res(null);return;}
+      const mn=media(normals), pl=planoDeNormal(mn), disp=dispersionGrados(normals,mn);
+      const out={...pl, n:normals.length, disp};
+      if(modo==='linea'){Object.assign(out, lineaDeVector(media(lines)));}
+      res(out);
+    }, CLINO_MS);
+  });
+}
+// barra de medición para bloques con plano (estructural, contacto)
+function barraMedicion(store, f){
+  const map=PLANO_CAMPOS[store]; if(!map)return null;
+  const bar=el('div',{class:'btnbar'});
+  const status=el('span',{class:'muted'});
+  const setV=(campo,val)=>{if(!campo||val==null)return;const i=f.node.querySelector('[name="'+campo+'"]');
+    if(i){i.value=Math.round(val);i.dispatchEvent(new Event('change',{bubbles:true}));}};
+  const medir=async(modo)=>{
+    status.textContent='📡 Mantén el teléfono firme… 3';
+    const r=await medirEstructura(modo, s=>status.textContent='📡 Mantén firme… '+s);
+    if(!r){status.textContent='⚠️ Sin sensor / permiso — ingresa manual';toast('Sin sensor de orientación');return;}
+    setV(map.rumbo,r.rumbo); setV(map.manteo,r.manteo);
+    if(modo==='linea'){setV(map.trend,r.trend); setV(map.plunge,r.plunge);}
+    const conf=r.disp<2?'ALTA':(r.disp<5?'MEDIA':'BAJA');
+    const cg=f.node.querySelector('[name="'+map.conf+'"]'); if(cg&&!cg.value){cg.value=conf;cg.dispatchEvent(new Event('change',{bubbles:true}));}
+    status.textContent='✓ '+r.n+' lecturas · ±'+r.disp.toFixed(1)+'° · '+conf
+      +'  →  '+Math.round(r.rumbo)+'/'+Math.round(r.manteo)+(r.trend!=null?'  · L '+Math.round(r.trend)+'/'+Math.round(r.plunge):'');
+  };
+  bar.append(el('button',{type:'button',class:'btn blue mini',onclick:()=>medir('plano')},'📐 Medir plano'));
+  if(map.trend)bar.append(el('button',{type:'button',class:'btn orange mini',onclick:()=>medir('linea')},'📏 Plano + línea'));
+  bar.append(status);
+  return bar;
+}
 
 // ============================ Sensores de orientación (brújula / clinómetro) ============================
 // Portado de catastro-remociones: webkitCompassHeading (norte real iOS), alpha (Android absoluto),
@@ -675,6 +764,7 @@ function bloqueHijo(h,reg,i,litos){
   else {
     const f=formulario(h.store,reg,{litologias:litos});
     b.append(f.node);
+    const barra=barraMedicion(h.store,f); if(barra)b.append(barra);
     b._save=async()=>{Object.assign(reg,f.getData());await put(h.store,reg);};
     // guardar al vuelo (blur)
     f.node.addEventListener('change',()=>b._save());
@@ -963,7 +1053,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v13';
+const CACHE='geoterreno-cdc-v14';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
