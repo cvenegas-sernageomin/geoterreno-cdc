@@ -93,6 +93,12 @@
   .leaflet-control-savetiles a{font-size:15px;line-height:26px}
   #satthumb img{width:120px;height:90px}
   .medbar{flex:0 0 100%;width:100%;background:var(--surface2);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin-bottom:9px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .mapfull{height:66vh;min-height:340px;width:100%;border-radius:10px;overflow:hidden;z-index:0}
+  .modtoggle{display:flex;gap:8px;margin-bottom:12px}
+  .modtoggle .btn{flex:1;font-size:14px;padding:11px}
+  .estsym{background:none;border:none}
+  .ptlabel{background:rgba(20,30,22,.72);color:#fff;border:none;border-radius:4px;font-size:10px;font-weight:600;padding:1px 5px;box-shadow:none;white-space:nowrap}
+  .ptlabel:before{display:none!important}
   .fpin img{width:44px;height:44px;object-fit:cover;border:2px solid #fff;border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.55);cursor:pointer}
   .fmbread{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12px;margin-bottom:8px}
   .fmbread a{color:var(--azul);cursor:pointer}
@@ -1717,6 +1723,7 @@ async function render(){
   const app=$('#app'); app.innerHTML=''; $('#fab').innerHTML='';
   if(vista.n==='home') return renderHome(app);
   if(vista.n==='proyecto') return renderProyecto(app);
+  if(vista.n==='mapa') return renderMapa(app);
   if(vista.n==='punto') return renderPunto(app);
 }
 
@@ -1796,6 +1803,7 @@ async function renderProyecto(app){
   $('#btnBack').style.display='';
   $('#ttl').textContent=curProyecto.NOMBRE_PROYECTO||'Proyecto';
   $('#ctx').textContent='ID '+(curProyecto.ID_PROYECTO||'—');
+  app.append(toggleModo('puntos'));
   const puntos=(await childrenOf('punto',curProyecto.id));
   curProyecto._npuntos=puntos.length;put('proyecto',curProyecto);
   const head=el('div',{class:'card'});
@@ -2069,6 +2077,96 @@ function addFotoPin(node,hijo){
   m.on('click',()=>editorFotomapa(hijo));   // entrar al detalle (cambio de escala)
 }
 function verFotoCompleta(src){const ov=el('div',{class:'fmov',onclick:()=>ov.remove()});ov.append(el('img',{src}));document.body.append(ov);}
+
+// ============================ Modo Mapa + simbología estructural ============================
+function toggleModo(activo){
+  const bar=el('div',{class:'modtoggle'});
+  const mk=(n,txt,dest)=>el('button',{class:'btn '+(activo===n?'':'sec'),onclick:()=>{if(activo!==n)dest();}},txt);
+  bar.append(mk('mapa','🗺️ Mapa',()=>nav({n:'mapa',id:curProyecto.id})),
+             mk('puntos','📋 Puntos de control',()=>nav({n:'proyecto',id:curProyecto.id})));
+  return bar;
+}
+let mapaVista=null;
+async function renderMapa(app){
+  curProyecto=await get('proyecto',vista.id); if(!curProyecto)return nav({n:'home'});
+  $('#btnBack').style.display='';
+  $('#ttl').textContent=curProyecto.NOMBRE_PROYECTO||'Mapa'; $('#ctx').textContent='Mapa del proyecto';
+  app.append(toggleModo('mapa'));
+  const card=el('div',{class:'card',style:'padding:6px'});
+  card.append(el('div',{id:'projmap',class:'mapfull'}));
+  app.append(card);
+  const puntos=await childrenOf('punto',curProyecto.id);
+  const conC=puntos.filter(p=>!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Lat']))&&!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Long'])));
+  app.append(el('div',{class:'muted',style:'padding:2px 2px 0'},conC.length+' de '+puntos.length+' puntos con coordenadas en el mapa'));
+  app.append(el('div',{class:'muted',style:'padding:2px',html:'Símbolos: <b>—⊢</b> rumbo/manteo (plano) · <b>→</b> lineación (trend/plunge) · plano+flecha = falla/estría. Toca un punto para abrirlo.'}));
+  $('#fab').append(
+    el('button',{class:'btn sec',onclick:()=>{const b=document.querySelector('a.savetiles');if(b)b.click();else toast('Descarga offline no disponible');}},'⬇️ Tiles offline'),
+    el('button',{class:'btn sec',onclick:()=>nav({n:'home'})},'⌂ Proyectos'));
+  setTimeout(()=>initMapaVista(conC),80);
+}
+async function initMapaVista(puntos){
+  if(mapaVista){try{mapaVista.remove();}catch(e){}mapaVista=null;}
+  mapaVista=L.map('projmap',{zoomControl:true});
+  const tl=(L.tileLayer.offline?L.tileLayer.offline:L.tileLayer)(ESRI_URL,{attribution:'Tiles © Esri',maxZoom:19,crossOrigin:true});
+  tl.addTo(mapaVista);
+  if(L.control&&L.control.savetiles){L.control.savetiles(tl,{zoomlevels:[13,14,15,16,17],
+    confirm(l,cb){if(confirm('¿Descargar tiles del área para uso offline?'))cb();},confirmRemoval(l,cb){if(confirm('¿Borrar tiles?'))cb();},saveText:'⬇️',rmText:'🗑️'}).addTo(mapaVista);}
+  const pts=[];
+  for(const p of puntos){
+    const lat=parseFloat(p['Coordenadas Geográficas Decimales_Lat']), lon=parseFloat(p['Coordenadas Geográficas Decimales_Long']);
+    if(isNaN(lat)||isNaN(lon))continue;
+    const estr=await childrenOf('estructural',p.id), mus=await childrenOf('muestreo',p.id);
+    const m=L.marker([lat,lon],{icon:iconoPunto(estr,mus)}).addTo(mapaVista);
+    if(p.ID_PUNTO_CONTROL)m.bindTooltip(p.ID_PUNTO_CONTROL,{permanent:true,direction:'bottom',offset:[0,18],className:'ptlabel'});
+    m.on('click',()=>{curPunto=null;vista={n:'punto',id:p.id};render();});
+    pts.push([lat,lon]);
+  }
+  if(pts.length)mapaVista.fitBounds(pts,{padding:[46,46],maxZoom:17}); else mapaVista.setView([-33.45,-70.65],5);
+  setTimeout(()=>mapaVista.invalidateSize(),160);
+}
+// ---- iconos / simbología (SVG orientada por azimut; norte = arriba) ----
+const _rad=d=>d*Math.PI/180;
+function _uv(az){const a=_rad(az);return [Math.sin(a),-Math.cos(a)];}   // [este(x), norte(-y)] en coords de pantalla
+function _hl(x1,y1,x2,y2,col){col=col||'#141414';
+  return '<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>'
+       + '<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="'+col+'" stroke-width="1.6" stroke-linecap="round"/>';}
+function _ht(x,y,txt,col){col=col||'#141414';
+  return '<text x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" font-size="9.5" font-weight="700" text-anchor="middle" dominant-baseline="central" stroke="#fff" stroke-width="3" paint-order="stroke" fill="'+col+'">'+txt+'</text>';}
+function simboloPlano(cx,cy,az,dip,col){
+  const [sx,sy]=_uv(az),[dx,dy]=_uv(az+90);const Ls=15,Lt=8;
+  let s=_hl(cx-sx*Ls,cy-sy*Ls,cx+sx*Ls,cy+sy*Ls,col);   // línea de rumbo
+  s+=_hl(cx,cy,cx+dx*Lt,cy+dy*Lt,col);                    // tick de manteo (a la derecha del rumbo, RHR)
+  if(!isNaN(dip))s+=_ht(cx+dx*(Lt+8),cy+dy*(Lt+8),Math.round(dip),col);
+  return s;
+}
+function simboloLinea(cx,cy,tr,pl,col){col=col||'#1a5fb4';
+  const [tx,ty]=_uv(tr);const La=15;const px=cx+tx*La,py=cy+ty*La;
+  let s=_hl(cx,cy,px,py,col);
+  const a1=_uv(tr+180+24),a2=_uv(tr+180-24),hl=6;         // punta de flecha
+  s+=_hl(px,py,px+a1[0]*hl,py+a1[1]*hl,col);
+  s+=_hl(px,py,px+a2[0]*hl,py+a2[1]*hl,col);
+  if(!isNaN(pl))s+=_ht(px+tx*8,py+ty*8,Math.round(pl),col);
+  return s;
+}
+function svgEstructura(e,cx,cy){
+  const az=parseFloat(e.AZIMUT),dip=parseFloat(e.MANTEO_BUZAMIENTO),tr=parseFloat(e.TREND),pl=parseFloat(e.PLUNGE);
+  const hasPlano=!isNaN(az)&&!isNaN(dip),hasLinea=!isNaN(tr)&&!isNaN(pl);
+  const esFalla=(e.TIPO_ESTRUCTURA==='Estructura falla');
+  const lineaPura=hasPlano&&!hasLinea&&/lineaci|eje|estr[íi]a|paleocorriente/i.test(e.TIPO_MEDIDA_ESTRUCTURAL||'');
+  let s='';
+  if(hasPlano&&!lineaPura)s+=simboloPlano(cx,cy,az,dip,esFalla?'#b02a1a':'#141414');
+  if(hasLinea)s+=simboloLinea(cx,cy,tr,pl,esFalla?'#b02a1a':'#1a5fb4');
+  if(lineaPura)s+=simboloLinea(cx,cy,az,dip,'#1a5fb4');
+  return s;
+}
+function iconoPunto(estr,mus){
+  const cx=30,cy=30;let inner='';
+  (estr||[]).forEach(e=>inner+=svgEstructura(e,cx,cy));       // símbolos estructurales orientados
+  inner+='<circle cx="30" cy="30" r="4.2" fill="#c0392b" stroke="#fff" stroke-width="1.6"/>';   // estación
+  if(mus&&mus.length)inner+='<g transform="translate(45,15)"><polygon points="0,-6 6,5 -6,5" fill="#2166a8" stroke="#fff" stroke-width="1.2"/><text x="0" y="2.5" font-size="7" fill="#fff" text-anchor="middle" font-weight="bold">'+mus.length+'</text></g>';
+  const svg='<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">'+inner+'</svg>';
+  return L.divIcon({className:'estsym',html:svg,iconSize:[60,60],iconAnchor:[30,30]});
+}
 // compone la foto base con pines numerados (para la libreta PDF)
 function compositaFotomapa(node){return new Promise(async res=>{
   const hijos=await fotomapaHijos(node.id);
