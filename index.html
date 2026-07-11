@@ -48,6 +48,16 @@
   main{max-width:820px;margin:0 auto;padding:14px 12px 96px}
   .card{background:var(--surface);border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:13px;box-shadow:var(--shadow)}
   .card h2{font-size:14px;margin:0 0 11px;color:var(--verde);display:flex;align-items:center;gap:8px;font-weight:650;letter-spacing:.2px}
+  .collap{padding:0;overflow:hidden}
+  .collap-head{display:flex;align-items:center;gap:9px;padding:13px 14px;cursor:pointer;font-weight:650;color:var(--verde);font-size:14px;-webkit-user-select:none;user-select:none}
+  .collap-head .ctitle{flex:1;letter-spacing:.2px}
+  .collap-head .pill{font-weight:600}
+  .collap-body{display:none;padding:0 14px 14px}
+  .collap.open .collap-body{display:block}
+  .collap.lleno{border-left:4px solid var(--verde2)}
+  .collap.lleno .collap-head{color:var(--verde2)}
+  .collap.lleno .collap-head .ctitle::after{content:' ✓';font-weight:700}
+  .chev{font-size:11px;color:var(--muted);width:12px;text-align:center}
   .row{display:flex;flex-wrap:wrap;gap:10px}
   .fld{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;flex:1 1 220px;min-width:0}
   .fld label{font-size:11.5px;font-weight:600;color:var(--lbl);letter-spacing:.2px}
@@ -1290,7 +1300,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v20';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v21';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -1841,8 +1851,27 @@ async function renderProyecto(app){
 }
 function nav0Punto(){curPunto=null;nav({n:'punto',id:'__new__'});}
 
+// ---- Tarjetas colapsables (acordeón) del editor de punto ----
+let secAbiertas=new Set(['punto']); let ultimoPuntoRender=null;
+function tarjetaColapsable(titulo, opts){
+  opts=opts||{};
+  const abierto = opts.clave ? secAbiertas.has(opts.clave) : !!opts.abierto;
+  const card=el('div',{class:'card collap'+(opts.lleno?' lleno':'')});
+  const chev=el('span',{class:'chev'},'▸');
+  const head=el('div',{class:'collap-head'}, chev, el('span',{class:'ctitle'},titulo), opts.badge!=null?el('span',{class:'pill'},opts.badge):'');
+  const body=el('div',{class:'collap-body'});
+  const setOpen=(o)=>{card.classList.toggle('open',o);chev.textContent=o?'▾':'▸';
+    if(opts.clave){if(o)secAbiertas.add(opts.clave);else secAbiertas.delete(opts.clave);}
+    if(o&&opts.onOpen)opts.onOpen();};
+  head.addEventListener('click',()=>setOpen(!card.classList.contains('open')));
+  card.append(head,body);
+  if(abierto)setOpen(true);
+  return {card,body};
+}
+
 // -------- Punto de control + hijas --------
 async function renderPunto(app){
+  app.innerHTML=''; $('#fab').innerHTML=''; $('#fab').className='fab';   // evita duplicar al re-render directo (agregar/eliminar hijo)
   const nuevo = vista.id==='__new__';
   // punto nuevo: precarga colector y campos constantes recordados + fecha/hora automáticas
   curPunto = nuevo ? Object.assign({id:uid(),_parent:curProyecto.id}, stickyGet(), ahora())
@@ -1852,30 +1881,30 @@ async function renderPunto(app){
   $('#btnBack').style.display='';
   $('#ttl').textContent = curPunto.ID_PUNTO_CONTROL || (nuevo?'Nuevo punto':'Punto');
   $('#ctx').textContent = curProyecto.NOMBRE_PROYECTO||'';
+  if(ultimoPuntoRender!==curPunto.id){secAbiertas=new Set(['punto']);ultimoPuntoRender=curPunto.id;}  // reset acordeón al cambiar de punto
 
-  // --- formulario del punto ---
-  const card=el('div',{class:'card'});
-  card.append(el('h2',{},'📍 Punto de control (estación y ubicación)'));
-  const gps=el('button',{class:'btn blue mini',onclick:()=>tomarGPS(f)},'📡 Tomar GPS');
-  card.append(el('div',{class:'btnbar'},gps));
-  const f=formulario('punto',curPunto);card.append(f.node);
+  // --- formulario del punto (colapsable, abierto por defecto) ---
+  const puntoLleno=!!(curPunto['Coordenadas Geográficas Decimales_Lat']||curPunto.GEOLOGO);
+  const cp=tarjetaColapsable('📍 Punto de control (estación y ubicación)',{clave:'punto',lleno:puntoLleno});
+  cp.body.append(el('div',{class:'btnbar'},el('button',{class:'btn blue mini',onclick:()=>tomarGPS(f)},'📡 Tomar GPS')));
+  const f=formulario('punto',curPunto);cp.body.append(f.node);
+  app.append(cp.card);
 
-  // --- mapa satelital ---
-  const mapCard=el('div',{class:'card'});
-  mapCard.append(el('h2',{},'🛰️ Ubicación satelital'));
-  mapCard.append(el('div',{id:'map',class:'mapbox'}));
-  mapCard.append(el('div',{class:'btnbar'},
+  // --- mapa satelital (colapsable; el mapa se inicia al abrir la sección) ---
+  let mapIniciado=false;
+  const cm=tarjetaColapsable('🛰️ Ubicación satelital',{clave:'map',lleno:!!curPunto._satelital,badge:curPunto._satelital?'📸':null,
+    onOpen:()=>{ if(!mapIniciado){mapIniciado=true;setTimeout(()=>initMapPunto(curPunto,f),80);} else if(mapa){setTimeout(()=>mapa.invalidateSize(),80);} }});
+  cm.body.append(el('div',{id:'map',class:'mapbox'}));
+  cm.body.append(el('div',{class:'btnbar'},
     el('button',{class:'btn blue mini',onclick:ubicarGPSmapa},'📡 GPS'),
     el('button',{class:'btn sec mini',onclick:descargarTiles},'⬇️ Tiles offline'),
     el('button',{class:'btn sec mini',onclick:cargarGeoTIFF},'🗺️ GeoTIFF'),
     el('button',{class:'btn orange mini',onclick:capturarSatelital},'📸 Capturar satelital')));
-  mapCard.append(el('div',{class:'muted',id:'coordlbl'},''));
+  cm.body.append(el('div',{class:'muted',id:'coordlbl'},''));
   const satThumb=el('div',{class:'thumbs',id:'satthumb'});
   if(curPunto._satelital)satThumb.append(el('img',{src:'data:image/jpeg;base64,'+curPunto._satelital}));
-  mapCard.append(satThumb);
-  app.append(mapCard);
-  app.append(card);
-  setTimeout(()=>initMapPunto(curPunto,f),60);
+  cm.body.append(satThumb);
+  app.append(cm.card);
 
   const guardarPunto=async()=>{
     const d=f.getData();Object.assign(curPunto,d);curPunto._parent=curProyecto.id;
@@ -1893,37 +1922,36 @@ async function renderPunto(app){
     return curPunto;
   };
 
-  // --- secciones hijas ---
+  // --- secciones hijas (colapsables) ---
   const litos=await childrenOf('litologia',curPunto.id);
   for(const h of HIJAS){
-    const card=el('div',{class:'card'});
     const items=await childrenOf(h.store,curPunto.id);
     if(h.store==='litologia')curPunto._nlito=items.length;
-    card.append(el('h2',{},h.titulo+' ('+items.length+')'+(h.oblig?' *':'')));
-    const box=el('div');card.append(box);
+    const hc=tarjetaColapsable(h.titulo+(h.oblig?' *':''),{clave:h.store,lleno:items.length>0,badge:items.length});
+    const box=el('div');hc.body.append(box);
     items.forEach((it,i)=>box.append(bloqueHijo(h,it,i,litos)));
-    card.append(el('div',{class:'btnbar'},
+    hc.body.append(el('div',{class:'btnbar'},
       el('button',{class:'btn '+(h.clase==='lito'?'':'orange')+' mini',onclick:async()=>{
         await guardarPunto();
         const reg={id:uid(),_parent:curPunto.id};
         if(h.store==='muestreo'){const sc=namingCfg(curProyecto).smp;
           if(sc.on){reg.ID_MUESTRA=fmtName(sc);const full=namingCfg(curProyecto);full.smp.next=sc.next+1;curProyecto._naming=full;await put('proyecto',curProyecto);}}
         await put(h.store,reg);
+        secAbiertas.add(h.store);   // mantener esta sección abierta tras re-render
         await renderPunto(app);
         requestAnimationFrame(()=>{const bs=document.querySelectorAll('.child-block[data-store="'+h.store+'"]');
           const last=bs[bs.length-1];if(last){last.scrollIntoView({behavior:'smooth',block:'center'});
           const inp=last.querySelector('input,select,textarea');if(inp)inp.focus({preventScroll:true});}});
         toast(h.titulo+' agregada — completa los campos');
       }},'+ Agregar '+h.titulo.toLowerCase())));
-    app.append(card);
+    app.append(hc.card);
   }
 
-  // --- Foto-mapa (image basemap anidado, estilo StraboSpot) ---
+  // --- Foto-mapa (colapsable) ---
   {
-    const fmCard=el('div',{class:'card'});
     const raices=await fotomapasRaiz(curPunto.id);
-    fmCard.append(el('h2',{},'🖼️ Foto-mapa — cambio de escala ('+raices.length+')'));
-    fmCard.append(el('div',{class:'muted',html:'Usa una foto como lienzo y coloca sobre ella fotos de detalle; cada detalle es a su vez otro lienzo (multiescala).'}));
+    const fmc=tarjetaColapsable('🖼️ Foto-mapa — cambio de escala',{clave:'fotomapa',lleno:raices.length>0,badge:raices.length});
+    fmc.body.append(el('div',{class:'muted',html:'Foto como lienzo con fotos de detalle; cada detalle es a su vez otro lienzo (multiescala).'}));
     const box=el('div',{style:'margin-top:8px'});
     for(const fm of raices){
       const nh=(await fotomapaHijos(fm.id)).length;
@@ -1932,10 +1960,10 @@ async function renderPunto(app){
         el('div',{class:'t'},el('b',{},fm.TITULO||'Foto-mapa'),el('small',{},nh+' detalles')),
         el('button',{class:'btn del mini',onclick:async(e)=>{e.stopPropagation();if(confirm('¿Eliminar este foto-mapa y sus detalles?')){await borrarFotomapaArbol(fm.id);renderPunto(app);}}},'🗑')));
     }
-    fmCard.append(box);
-    fmCard.append(el('div',{class:'btnbar'},
-      el('button',{class:'btn mini',onclick:async()=>{await guardarPunto();const reg={id:uid(),_parent:null,_punto:curPunto.id,_pins:null};await put('fotomapa',reg);editorFotomapa(reg);}},'+ Nuevo foto-mapa')));
-    app.append(fmCard);
+    fmc.body.append(box);
+    fmc.body.append(el('div',{class:'btnbar'},
+      el('button',{class:'btn mini',onclick:async()=>{await guardarPunto();const reg={id:uid(),_parent:null,_punto:curPunto.id,_pins:null};await put('fotomapa',reg);secAbiertas.add('fotomapa');editorFotomapa(reg);}},'+ Nuevo foto-mapa')));
+    app.append(fmc.card);
   }
 
   $('#fab').append(
