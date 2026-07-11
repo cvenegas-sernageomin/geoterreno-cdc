@@ -1318,10 +1318,18 @@ function pkDe(store){return (MODELO.tablas[STORE2TBL[store]]||{}).pk;}
 // ============================ IndexedDB ============================
 const DB='captura-terreno', VER=2;
 let db;
-function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,VER);
+function openDB(){return new Promise((res,rej)=>{
+  let done=false; const finish=(fn,v)=>{if(!done){done=true;fn(v);}};
+  const r=indexedDB.open(DB,VER);
   r.onupgradeneeded=()=>{const d=r.result;STORES.concat(['fotomapa']).forEach(s=>{if(!d.objectStoreNames.contains(s)){const os=d.createObjectStore(s,{keyPath:'id'});
     if(s!=='proyecto')os.createIndex('parent','_parent',{unique:false});}});};
-  r.onsuccess=()=>{db=r.result;res(db);};r.onerror=()=>rej(r.error);});}
+  r.onsuccess=()=>{db=r.result;
+    db.onversionchange=()=>{try{db.close();}catch(e){}};   // libera para que otra instancia pueda actualizar
+    finish(res,db);};
+  r.onerror=()=>finish(rej,r.error||new Error('IndexedDB error'));
+  r.onblocked=()=>finish(rej,new Error('BLOCKED'));         // otra pestaña/instancia tiene la BD abierta
+  setTimeout(()=>finish(rej,new Error('TIMEOUT')),6000);    // no colgar la app indefinidamente
+});}
 // carga una imagen comprimida devolviendo dataURL + dimensiones naturales (para el foto-mapa)
 function cargarImagen(file,max,q){return new Promise(res=>{const img=new Image();const rd=new FileReader();
   rd.onload=()=>{img.onload=()=>{let w=img.width,h=img.height;const s=Math.min(1,max/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);
@@ -2367,10 +2375,27 @@ async function paginaLibreta(pr,pt){
 }
 
 // ============================ Init ============================
+function pantallaError(msg,detalle){
+  const app=$('#app'); if(!app)return;
+  $('#ttl').textContent='GeoTerreno CDC';
+  app.innerHTML='<div class="card"><h2>⚠️ '+msg+'</h2>'
+    +'<div class="muted" style="margin:6px 0">'+(detalle||'')+'</div>'
+    +'<div class="btnbar"><button class="btn" onclick="location.reload()">↻ Reintentar</button></div></div>';
+}
+// muestra cualquier error de JS en pantalla (para no quedar en blanco)
+window.addEventListener('error',e=>{if(!db)pantallaError('Error al iniciar',(e.message||'')+'');});
 (async()=>{
-  await openDB();
-  if(MODELO.avisos&&MODELO.avisos.length){/* dominios provisionales existen; ver JSON */}
-  render();
+  try{
+    await openDB();
+  }catch(e){
+    const m=String(e&&e.message||e);
+    if(m.includes('BLOCKED')) return pantallaError('La app está abierta en otra ventana',
+      'Cierra las otras pestañas o la app instalada y toca Reintentar. La base de datos se estaba actualizando.');
+    if(m.includes('TIMEOUT')) return pantallaError('No se pudo abrir la base de datos',
+      'Cierra completamente la app (todas las pestañas) y ábrela de nuevo. Si persiste, borra los datos del sitio y recarga.');
+    return pantallaError('No se pudo abrir la base de datos', m);
+  }
+  try{ render(); }catch(e){ pantallaError('Error al dibujar', String(e&&e.message||e)); }
   if('serviceWorker' in navigator){try{await navigator.serviceWorker.register('sw.js');}catch(e){}}
 })();
 </script>
