@@ -114,8 +114,12 @@ HTML = r"""<!DOCTYPE html>
   #satthumb img{width:120px;height:90px}
   .medbar{flex:0 0 100%;width:100%;background:var(--surface2);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin-bottom:9px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .mapfull{height:66vh;min-height:340px;width:100%;border-radius:10px;overflow:hidden;z-index:0}
-  .modtoggle{display:flex;gap:8px;margin-bottom:12px}
-  .modtoggle .btn{flex:1;font-size:14px;padding:11px}
+  .mapbig{height:calc(100vh - 162px);height:calc(100dvh - 162px);min-height:320px;width:100%;border-radius:10px;overflow:hidden;z-index:0}
+  .mapcard{padding:0;margin-bottom:6px;overflow:hidden}
+  .modtoggle{display:flex;gap:8px;margin-bottom:8px}
+  .modtoggle .btn{flex:1;font-size:13px;padding:8px}
+  .fab.compact{padding:6px 10px}
+  .fab.compact .btn{padding:7px 10px;font-size:12.5px}
   .estsym{background:none;border:none}
   .ptlabel{background:rgba(20,30,22,.72);color:#fff;border:none;border-radius:4px;font-size:10px;font-weight:600;padding:1px 5px;box-shadow:none;white-space:nowrap}
   .ptlabel:before{display:none!important}
@@ -588,7 +592,7 @@ $('#btnBack').addEventListener('click',()=>{
 let curProyecto=null, curPunto=null;
 
 async function render(){
-  const app=$('#app'); app.innerHTML=''; $('#fab').innerHTML='';
+  const app=$('#app'); app.innerHTML=''; $('#fab').innerHTML=''; $('#fab').className='fab';
   if(vista.n==='home') return renderHome(app);
   if(vista.n==='proyecto') return renderProyecto(app);
   if(vista.n==='mapa') return renderMapa(app);
@@ -960,17 +964,31 @@ async function renderMapa(app){
   $('#btnBack').style.display='';
   $('#ttl').textContent=curProyecto.NOMBRE_PROYECTO||'Mapa'; $('#ctx').textContent='Mapa del proyecto';
   app.append(toggleModo('mapa'));
-  const card=el('div',{class:'card',style:'padding:6px'});
-  card.append(el('div',{id:'projmap',class:'mapfull'}));
+  const card=el('div',{class:'card mapcard'});
+  card.append(el('div',{id:'projmap',class:'mapbig'}));
   app.append(card);
   const puntos=await childrenOf('punto',curProyecto.id);
   const conC=puntos.filter(p=>!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Lat']))&&!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Long'])));
-  app.append(el('div',{class:'muted',style:'padding:2px 2px 0'},conC.length+' de '+puntos.length+' puntos con coordenadas en el mapa'));
-  app.append(el('div',{class:'muted',style:'padding:2px',html:'Símbolos: <b>—⊢</b> rumbo/manteo (plano) · <b>→</b> lineación (trend/plunge) · plano+flecha = falla/estría. Toca un punto para abrirlo.'}));
+  $('#fab').className='fab compact';
   $('#fab').append(
-    el('button',{class:'btn sec',onclick:()=>{const b=document.querySelector('a.savetiles');if(b)b.click();else toast('Descarga offline no disponible');}},'⬇️ Tiles offline'),
-    el('button',{class:'btn sec',onclick:()=>nav({n:'home'})},'⌂ Proyectos'));
+    el('button',{class:'btn sec mini',onclick:legendaSimbologia},'ⓘ'),
+    el('span',{class:'muted',style:'flex:1;align-self:center;font-size:11px'},conC.length+'/'+puntos.length+' pts'),
+    el('button',{class:'btn sec mini',onclick:()=>{const b=document.querySelector('a.savetiles');if(b)b.click();else toast('Descarga offline no disponible');}},'⬇️ Tiles'),
+    el('button',{class:'btn sec mini',onclick:()=>nav({n:'home'})},'⌂'));
   setTimeout(()=>initMapaVista(conC),80);
+}
+function legendaSimbologia(){
+  const ov=el('div',{class:'fmov',onclick:e=>{if(e.target===ov)ov.remove();}});
+  const box=el('div',{class:'card',style:'max-width:420px'});
+  box.append(el('h2',{},'Simbología'));
+  box.append(el('div',{class:'muted',html:
+    '<b>●</b> estación (punto de control) · con su ID<br>'
+   +'<b>—⊢ 30</b> rumbo/manteo de un <b>plano</b> (tick al lado del manteo, valor en grados)<br>'
+   +'<b>→ 40</b> <b>lineación</b> (flecha = trend, valor = plunge)<br>'
+   +'plano + flecha en rojo = <b>falla</b> con estría<br>'
+   +'<b>▲</b> azul = punto con <b>muestras</b> (número)<br><br>Toca un punto para abrir su ficha.'}));
+  box.append(el('div',{class:'btnbar'},el('button',{class:'btn',onclick:()=>ov.remove()},'Cerrar')));
+  ov.append(box);document.body.append(ov);
 }
 async function initMapaVista(puntos){
   if(mapaVista){try{mapaVista.remove();}catch(e){}mapaVista=null;}
@@ -1307,7 +1325,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v18';
+const CACHE='geoterreno-cdc-v19';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
