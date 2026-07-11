@@ -163,7 +163,7 @@ const MODELO = __MODELO_JSON__;
 </script>
 <script>
 "use strict";
-const APP_VER = 'v24';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v25';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -375,16 +375,33 @@ const ICONO=L.icon({iconUrl:'vendor/images/marker-icon.png',iconRetinaUrl:'vendo
 let mapa=null, marcador=null, gtLayer=null, savetiles=null;
 const inLat='Coordenadas Geográficas Decimales_Lat', inLon='Coordenadas Geográficas Decimales_Long';
 
-// capa satelital Esri + control de tiles offline (usado por el mapa del punto y el del proyecto)
+// capas base (satelital + relieve/topo con curvas de nivel) + control de tiles offline.
+// Todas con CORS habilitado (verificado 2026-07-11) para poder guardar tiles offline.
+const BASES=[
+  {nombre:'🛰️ Satelital (Esri)', url:ESRI_URL, attr:'Tiles © Esri', maxz:19},
+  {nombre:'⛰️ Topo Esri (relieve + curvas)', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attr:'Tiles © Esri', maxz:19},
+  {nombre:'🗻 OpenTopoMap (curvas de nivel)', url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', attr:'© OpenTopoMap (CC-BY-SA)', maxz:17},
+];
 function capaSatelital(map){
-  const tl=(L.tileLayer.offline?L.tileLayer.offline:L.tileLayer)(ESRI_URL,{attribution:'Tiles © Esri',maxZoom:19,crossOrigin:true});
-  tl.addTo(map);
+  const capas={};
+  BASES.forEach((b,i)=>{
+    const tl=(L.tileLayer.offline?L.tileLayer.offline:L.tileLayer)(b.url,
+      {attribution:b.attr,maxZoom:19,maxNativeZoom:b.maxz,crossOrigin:true,subdomains:'abc'});
+    tl._maxz=b.maxz; tl._nombreBase=b.nombre;
+    capas[b.nombre]=tl;
+    if(i===0)tl.addTo(map);
+  });
+  L.control.layers(capas,null,{position:'topright'}).addTo(map);
   if(L.control&&L.control.savetiles){
-    const st=L.control.savetiles(tl,{zoomlevels:[13,14,15,16,17],
+    const st=L.control.savetiles(capas[BASES[0].nombre],{zoomlevels:[13,14,15,16,17],
       confirm(l,cb){const zl=st.options.zoomlevels||[];const n=(l&&l._tilesforSave)?l._tilesforSave.length+' ':'';
-        if(confirm('¿Descargar '+n+'tiles satelitales del área visible (zoom '+zl[0]+'–'+zl[zl.length-1]+') para uso offline?'))cb();},
+        if(confirm('¿Descargar '+n+'tiles de '+(st._nombreBase||'la capa actual')+' (zoom '+zl[0]+'–'+zl[zl.length-1]+') para uso offline?'))cb();},
       confirmRemoval(l,cb){if(confirm('¿Borrar tiles guardados?'))cb();},saveText:'⬇️',rmText:'🗑️'});
-    st.addTo(map); return st;
+    st._maxz=19; st._nombreBase=BASES[0].nombre;
+    st.addTo(map);
+    // al cambiar de capa base, el control de descarga apunta a la capa activa
+    map.on('baselayerchange',e=>{st.setLayer(e.layer);st._maxz=e.layer._maxz||19;st._nombreBase=e.layer._nombreBase||'';});
+    return st;
   }
   return null;
 }
@@ -392,14 +409,16 @@ function capaSatelital(map){
 function descargarTilesConZoom(){
   const a=document.querySelector('a.savetiles');
   if(!a||!savetiles){toast('Descarga offline no disponible (recarga con conexión)');return;}
+  const maxz=savetiles._maxz||19;
   const ov=el('div',{class:'fmov',onclick:e=>{if(e.target===ov)ov.remove();}});
   const box=el('div',{class:'card',style:'max-width:420px;width:92vw'});
   box.append(el('h2',{},'⬇️ Descargar tiles offline'));
-  box.append(el('div',{class:'muted',html:'Se descarga el <b>área visible</b> del mapa. Cada nivel extra ≈ <b>4× más</b> tiles (peso y tiempo). Para z18–19 acércate primero al sector de interés.'}));
+  box.append(el('div',{class:'muted',html:'Capa: <b>'+(savetiles._nombreBase||'actual')+'</b>. Se descarga el <b>área visible</b>. Cada nivel extra ≈ <b>4× más</b> tiles. Para z18–19 acércate primero al sector de interés.'
+    +(maxz<19?'<br>⚠️ Esta capa llega hasta <b>z'+maxz+'</b>.':'')}));
   const bar=el('div',{class:'btnbar',style:'margin-top:10px;flex-direction:column;align-items:stretch'});
   [[17,'Zoom 13–17 · estándar (liviano)','btn'],
    [18,'Zoom 13–18 · detalle (~4× más)','btn blue'],
-   [19,'Zoom 13–19 · máximo detalle (~16× más)','btn orange']].forEach(([mz,txt,cls])=>{
+   [19,'Zoom 13–19 · máximo detalle (~16× más)','btn orange']].filter(([mz])=>mz<=maxz).forEach(([mz,txt,cls])=>{
     bar.append(el('button',{class:cls,onclick:()=>{
       const zl=[];for(let z=13;z<=mz;z++)zl.push(z);
       savetiles.options.zoomlevels=zl;
@@ -1457,7 +1476,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v24';
+const CACHE='geoterreno-cdc-v25';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
