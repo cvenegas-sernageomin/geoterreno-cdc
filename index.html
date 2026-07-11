@@ -93,6 +93,11 @@
   .leaflet-control-savetiles a{font-size:15px;line-height:26px}
   #satthumb img{width:120px;height:90px}
   .medbar{flex:0 0 100%;width:100%;background:var(--surface2);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin-bottom:9px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .fpin img{width:44px;height:44px;object-fit:cover;border:2px solid #fff;border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.55);cursor:pointer}
+  .fmbread{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12px;margin-bottom:8px}
+  .fmbread a{color:var(--azul);cursor:pointer}
+  .fmov{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;display:flex;align-items:center;justify-content:center;padding:14px}
+  .fmov img{max-width:96vw;max-height:92vh;object-fit:contain;border-radius:8px}
   .sensorwrap{display:flex;gap:6px;align-items:stretch}
   .sensorwrap input{flex:1;min-width:0}
   .sensorwrap .btn{white-space:nowrap;padding:0 13px;font-size:16px}
@@ -1305,12 +1310,16 @@ function campos(store){return (MODELO.tablas[STORE2TBL[store]]||{}).campos||[];}
 function pkDe(store){return (MODELO.tablas[STORE2TBL[store]]||{}).pk;}
 
 // ============================ IndexedDB ============================
-const DB='captura-terreno', VER=1;
+const DB='captura-terreno', VER=2;
 let db;
 function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,VER);
-  r.onupgradeneeded=()=>{const d=r.result;STORES.forEach(s=>{if(!d.objectStoreNames.contains(s)){const os=d.createObjectStore(s,{keyPath:'id'});
+  r.onupgradeneeded=()=>{const d=r.result;STORES.concat(['fotomapa']).forEach(s=>{if(!d.objectStoreNames.contains(s)){const os=d.createObjectStore(s,{keyPath:'id'});
     if(s!=='proyecto')os.createIndex('parent','_parent',{unique:false});}});};
   r.onsuccess=()=>{db=r.result;res(db);};r.onerror=()=>rej(r.error);});}
+// carga una imagen comprimida devolviendo dataURL + dimensiones naturales (para el foto-mapa)
+function cargarImagen(file,max,q){return new Promise(res=>{const img=new Image();const rd=new FileReader();
+  rd.onload=()=>{img.onload=()=>{let w=img.width,h=img.height;const s=Math.min(1,max/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);
+    const cv=el('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);res({dataUrl:cv.toDataURL('image/jpeg',q),w,h});};img.src=rd.result;};rd.readAsDataURL(file);});}
 function tx(store,mode='readonly'){return db.transaction(store,mode).objectStore(store);}
 function put(store,obj){return new Promise((res,rej)=>{const r=tx(store,'readwrite').put(obj);r.onsuccess=()=>res(obj);r.onerror=()=>rej(r.error);});}
 function del(store,id){return new Promise((res,rej)=>{const r=tx(store,'readwrite').delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error);});}
@@ -1888,6 +1897,26 @@ async function renderPunto(app){
     app.append(card);
   }
 
+  // --- Foto-mapa (image basemap anidado, estilo StraboSpot) ---
+  {
+    const fmCard=el('div',{class:'card'});
+    const raices=await fotomapasRaiz(curPunto.id);
+    fmCard.append(el('h2',{},'🖼️ Foto-mapa — cambio de escala ('+raices.length+')'));
+    fmCard.append(el('div',{class:'muted',html:'Usa una foto como lienzo y coloca sobre ella fotos de detalle; cada detalle es a su vez otro lienzo (multiescala).'}));
+    const box=el('div',{style:'margin-top:8px'});
+    for(const fm of raices){
+      const nh=(await fotomapaHijos(fm.id)).length;
+      box.append(el('div',{class:'list-item',onclick:()=>editorFotomapa(fm)},
+        fm._base?el('img',{src:fm._base,style:'width:54px;height:40px;object-fit:cover;border-radius:6px'}):el('span',{class:'pill'},'sin foto'),
+        el('div',{class:'t'},el('b',{},fm.TITULO||'Foto-mapa'),el('small',{},nh+' detalles')),
+        el('button',{class:'btn del mini',onclick:async(e)=>{e.stopPropagation();if(confirm('¿Eliminar este foto-mapa y sus detalles?')){await borrarFotomapaArbol(fm.id);renderPunto(app);}}},'🗑')));
+    }
+    fmCard.append(box);
+    fmCard.append(el('div',{class:'btnbar'},
+      el('button',{class:'btn mini',onclick:async()=>{await guardarPunto();const reg={id:uid(),_parent:null,_punto:curPunto.id,_pins:null};await put('fotomapa',reg);editorFotomapa(reg);}},'+ Nuevo foto-mapa')));
+    app.append(fmCard);
+  }
+
   $('#fab').append(
     el('button',{class:'btn',onclick:async()=>{await guardarPunto();toast('Punto guardado');nav({n:'proyecto',id:curProyecto.id});}},'✓ Guardar punto'),
     el('button',{class:'btn sec',onclick:async()=>{await guardarPunto();const np=await duplicarPunto(curPunto.id);toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉ Duplicar'),
@@ -1966,8 +1995,91 @@ function bloqueEsquema(reg){
 
 async function borrarPunto(id){
   for(const h of HIJAS){const its=await childrenOf(h.store,id);for(const it of its)await del(h.store,it.id);}
+  for(const fm of await fotomapasRaiz(id)) await borrarFotomapaArbol(fm.id);
   await del('punto',id);
 }
+
+// ============================ Foto-mapa (image basemap anidado, estilo StraboSpot) ============================
+let fmap=null, curFM=null;
+async function fotomapasRaiz(puntoId){return (await all('fotomapa')).filter(f=>f._punto===puntoId && !f._parent);}
+async function fotomapaHijos(nodeId){return (await all('fotomapa')).filter(f=>f._parent===nodeId);}
+async function borrarFotomapaArbol(nodeId){for(const h of await fotomapaHijos(nodeId))await borrarFotomapaArbol(h.id);await del('fotomapa',nodeId);}
+async function rutaFotomapa(node){const p=[];let n=node;while(n){p.unshift(n);n=n._parent?await get('fotomapa',n._parent):null;}return p;}
+
+async function editorFotomapa(node){
+  curFM=node;
+  const app=$('#app');app.innerHTML='';$('#fab').innerHTML='';$('#btnBack').style.display='';
+  $('#ttl').textContent='Foto-mapa'; $('#ctx').textContent=curProyecto.NOMBRE_PROYECTO||'';
+  const card=el('div',{class:'card'});
+  // migas de pan (jerarquía de escala)
+  const ruta=await rutaFotomapa(node);
+  const bread=el('div',{class:'fmbread'});
+  ruta.forEach((n,i)=>{ bread.append(i? el('span',{},' › ') : '');
+    if(n.id===node.id) bread.append(el('b',{},n.TITULO||('Nivel '+(i+1))));
+    else bread.append(el('a',{onclick:()=>editorFotomapa(n)}, n.TITULO||('Nivel '+(i+1)))); });
+  card.append(bread);
+  // título
+  const t=el('input',{type:'text',placeholder:'Título de este nivel',value:node.TITULO||''});
+  t.addEventListener('change',async()=>{node.TITULO=t.value;await put('fotomapa',node);});
+  card.append(el('div',{class:'fld'},el('label',{},'Título'),t));
+
+  if(!node._base){
+    const inp=el('input',{type:'file',accept:'image/*',capture:'environment',style:'display:none'});
+    inp.addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;
+      const im=await cargarImagen(f,1600,.82);node._base=im.dataUrl;node._w=im.w;node._h=im.h;await put('fotomapa',node);editorFotomapa(node);});
+    card.append(el('div',{class:'btnbar'},el('button',{class:'btn blue',onclick:()=>inp.click()},'📷 Cargar foto de este nivel'),inp));
+    card.append(el('div',{class:'muted'},'Foto amplia para el 1er nivel (afloramiento). Luego tocas sobre ella para agregar detalles.'));
+  } else {
+    card.append(el('div',{class:'muted'},'Toca la foto para colocar un detalle · toca un pin para entrar (más escala).'));
+    card.append(el('div',{id:'fmap',class:'mapbox'}));
+    card.append(el('div',{class:'btnbar'},
+      el('button',{class:'btn sec mini',onclick:()=>verFotoCompleta(node._base)},'🔍 Ver foto completa'),
+      el('button',{class:'btn sec mini',onclick:()=>editorFotomapa(node)},'↻ Recentrar')));
+    setTimeout(()=>initFotomapaMap(node),60);
+  }
+  app.append(card);
+  const volver=()=> node._parent ? get('fotomapa',node._parent).then(p=>editorFotomapa(p)) : nav({n:'punto',id:curPunto.id});
+  $('#fab').append(el('button',{class:'btn',onclick:()=>nav({n:'punto',id:curPunto.id})},'✓ Listo'),
+    el('button',{class:'btn sec',onclick:volver},'‹ Volver'));
+}
+
+async function initFotomapaMap(node){
+  if(fmap){try{fmap.remove();}catch(e){}fmap=null;}
+  const w=node._w||1000, h=node._h||750, bounds=[[0,0],[h,w]];
+  fmap=L.map('fmap',{crs:L.CRS.Simple,minZoom:-5,maxZoom:5,zoomControl:true,attributionControl:false});
+  L.imageOverlay(node._base,bounds).addTo(fmap);
+  fmap.fitBounds(bounds);
+  for(const hijo of await fotomapaHijos(node.id)) addFotoPin(node,hijo);
+  fmap.on('click',async e=>{
+    const x=e.latlng.lng, y=e.latlng.lat; if(x<0||y<0||x>w||y>h)return;
+    const inp=el('input',{type:'file',accept:'image/*',capture:'environment'});
+    inp.onchange=async ev=>{const f=ev.target.files[0];if(!f)return;
+      const im=await cargarImagen(f,1500,.82), th=await cargarImagen(f,110,.7);
+      const hijo={id:uid(),_parent:node.id,_punto:node._punto,_base:im.dataUrl,_w:im.w,_h:im.h,_thumb:th.dataUrl,x,y,TITULO:''};
+      await put('fotomapa',hijo); addFotoPin(node,hijo); toast('Detalle agregado');
+    };
+    inp.click();
+  });
+  setTimeout(()=>fmap.invalidateSize(),140);
+}
+function addFotoPin(node,hijo){
+  const icon=L.divIcon({className:'fpin',html:'<img src="'+(hijo._thumb||hijo._base)+'">',iconSize:[44,44],iconAnchor:[22,22]});
+  const m=L.marker([hijo.y,hijo.x],{icon,draggable:true}).addTo(fmap);
+  m.on('dragend',async()=>{const ll=m.getLatLng();hijo.x=ll.lng;hijo.y=ll.lat;await put('fotomapa',hijo);});
+  m.on('click',()=>editorFotomapa(hijo));   // entrar al detalle (cambio de escala)
+}
+function verFotoCompleta(src){const ov=el('div',{class:'fmov',onclick:()=>ov.remove()});ov.append(el('img',{src}));document.body.append(ov);}
+// compone la foto base con pines numerados (para la libreta PDF)
+function compositaFotomapa(node){return new Promise(async res=>{
+  const hijos=await fotomapaHijos(node.id);
+  const img=new Image();
+  img.onload=()=>{const cv=el('canvas');cv.width=img.width;cv.height=img.height;const c=cv.getContext('2d');
+    c.drawImage(img,0,0);const rad=Math.max(13,img.width*0.018);
+    hijos.forEach((h,i)=>{const x=h.x, y=img.height-h.y;   // CRS.Simple: y invertido respecto al canvas
+      c.beginPath();c.arc(x,y,rad,0,7);c.fillStyle='rgba(230,80,40,.9)';c.fill();c.lineWidth=2;c.strokeStyle='#fff';c.stroke();
+      c.fillStyle='#fff';c.font='bold '+Math.round(rad*1.3)+'px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(String(i+1),x,y);});
+    res(cv.toDataURL('image/jpeg',.85));};
+  img.onerror=()=>res(node._base); img.src=node._base;});}
 
 // Duplica un punto con sus datos DESCRIPTIVOS (litología, estructurales, contactos, muestreo),
 // pero deja en blanco las coordenadas y NO copia fotos/esquemas/imagen satelital (son propios del sitio).
@@ -2131,6 +2243,15 @@ async function paginaLibreta(pr,pt){
   let imgs='';
   fotos.forEach((f,i)=>{if(f._img)imgs+='<figure><img src="'+f._img+'"><figcaption>Foto '+(i+1)+' '+esc(f.ORIENTACION_FOTO||'')+' — '+esc(f.COMENTARIO_FOTO||'')+'</figcaption></figure>';});
   esqs.forEach((e,i)=>{if(e._img)imgs+='<figure><img src="'+e._img+'"><figcaption>Esquema '+(i+1)+' — '+esc(e.OBSERVACION||'')+'</figcaption></figure>';});
+  // foto-mapas: base con pines numerados + galería de detalles
+  let fmHtml='';
+  for(const fm of await fotomapasRaiz(pt.id)){
+    const comp=await compositaFotomapa(fm); const hijos=await fotomapaHijos(fm.id);
+    let gal=''; hijos.forEach((c,i)=>{gal+='<figure><img src="'+c._base+'"><figcaption>'+(i+1)+'. '+esc(c.TITULO||'detalle')+'</figcaption></figure>';});
+    fmHtml+='<div class="sec"><h2>Foto-mapa: '+esc(fm.TITULO||'')+'</h2>'
+      +'<img style="max-width:100%;border:1px solid #999" src="'+comp+'">'
+      +(gal?'<div class="imgs">'+gal+'</div>':'')+'</div>';
+  }
   return '<div class="pg"><h1>Libreta de terreno — '+esc(pt.ID_PUNTO_CONTROL||pt.id)+'</h1>'
     +'<div class="meta"><div><span class="lbl">Proyecto:</span> '+esc(pr.NOMBRE_PROYECTO||'')+'</div>'
     +'<div><span class="lbl">Geólogo:</span> '+esc(pt.GEOLOGO||'')+'</div>'
@@ -2143,6 +2264,7 @@ async function paginaLibreta(pr,pt){
     +(cont.length?'<div class="sec"><h2>Contactos</h2>'+tablaRegs('contacto',cont)+'</div>':'')
     +(mues.length?'<div class="sec"><h2>Muestreo</h2>'+tablaRegs('muestreo',mues)+'</div>':'')
     +(imgs?'<div class="sec"><h2>Fotografías y esquemas</h2><div class="imgs">'+imgs+'</div></div>':'')
+    +fmHtml
     +'</div>';
 }
 
