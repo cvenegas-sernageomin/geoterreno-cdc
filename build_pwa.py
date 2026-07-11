@@ -228,6 +228,8 @@ const CONDICIONALES = {
   TIPO_DEPOSITO: {modo:'bloquear', regla: v => v['TIPO_ROCA']==='Depósito'},
   // Granulometría solo para siliciclásticos y piroclásticos (la cascada tiene opciones solo para esos).
   GRANULOMETRIA: {modo:'ocultar', regla: v => opciones('GRANULOMETRIA', v['NOMBRE_ROCA']).length>0},
+  // Tipo de falla solo cuando la estructura medida es una falla.
+  TIPO_FALLA: {modo:'ocultar', regla: v => v['TIPO_ESTRUCTURA']==='Estructura falla'},
 };
 
 // Construye el DOM de un formulario para (store, registro). Devuelve {node, getData}
@@ -961,7 +963,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v12';
+const CACHE='geoterreno-cdc-v13';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',

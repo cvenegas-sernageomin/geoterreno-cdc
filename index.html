@@ -461,6 +461,12 @@ const MODELO = {
           "nota": "De este campo depende los campos:\n AZIMUT/MANTEO\nTIPO_MEDIDA_ESTRUCTURAL"
         },
         {
+          "nombre": "TIPO_FALLA",
+          "obligatorio": false,
+          "dominio": "TIPO_FALLA",
+          "nota": "Solo si TIPO_ESTRUCTURA = Estructura falla"
+        },
+        {
           "nombre": "AZIMUT",
           "obligatorio": true,
           "dominio": null,
@@ -1057,748 +1063,111 @@ const MODELO = {
       "padre": "TIPO_ESTRUCTURA",
       "mapa": {
         "Estructura sedimentaria": [
-          {
-            "codigo": "GB-EST-SED-1",
-            "descripcion": "Plano de estratificación piroclastica volcado"
-          },
-          {
-            "codigo": "GB-EST-SED-2",
-            "descripcion": "Plano de estratificación piroclastica vertical"
-          },
-          {
-            "codigo": "GB-EST-SED-3",
-            "descripcion": "Plano de estratificación piroclastica horizontal"
-          },
-          {
-            "codigo": "GB-EST-SED-4",
-            "descripcion": "Plano de bandamiento inclinado en lava-domo"
-          },
-          {
-            "codigo": "GB-EST-SED-5",
-            "descripcion": "Plano de bandamiento vertical en lava-domo"
-          },
-          {
-            "codigo": "GB-EST-SED-6",
-            "descripcion": "Plano de bandamiento horizontal en lava-domo"
-          },
-          {
-            "codigo": "GB-EST-SED-7",
-            "descripcion": "Plano de foliación magmática de rocas intrusivas inclinado"
-          },
-          {
-            "codigo": "GB-EST-SED-8",
-            "descripcion": "Plano de foliación magmática de rocas intrusivas vertical"
-          },
-          {
-            "codigo": "GB-EST-SED-9",
-            "descripcion": "Plano de foliación magmática de rocas intrusivas horizontal"
-          }
+          "Estratificación (S0)",
+          "Laminación",
+          "Estratificación cruzada",
+          "Superficie erosiva / de discontinuidad",
+          "Lineación de paleocorriente",
+          "Marca de base (flute/groove)"
         ],
         "Estructura volcánica": [
-          {
-            "codigo": "GB-EST-VOLC-1",
-            "descripcion": "Plano de estratificación magmática de rocas intrusivas inclinado"
-          },
-          {
-            "codigo": "GB-EST-VOLC-2",
-            "descripcion": "Plano de estratificación magmática de rocas intrusivas vertical"
-          },
-          {
-            "codigo": "GB-EST-VOLC-3",
-            "descripcion": "Plano de estratificación magmática de rocas intrusivas horizontal"
-          },
-          {
-            "codigo": "GB-EST-VOLC-4",
-            "descripcion": "Plano de aplastamiento de enclave inclinado"
-          },
-          {
-            "codigo": "GB-EST-VOLC-5",
-            "descripcion": "Plano de aplastamiento de enclave vertical"
-          },
-          {
-            "codigo": "GB-EST-VOLC-6",
-            "descripcion": "Plano de aplastamiento de enclave horizontal"
-          },
-          {
-            "codigo": "GB-EST-VOLC-7",
-            "descripcion": "Lineación mineralógica magmática"
-          },
-          {
-            "codigo": "GB-EST-VOLC-8",
-            "descripcion": "Eje mayor de enclave"
-          },
-          {
-            "codigo": "GB-EST-VOLC-9",
-            "descripcion": "Eje de pliegue magmático de escala menor"
-          },
-          {
-            "codigo": "GB-EST-VOLC-10",
-            "descripcion": "Plano de dique o filón manto inclinado"
-          },
-          {
-            "codigo": "GB-EST-VOLC-11",
-            "descripcion": "Plano de dique o filón manto vertical"
-          }
+          "Estratificación de colada de lava",
+          "Bandeamiento de flujo (lava/domo)",
+          "Estratificación piroclástica",
+          "Foliación de flujo",
+          "Lineación de flujo mineral",
+          "Plano de dique / filón manto"
         ],
         "Estructura intrusiva": [
-          {
-            "codigo": "GB-EST-INTR-1",
-            "descripcion": "Plano de dique o filón manto horizontal"
-          },
-          {
-            "codigo": "GB-EST-INTR-2",
-            "descripcion": "Plano de foliación metamórfica o clivaje inclinado"
-          },
-          {
-            "codigo": "GB-EST-INTR-3",
-            "descripcion": "Plano de foliación metamórfica o clivaje vertical"
-          },
-          {
-            "codigo": "GB-EST-INTR-4",
-            "descripcion": "Plano de foliación metamórfica o clivaje horizontal"
-          },
-          {
-            "codigo": "GB-EST-INTR-5",
-            "descripcion": "Plano de foliación metamórfica o clivaje (1a fase) inclinado"
-          },
-          {
-            "codigo": "GB-EST-INTR-6",
-            "descripcion": "Plano de foliación metamórfica o clivaje (1a fase) vertical"
-          },
-          {
-            "codigo": "GB-EST-INTR-7",
-            "descripcion": "Plano de foliación metamórfica o clivaje (1a fase) horizontal"
-          },
-          {
-            "codigo": "GB-EST-INTR-8",
-            "descripcion": "Plano de foliación metamórfica o clivaje (2a fase) inclinado"
-          },
-          {
-            "codigo": "GB-EST-INTR-9",
-            "descripcion": "Plano de foliación metamórfica o clivaje (2a fase) vertical"
-          },
-          {
-            "codigo": "GB-EST-INTR-10",
-            "descripcion": "Plano de foliación metamórfica o clivaje (2a fase) horizontal"
-          },
-          {
-            "codigo": "GB-EST-INTR-11",
-            "descripcion": "Plano de foliación metamórfica o clivaje (3a fase) inclinado"
-          },
-          {
-            "codigo": "GB-EST-INTR-12",
-            "descripcion": "Plano de foliación metamórfica o clivaje (3a fase) vertical"
-          },
-          {
-            "codigo": "GB-EST-INTR-13",
-            "descripcion": "Plano de foliación metamórfica o clivaje (3a fase) horizontal"
-          },
-          {
-            "codigo": "GB-EST-INTR-14",
-            "descripcion": "Lineación mineralógica metamórfica"
-          },
-          {
-            "codigo": "GB-EST-INTR-15",
-            "descripcion": "Lineación de intersección"
-          }
+          "Foliación magmática",
+          "Lineación magmática (mineral)",
+          "Bandeamiento magmático",
+          "Plano de aplastamiento de enclave",
+          "Eje mayor de enclave",
+          "Plano de dique / filón manto"
         ],
         "Estructura metamórfica": [
-          {
-            "codigo": "GB-EST-META-1",
-            "descripcion": "Lineación de crenulación"
-          },
-          {
-            "codigo": "GB-EST-META-2",
-            "descripcion": "Lineación de estiramiento metamórfico"
-          },
-          {
-            "codigo": "GB-EST-META-3",
-            "descripcion": "Lineación mineralógica metamórfica (1a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-4",
-            "descripcion": "Lineación de intersección (1a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-5",
-            "descripcion": "Lineación de crenulación (1a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-6",
-            "descripcion": "Lineación de estiramiento metamórfico (1a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-7",
-            "descripcion": "Lineación mineralógica metamórfica (2a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-8",
-            "descripcion": "Lineación de intersección (2a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-9",
-            "descripcion": "Lineación de crenulación (2a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-10",
-            "descripcion": "Lineación de estiramiento metamórfico (2a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-11",
-            "descripcion": "Lineación mineralógica metamórfica (3a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-12",
-            "descripcion": "Lineación de intersección (3a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-13",
-            "descripcion": "Lineación de crenulación (3a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-14",
-            "descripcion": "Lineación de estiramiento metamórfico (3a fase)"
-          },
-          {
-            "codigo": "GB-EST-META-15",
-            "descripcion": "Plano de foliación milonítica inclinado"
-          },
-          {
-            "codigo": "GB-EST-META-16",
-            "descripcion": "Plano de foliación milonítica vertical"
-          },
-          {
-            "codigo": "GB-EST-META-17",
-            "descripcion": "Plano de foliación milonítica horizontal"
-          },
-          {
-            "codigo": "GB-EST-META-18",
-            "descripcion": "Plano de foliación milonítica inclinado con cizalle dextral"
-          },
-          {
-            "codigo": "GB-EST-META-19",
-            "descripcion": "Plano de foliación milonítica inclinado con cizalle sinistral"
-          },
-          {
-            "codigo": "GB-EST-META-20",
-            "descripcion": "Plano de foliación milonítica vertical con cizalle dextral"
-          },
-          {
-            "codigo": "GB-EST-META-21",
-            "descripcion": "Plano de foliación milonítica vertical con cizalle sinistral"
-          },
-          {
-            "codigo": "GB-EST-META-22",
-            "descripcion": "Plano de foliación milonítica vertical con cizalle vertical o subvertical"
-          },
-          {
-            "codigo": "GB-EST-META-23",
-            "descripcion": "Plano de foliación cataclástica inclinada"
-          },
-          {
-            "codigo": "GB-EST-META-24",
-            "descripcion": "Plano de foliación cataclástica vertical"
-          },
-          {
-            "codigo": "GB-EST-META-25",
-            "descripcion": "Plano de foliación cataclástica horizontal"
-          },
-          {
-            "codigo": "GB-EST-META-26",
-            "descripcion": "Plano de foliación cataclástica inclinado con cizalle dextral"
-          },
-          {
-            "codigo": "GB-EST-META-27",
-            "descripcion": "Plano de foliación cataclástica inclinado con cizalle sinistral"
-          },
-          {
-            "codigo": "GB-EST-META-28",
-            "descripcion": "Plano de foliación cataclástica vertical con cizalle dextral"
-          }
+          "Foliación / esquistosidad (S1)",
+          "Foliación (S2)",
+          "Foliación (S3)",
+          "Clivaje de crenulación",
+          "Lineación mineral",
+          "Lineación de intersección",
+          "Lineación de estiramiento",
+          "Lineación de crenulación"
         ],
         "Estructura roca tectonica": [
-          {
-            "codigo": "GB-EST-RXTEC-1",
-            "descripcion": "Plano de foliación cataclástica vertical con cizalle sinistral"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-2",
-            "descripcion": "Plano de foliación cataclástica vertical con cizalle vertical o subvertical"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-3",
-            "descripcion": "Lineación mineralógica milonítica, con sentido de cizalle determinado"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-4",
-            "descripcion": "Lineación mineralógica milonítica, sin determinación del sentido de cizalle"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-5",
-            "descripcion": "Lineación de estiramiento milonítico, con sentido de cizalle determinado"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-6",
-            "descripcion": "Lineación de estiramiento milonítico, sin determinación del sentido de cizalle"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-7",
-            "descripcion": "Dirección de cizalle en clivaje de crenulación extensional milonítico"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-8",
-            "descripcion": "Lineación cataclástica, con sentido de cizalle determinado"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-9",
-            "descripcion": "Lineación cataclástica, sin determinación del sentido de cizalle"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-10",
-            "descripcion": "Plano de foliación magnética inclinado"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-11",
-            "descripcion": "Plano de foliación magnética vertical"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-12",
-            "descripcion": "Plano de foliación magnética horizontal"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-13",
-            "descripcion": "Lineación magnética"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-14",
-            "descripcion": "Plano de contacto geológico inclinado"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-15",
-            "descripcion": "Plano de contacto geológico volcado"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-16",
-            "descripcion": "Plano de contacto geológico vertical"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-17",
-            "descripcion": "Plano de contacto geológico horizontal"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-18",
-            "descripcion": "Plano de falla inclinado"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-19",
-            "descripcion": "Plano de falla volcado"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-20",
-            "descripcion": "Plano de falla vertical"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-21",
-            "descripcion": "Plano de falla horizontal"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-22",
-            "descripcion": "Estrías de falla, sin determinación de sentido de cizalle"
-          },
-          {
-            "codigo": "GB-EST-RXTEC-23",
-            "descripcion": "Estrías de falla, con determinación de sentido de cizalle"
-          }
+          "Foliación milonítica",
+          "Foliación cataclástica",
+          "Lineación de estiramiento milonítica",
+          "Lineación mineral milonítica",
+          "Superficie de cizalla C",
+          "Superficie C'",
+          "Estría de cizalla"
         ],
         "Estructura fabrica magnetica": [
-          {
-            "codigo": "GB-EST-MAGN-1",
-            "descripcion": "Plano axial inclinado de pliegue"
-          },
-          {
-            "codigo": "GB-EST-MAGN-2",
-            "descripcion": "Plano axial vertical de pliegue"
-          },
-          {
-            "codigo": "GB-EST-MAGN-3",
-            "descripcion": "Plano axial horizontal de pliegue"
-          },
-          {
-            "codigo": "GB-EST-MAGN-4",
-            "descripcion": "Eje de pliegue de escala mayor"
-          }
+          "Foliación magnética (AMS)",
+          "Lineación magnética (AMS)"
         ],
         "Estructura contacto": [
-          {
-            "codigo": "GB-EST-CONT-1",
-            "descripcion": "Eje de anticlinal o antiforme menor"
-          },
-          {
-            "codigo": "GB-EST-CONT-2",
-            "descripcion": "Eje de sinclinal o sinforme menor"
-          },
-          {
-            "codigo": "GB-EST-CONT-3",
-            "descripcion": "Eje de pliegue asimetrico menor tipo S"
-          },
-          {
-            "codigo": "GB-EST-CONT-4",
-            "descripcion": "Eje de pliegue asimetrico menor tipo Z"
-          }
+          "Contacto geológico (plano)",
+          "Contacto intrusivo",
+          "Contacto depositacional / discordancia",
+          "Contacto por falla"
         ],
         "Estructura falla": [
-          {
-            "codigo": "GB-EST-FALLA-1",
-            "descripcion": "Eje de pliegue menor tipo M"
-          },
-          {
-            "codigo": "GB-EST-FALLA-2",
-            "descripcion": "Eje de pliegue menor tipo W"
-          },
-          {
-            "codigo": "GB-EST-FALLA-3",
-            "descripcion": "Plano axial inclinado de pliegue menor"
-          },
-          {
-            "codigo": "GB-EST-FALLA-4",
-            "descripcion": "Plano axial vertical de pliegue menor"
-          },
-          {
-            "codigo": "GB-EST-FALLA-5",
-            "descripcion": "Plano axial horizontal de pliegue menor"
-          },
-          {
-            "codigo": "GB-EST-FALLA-6",
-            "descripcion": "Eje de anticlinal o antiforme menor (1a fase)"
-          }
+          "Plano de falla",
+          "Estría de falla (slickenline)",
+          "Escalón / step de falla",
+          "Superficie de cizalla asociada"
         ],
         "Estructura pliegue mayor": [
-          {
-            "codigo": "GB-EST-PLIE-MAY-1",
-            "descripcion": "Eje de sinclinal o sinforme menor (1a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MAY-2",
-            "descripcion": "Eje de pliegue asimétrico menor tipo S (1a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MAY-3",
-            "descripcion": "Eje de pliegue asimétrico menor tipo Z (1a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MAY-4",
-            "descripcion": "Eje de pliegue menor tipo M  (1a fase)"
-          }
+          "Plano axial",
+          "Eje de pliegue (línea)",
+          "Superficie de charnela",
+          "Superficie envolvente"
         ],
         "Estructura pliegue menor": [
-          {
-            "codigo": "GB-EST-PLIE-MEN-1",
-            "descripcion": "Eje de pliegue menor tipo W  (1a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-2",
-            "descripcion": "Eje de anticlinal o antiforme menor (2a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-3",
-            "descripcion": "Eje de sinclinal o sinforme menor (2a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-4",
-            "descripcion": "Eje de pliegue asimétrico menor tipo S (2a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-5",
-            "descripcion": "Eje de pliegue asimétrico menor tipo Z (2a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-6",
-            "descripcion": "Eje de pliegue menor tipo M  (2a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-7",
-            "descripcion": "Eje de pliegue menor tipo W  (2a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-8",
-            "descripcion": "Eje de anticlinal o antiforme menor (3a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-9",
-            "descripcion": "Eje de sinclinal o sinforme menor (3a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-10",
-            "descripcion": "Eje de pliegue asimétrico menor tipo S (3a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-11",
-            "descripcion": "Eje de pliegue asimétrico menor tipo Z (3a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-12",
-            "descripcion": "Eje de pliegue menor tipo M  (3a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-13",
-            "descripcion": "Eje de pliegue menor tipo W  (3a fase)"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-14",
-            "descripcion": "Plano de veta inclinado"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-15",
-            "descripcion": "Plano de veta vertical"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-16",
-            "descripcion": "Plano de veta horizontal"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-17",
-            "descripcion": "Plano de fractura y/o diaclasa inclinado"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-18",
-            "descripcion": "Plano de fractura y/o diaclasa vertical"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-19",
-            "descripcion": "Plano de fractura y/o diaclasa horizontal"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-20",
-            "descripcion": "Plano de estratificación indiferenciada inclinado"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-21",
-            "descripcion": "Plano de estratificación indiferenciada volcado"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-22",
-            "descripcion": "Plano de estratificación indiferenciada vertical"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-23",
-            "descripcion": "Plano de estratificación indiferenciada horizontal"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-24",
-            "descripcion": "Plano de estratificación indiferenciada inclinado fotointerpretado"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-25",
-            "descripcion": "Plano de estratificación indiferenciada volcado fotointerpretado"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-26",
-            "descripcion": "Plano de estratificación indiferenciada vertical fotointerpretado"
-          },
-          {
-            "codigo": "GB-EST-PLIE-MEN-27",
-            "descripcion": "Plano de estratificación indiferenciada horizontal fotointerpretado"
-          }
+          "Plano axial (pliegue menor)",
+          "Eje de pliegue menor (línea)",
+          "Lineación de charnela",
+          "Clivaje de plano axial"
         ],
         "Estructura veta": [
-          {
-            "codigo": "GB-EST-VETA-1",
-            "descripcion": null
-          },
-          {
-            "codigo": "GB-EST-VETA-2",
-            "descripcion": null
-          },
-          {
-            "codigo": "GB-EST-VETA-3",
-            "descripcion": null
-          }
+          "Plano de veta",
+          "Lineación mineral en veta",
+          "Set de vetas"
         ],
         "Estructura fractura": [
-          {
-            "codigo": "GB-EST-FRAC-1",
-            "descripcion": null
-          },
-          {
-            "codigo": "GB-EST-FRAC-2",
-            "descripcion": null
-          },
-          {
-            "codigo": "GB-EST-FRAC-3",
-            "descripcion": null
-          }
+          "Diaclasa (plano)",
+          "Set de diaclasas",
+          "Fractura de extensión",
+          "Fractura de cizalla"
         ],
         "Estructura indiferenciada": [
-          {
-            "codigo": "GB-EST-INDIF-1",
-            "descripcion": null
-          },
-          {
-            "codigo": "GB-EST-INDIF-2",
-            "descripcion": null
-          },
-          {
-            "codigo": "GB-EST-INDIF-3",
-            "descripcion": null
-          },
-          {
-            "codigo": "GB-EST-INDIF-4",
-            "descripcion": null
-          },
-          {
-            "codigo": "GB-EST-INDIF-5",
-            "descripcion": null
-          },
-          {
-            "codigo": "GB-EST-INDIF-6",
-            "descripcion": null
-          },
-          {
-            "codigo": "GB-EST-INDIF-7",
-            "descripcion": null
-          },
-          {
-            "codigo": "GB-EST-INDIF-8",
-            "descripcion": null
-          }
+          "Plano indiferenciado",
+          "Lineación indiferenciada"
         ]
       },
-      "fuente": "Lista de Dominios.xlsx",
-      "estado": "PROVISIONAL_DESALINEADO",
-      "advertencia": "En el origen, la columna de codigos GB-EST-* y la de descripciones no estan alineadas. Par {codigo,descripcion} preservado tal cual; requiere validacion del catalogo SGC autoritativo.",
-      "diagnostico_descripciones_planas": [
-        "Plano de estratificación piroclastica volcado",
-        "Plano de estratificación piroclastica vertical",
-        "Plano de estratificación piroclastica horizontal",
-        "Plano de bandamiento inclinado en lava-domo",
-        "Plano de bandamiento vertical en lava-domo",
-        "Plano de bandamiento horizontal en lava-domo",
-        "Plano de foliación magmática de rocas intrusivas inclinado",
-        "Plano de foliación magmática de rocas intrusivas vertical",
-        "Plano de foliación magmática de rocas intrusivas horizontal",
-        "Plano de estratificación magmática de rocas intrusivas inclinado",
-        "Plano de estratificación magmática de rocas intrusivas vertical",
-        "Plano de estratificación magmática de rocas intrusivas horizontal",
-        "Plano de aplastamiento de enclave inclinado",
-        "Plano de aplastamiento de enclave vertical",
-        "Plano de aplastamiento de enclave horizontal",
-        "Lineación mineralógica magmática",
-        "Eje mayor de enclave",
-        "Eje de pliegue magmático de escala menor",
-        "Plano de dique o filón manto inclinado",
-        "Plano de dique o filón manto vertical",
-        "Plano de dique o filón manto horizontal",
-        "Plano de foliación metamórfica o clivaje inclinado",
-        "Plano de foliación metamórfica o clivaje vertical",
-        "Plano de foliación metamórfica o clivaje horizontal",
-        "Plano de foliación metamórfica o clivaje (1a fase) inclinado",
-        "Plano de foliación metamórfica o clivaje (1a fase) vertical",
-        "Plano de foliación metamórfica o clivaje (1a fase) horizontal",
-        "Plano de foliación metamórfica o clivaje (2a fase) inclinado",
-        "Plano de foliación metamórfica o clivaje (2a fase) vertical",
-        "Plano de foliación metamórfica o clivaje (2a fase) horizontal",
-        "Plano de foliación metamórfica o clivaje (3a fase) inclinado",
-        "Plano de foliación metamórfica o clivaje (3a fase) vertical",
-        "Plano de foliación metamórfica o clivaje (3a fase) horizontal",
-        "Lineación mineralógica metamórfica",
-        "Lineación de intersección",
-        "Lineación de crenulación",
-        "Lineación de estiramiento metamórfico",
-        "Lineación mineralógica metamórfica (1a fase)",
-        "Lineación de intersección (1a fase)",
-        "Lineación de crenulación (1a fase)",
-        "Lineación de estiramiento metamórfico (1a fase)",
-        "Lineación mineralógica metamórfica (2a fase)",
-        "Lineación de intersección (2a fase)",
-        "Lineación de crenulación (2a fase)",
-        "Lineación de estiramiento metamórfico (2a fase)",
-        "Lineación mineralógica metamórfica (3a fase)",
-        "Lineación de intersección (3a fase)",
-        "Lineación de crenulación (3a fase)",
-        "Lineación de estiramiento metamórfico (3a fase)",
-        "Plano de foliación milonítica inclinado",
-        "Plano de foliación milonítica vertical",
-        "Plano de foliación milonítica horizontal",
-        "Plano de foliación milonítica inclinado con cizalle dextral",
-        "Plano de foliación milonítica inclinado con cizalle sinistral",
-        "Plano de foliación milonítica vertical con cizalle dextral",
-        "Plano de foliación milonítica vertical con cizalle sinistral",
-        "Plano de foliación milonítica vertical con cizalle vertical o subvertical",
-        "Plano de foliación cataclástica inclinada",
-        "Plano de foliación cataclástica vertical",
-        "Plano de foliación cataclástica horizontal",
-        "Plano de foliación cataclástica inclinado con cizalle dextral",
-        "Plano de foliación cataclástica inclinado con cizalle sinistral",
-        "Plano de foliación cataclástica vertical con cizalle dextral",
-        "Plano de foliación cataclástica vertical con cizalle sinistral",
-        "Plano de foliación cataclástica vertical con cizalle vertical o subvertical",
-        "Lineación mineralógica milonítica, con sentido de cizalle determinado",
-        "Lineación mineralógica milonítica, sin determinación del sentido de cizalle",
-        "Lineación de estiramiento milonítico, con sentido de cizalle determinado",
-        "Lineación de estiramiento milonítico, sin determinación del sentido de cizalle",
-        "Dirección de cizalle en clivaje de crenulación extensional milonítico",
-        "Lineación cataclástica, con sentido de cizalle determinado",
-        "Lineación cataclástica, sin determinación del sentido de cizalle",
-        "Plano de foliación magnética inclinado",
-        "Plano de foliación magnética vertical",
-        "Plano de foliación magnética horizontal",
-        "Lineación magnética",
-        "Plano de contacto geológico inclinado",
-        "Plano de contacto geológico volcado",
-        "Plano de contacto geológico vertical",
-        "Plano de contacto geológico horizontal",
-        "Plano de falla inclinado",
-        "Plano de falla volcado",
-        "Plano de falla vertical",
-        "Plano de falla horizontal",
-        "Estrías de falla, sin determinación de sentido de cizalle",
-        "Estrías de falla, con determinación de sentido de cizalle",
-        "Plano axial inclinado de pliegue",
-        "Plano axial vertical de pliegue",
-        "Plano axial horizontal de pliegue",
-        "Eje de pliegue de escala mayor",
-        "Eje de anticlinal o antiforme menor",
-        "Eje de sinclinal o sinforme menor",
-        "Eje de pliegue asimetrico menor tipo S",
-        "Eje de pliegue asimetrico menor tipo Z",
-        "Eje de pliegue menor tipo M",
-        "Eje de pliegue menor tipo W",
-        "Plano axial inclinado de pliegue menor",
-        "Plano axial vertical de pliegue menor",
-        "Plano axial horizontal de pliegue menor",
-        "Eje de anticlinal o antiforme menor (1a fase)",
-        "Eje de sinclinal o sinforme menor (1a fase)",
-        "Eje de pliegue asimétrico menor tipo S (1a fase)",
-        "Eje de pliegue asimétrico menor tipo Z (1a fase)",
-        "Eje de pliegue menor tipo M  (1a fase)",
-        "Eje de pliegue menor tipo W  (1a fase)",
-        "Eje de anticlinal o antiforme menor (2a fase)",
-        "Eje de sinclinal o sinforme menor (2a fase)",
-        "Eje de pliegue asimétrico menor tipo S (2a fase)",
-        "Eje de pliegue asimétrico menor tipo Z (2a fase)",
-        "Eje de pliegue menor tipo M  (2a fase)",
-        "Eje de pliegue menor tipo W  (2a fase)",
-        "Eje de anticlinal o antiforme menor (3a fase)",
-        "Eje de sinclinal o sinforme menor (3a fase)",
-        "Eje de pliegue asimétrico menor tipo S (3a fase)",
-        "Eje de pliegue asimétrico menor tipo Z (3a fase)",
-        "Eje de pliegue menor tipo M  (3a fase)",
-        "Eje de pliegue menor tipo W  (3a fase)",
-        "Plano de veta inclinado",
-        "Plano de veta vertical",
-        "Plano de veta horizontal",
-        "Plano de fractura y/o diaclasa inclinado",
-        "Plano de fractura y/o diaclasa vertical",
-        "Plano de fractura y/o diaclasa horizontal",
-        "Plano de estratificación indiferenciada inclinado",
-        "Plano de estratificación indiferenciada volcado",
-        "Plano de estratificación indiferenciada vertical",
-        "Plano de estratificación indiferenciada horizontal",
-        "Plano de estratificación indiferenciada inclinado fotointerpretado",
-        "Plano de estratificación indiferenciada volcado fotointerpretado",
-        "Plano de estratificación indiferenciada vertical fotointerpretado",
-        "Plano de estratificación indiferenciada horizontal fotointerpretado"
+      "fuente": "reconstruido por categoría (estructuras planares/lineales estándar; PROPUESTO)",
+      "confirmar": true
+    },
+    "TIPO_FALLA": {
+      "tipo": "simple",
+      "valores": [
+        "Normal",
+        "Inversa",
+        "Cabalgamiento",
+        "De rumbo dextral",
+        "De rumbo sinistral",
+        "Normal-dextral (oblicua)",
+        "Normal-sinistral (oblicua)",
+        "Inversa-dextral (oblicua)",
+        "Inversa-sinistral (oblicua)",
+        "Lístrica",
+        "Indiferenciada"
       ],
+      "fuente": "construida (no venía en las tablas; PROPUESTO)",
       "confirmar": true
     },
     "TIPO_ALTERACION": {
@@ -1881,7 +1250,8 @@ const MODELO = {
     "TEXTURA: convertida a cascada por TIPO_ROCA (sublistas PROPUESTAS, CONFIRMAR).",
     "ESTRUCTURA_TIPO_ROCA: la sublista Metamórfica trae <=1 valor en el origen (incompleta).",
     "ESTRUCTURA_TIPO_ROCA: sin estructuras para Intrusiva/Depósito en el origen.",
-    "TIPO_MEDIDA_ESTRUCTURAL: cascada PROVISIONAL (codigos/descripciones desalineados en el origen).",
+    "TIPO_MEDIDA_ESTRUCTURAL: RECONSTRUIDA por categoría (sublistas planares/lineales, PROPUESTO, CONFIRMAR).",
+    "TIPO_FALLA: lista nueva construida (CONFIRMAR).",
     "TIPO_ALTERACION: poblada desde diagrama v3 / estandar (CONFIRMAR).",
     "TIPO_CONTACTO: poblada desde diagrama v3 / estandar (CONFIRMAR).",
     "PROPOSITO_ANALISIS: poblada desde diagrama v3 / estandar (CONFIRMAR).",
@@ -1986,6 +1356,8 @@ const CONDICIONALES = {
   TIPO_DEPOSITO: {modo:'bloquear', regla: v => v['TIPO_ROCA']==='Depósito'},
   // Granulometría solo para siliciclásticos y piroclásticos (la cascada tiene opciones solo para esos).
   GRANULOMETRIA: {modo:'ocultar', regla: v => opciones('GRANULOMETRIA', v['NOMBRE_ROCA']).length>0},
+  // Tipo de falla solo cuando la estructura medida es una falla.
+  TIPO_FALLA: {modo:'ocultar', regla: v => v['TIPO_ESTRUCTURA']==='Estructura falla'},
 };
 
 // Construye el DOM de un formulario para (store, registro). Devuelve {node, getData}
