@@ -163,7 +163,7 @@ const MODELO = __MODELO_JSON__;
 </script>
 <script>
 "use strict";
-const APP_VER = 'v23';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v24';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -381,11 +381,33 @@ function capaSatelital(map){
   tl.addTo(map);
   if(L.control&&L.control.savetiles){
     const st=L.control.savetiles(tl,{zoomlevels:[13,14,15,16,17],
-      confirm(l,cb){if(confirm('¿Descargar tiles satelitales de esta área (zoom 13-17) para uso offline?'))cb();},
+      confirm(l,cb){const zl=st.options.zoomlevels||[];const n=(l&&l._tilesforSave)?l._tilesforSave.length+' ':'';
+        if(confirm('¿Descargar '+n+'tiles satelitales del área visible (zoom '+zl[0]+'–'+zl[zl.length-1]+') para uso offline?'))cb();},
       confirmRemoval(l,cb){if(confirm('¿Borrar tiles guardados?'))cb();},saveText:'⬇️',rmText:'🗑️'});
     st.addTo(map); return st;
   }
   return null;
+}
+// selector de zoom máximo antes de descargar (estilo StraboSpot; el plugin lee options.zoomlevels al guardar)
+function descargarTilesConZoom(){
+  const a=document.querySelector('a.savetiles');
+  if(!a||!savetiles){toast('Descarga offline no disponible (recarga con conexión)');return;}
+  const ov=el('div',{class:'fmov',onclick:e=>{if(e.target===ov)ov.remove();}});
+  const box=el('div',{class:'card',style:'max-width:420px;width:92vw'});
+  box.append(el('h2',{},'⬇️ Descargar tiles offline'));
+  box.append(el('div',{class:'muted',html:'Se descarga el <b>área visible</b> del mapa. Cada nivel extra ≈ <b>4× más</b> tiles (peso y tiempo). Para z18–19 acércate primero al sector de interés.'}));
+  const bar=el('div',{class:'btnbar',style:'margin-top:10px;flex-direction:column;align-items:stretch'});
+  [[17,'Zoom 13–17 · estándar (liviano)','btn'],
+   [18,'Zoom 13–18 · detalle (~4× más)','btn blue'],
+   [19,'Zoom 13–19 · máximo detalle (~16× más)','btn orange']].forEach(([mz,txt,cls])=>{
+    bar.append(el('button',{class:cls,onclick:()=>{
+      const zl=[];for(let z=13;z<=mz;z++)zl.push(z);
+      savetiles.options.zoomlevels=zl;
+      ov.remove(); a.click();
+    }},txt));
+  });
+  bar.append(el('button',{class:'btn sec',onclick:()=>ov.remove()},'Cancelar'));
+  box.append(bar);ov.append(box);document.body.append(ov);
 }
 
 function initMapPunto(reg, f){
@@ -411,7 +433,7 @@ function ubicarGPSmapa(){if(!navigator.geolocation||!marcador)return;toast('Obte
   navigator.geolocation.getCurrentPosition(p=>{marcador.setLatLng([p.coords.latitude,p.coords.longitude]);
     mapa.setView([p.coords.latitude,p.coords.longitude],16);marcador.fire('dragend');
     toast('GPS ✓ ±'+Math.round(p.coords.accuracy)+' m');},e=>toast('GPS: '+e.message),{enableHighAccuracy:true,timeout:15000});}
-function descargarTiles(){const b=document.querySelector('a.savetiles');if(b)b.click();else toast('Descarga offline no disponible (recarga con conexión)');}
+function descargarTiles(){descargarTilesConZoom();}
 
 async function capturarSatelital(){
   if(!mapa)return;const b=mapa.getBounds();
@@ -1011,7 +1033,7 @@ async function renderMapa(app){
     el('button',{class:'btn blue mini',onclick:iniciarDibujoLinea},'✏️ Línea'),
     el('button',{class:'btn sec mini',onclick:legendaSimbologia},'ⓘ'),
     el('span',{class:'muted',style:'flex:1;align-self:center;font-size:11px'},conC.length+'/'+puntos.length+' pts'),
-    el('button',{class:'btn sec mini',onclick:()=>{const b=document.querySelector('a.savetiles');if(b)b.click();else toast('Descarga offline no disponible');}},'⬇️ Tiles'),
+    el('button',{class:'btn sec mini',onclick:descargarTilesConZoom},'⬇️ Tiles'),
     el('button',{class:'btn sec mini',onclick:()=>nav({n:'home'})},'⌂'));
   setTimeout(()=>initMapaVista(conC),80);
 }
@@ -1031,7 +1053,7 @@ function legendaSimbologia(){
 async function initMapaVista(puntos){
   if(mapaVista){try{mapaVista.remove();}catch(e){}mapaVista=null;}
   mapaVista=L.map('projmap',{zoomControl:true});
-  capaSatelital(mapaVista);
+  savetiles=capaSatelital(mapaVista);
   const pts=[];
   for(const p of puntos){
     const lat=parseFloat(p['Coordenadas Geográficas Decimales_Lat']), lon=parseFloat(p['Coordenadas Geográficas Decimales_Long']);
@@ -1435,7 +1457,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v23';
+const CACHE='geoterreno-cdc-v24';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
