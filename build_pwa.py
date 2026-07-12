@@ -163,7 +163,7 @@ const MODELO = __MODELO_JSON__;
 </script>
 <script>
 "use strict";
-const APP_VER = 'v26';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v27';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -440,6 +440,7 @@ function initMapPunto(reg, f){
   const sync=()=>{const ll=marcador.getLatLng();if(iLat())iLat().value=ll.lat.toFixed(6);if(iLon())iLon().value=ll.lng.toFixed(6);
     const cl=document.getElementById('coordlbl');if(cl)cl.textContent='📍 '+ll.lat.toFixed(6)+', '+ll.lng.toFixed(6);};
   marcador.on('dragend',sync);
+  mapa.on('click',e=>{marcador.setLatLng(e.latlng);sync();});   // tocar el mapa reubica el pin
   if(!isNaN(la))sync();
   f.node.addEventListener('change',e=>{if(e.target.name===inLat||e.target.name===inLon){
     const a=parseFloat(iLat().value),o=parseFloat(iLon().value);if(!isNaN(a)&&!isNaN(o)){marcador.setLatLng([a,o]);mapa.panTo([a,o]);}}});
@@ -653,7 +654,7 @@ $('#btnBack').addEventListener('click',()=>{
 let curProyecto=null, curPunto=null;
 
 async function render(){
-  dibujando=false;   // corta el modo dibujo de líneas al navegar
+  dibujando=false; agregandoPunto=false;   // corta modos de dibujo/agregar al navegar
   const app=$('#app'); app.innerHTML=''; $('#fab').innerHTML=''; $('#fab').className='fab';
   if(vista.n==='home') return renderHome(app);
   if(vista.n==='proyecto') return renderProyecto(app);
@@ -788,6 +789,7 @@ async function renderPunto(app){
   curPunto = nuevo ? Object.assign({id:uid(),_parent:curProyecto.id}, stickyGet(), ahora())
                    : await get('punto',vista.id);
   if(nuevo){const c=namingCfg(curProyecto).pc; if(c.on){curPunto.ID_PUNTO_CONTROL=fmtName(c);curPunto._idPreview=curPunto.ID_PUNTO_CONTROL;}}
+  if(nuevo&&coordsPendientes){curPunto[inLat]=coordsPendientes[0].toFixed(6);curPunto[inLon]=coordsPendientes[1].toFixed(6);coordsPendientes=null;}
   if(!curPunto)return nav({n:'proyecto',id:curProyecto.id});
   $('#btnBack').style.display='';
   $('#ttl').textContent = curPunto.ID_PUNTO_CONTROL || (nuevo?'Nuevo punto':'Punto');
@@ -1049,6 +1051,7 @@ async function renderMapa(app){
   const conC=puntos.filter(p=>!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Lat']))&&!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Long'])));
   $('#fab').className='fab compact';
   $('#fab').append(
+    el('button',{class:'btn mini',onclick:iniciarAgregarPunto},'📍+ Punto'),
     el('button',{class:'btn blue mini',onclick:iniciarDibujoLinea},'✏️ Línea'),
     el('button',{class:'btn sec mini',onclick:legendaSimbologia},'ⓘ'),
     el('span',{class:'muted',style:'flex:1;align-self:center;font-size:11px'},conC.length+'/'+puntos.length+' pts'),
@@ -1094,7 +1097,14 @@ async function initMapaVista(puntos){
   }
   _puntosMapa=puntos;
   // click en el mapa: si está el modo dibujo activo, agrega vértice
-  mapaVista.on('click',ev=>{ if(!dibujando)return;
+  mapaVista.on('click',ev=>{
+    if(agregandoPunto){ agregandoPunto=false;
+      const b=document.getElementById('drawbanner'); if(b)b.remove();
+      mapaVista.getContainer().style.cursor='';
+      coordsPendientes=[ev.latlng.lat, ev.latlng.lng];
+      curPunto=null; vista={n:'punto',id:'__new__'}; render();
+      return; }
+    if(!dibujando)return;
     _verts.push([ev.latlng.lat,ev.latlng.lng]);
     if(_tmpLine)_tmpLine.setLatLngs(_verts); else _tmpLine=L.polyline(_verts,{color:'#12a4ff',weight:3,dashArray:'5,5'}).addTo(mapaVista);
     _tmpMk.push(L.circleMarker(ev.latlng,{radius:4,color:'#12a4ff',fillColor:'#12a4ff',fillOpacity:1,weight:1}).addTo(mapaVista));
@@ -1144,6 +1154,7 @@ const LINEA_COLOR={'Contacto estratigráfico':'#1a1a1a','Contacto intrusivo':'#8
 const LINEA_DASH={'Observado':null,'Inferido':'10,7','Cubierto':'2,7'};
 function estiloLinea(l){return {color:LINEA_COLOR[l.TIPO]||'#444', weight:3.5, opacity:.95, dashArray:LINEA_DASH[l.CERTEZA]||null};}
 let dibujando=false,_verts=[],_tmpLine=null,_tmpMk=[],_puntosMapa=[];
+let agregandoPunto=false, coordsPendientes=null;
 function limpiarTemp(){ if(mapaVista){ if(_tmpLine)mapaVista.removeLayer(_tmpLine); _tmpMk.forEach(m=>mapaVista.removeLayer(m)); } _tmpLine=null;_tmpMk=[];_verts=[]; }
 function bannerDibujo(){
   const cont=document.querySelector('.mapcard'); if(!cont)return;
@@ -1154,6 +1165,17 @@ function bannerDibujo(){
     el('button',{class:'btn sec mini',onclick:e=>{const v=_verts;if(v.length){v.pop();if(_tmpMk.length){mapaVista.removeLayer(_tmpMk.pop());}if(_tmpLine)_tmpLine.setLatLngs(v);}bannerDibujo();}},'↶'),
     el('button',{class:'btn del mini',onclick:cancelarDibujo},'✕'));
   cont.append(b);
+}
+function iniciarAgregarPunto(){
+  if(!mapaVista)return; cancelarDibujo(); agregandoPunto=true;
+  mapaVista.getContainer().style.cursor='crosshair';
+  const cont=document.querySelector('.mapcard'); if(cont){
+    let b=document.getElementById('drawbanner'); if(b)b.remove();
+    b=el('div',{id:'drawbanner',class:'drawbanner'},
+      el('span',{},'📍 Toca el mapa donde va el nuevo punto de control'),
+      el('button',{class:'btn del mini',onclick:()=>{agregandoPunto=false;b.remove();mapaVista.getContainer().style.cursor='';}},'✕'));
+    cont.append(b); }
+  toast('Toca el mapa para ubicar el punto');
 }
 function iniciarDibujoLinea(){ if(!mapaVista)return; dibujando=true; limpiarTemp(); mapaVista.getContainer().style.cursor='crosshair'; bannerDibujo(); toast('Modo dibujo: toca el mapa'); }
 function cancelarDibujo(){ dibujando=false; limpiarTemp(); const b=document.getElementById('drawbanner');if(b)b.remove(); if(mapaVista)mapaVista.getContainer().style.cursor=''; }
@@ -1480,7 +1502,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v26';
+const CACHE='geoterreno-cdc-v27';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
