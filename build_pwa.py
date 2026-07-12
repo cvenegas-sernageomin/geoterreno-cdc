@@ -163,7 +163,7 @@ const MODELO = __MODELO_JSON__;
 </script>
 <script>
 "use strict";
-const APP_VER = 'v25';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v26';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -1434,7 +1434,11 @@ window.addEventListener('error',e=>{if(!db)pantallaError('Error al iniciar',(e.m
 
 # ---------------------------------------------------------------------------
 def escribir_iconos():
+    # Los iconos definitivos (martillo geologico, 2026-07-11) se renderizaron desde SVG
+    # con Playwright y NO deben sobrescribirse: solo genera placeholders si faltan.
     d = os.path.join(HERE, "icons"); os.makedirs(d, exist_ok=True)
+    if all(os.path.exists(os.path.join(d, "icon-%d.png" % s)) for s in (192, 512)):
+        return
     def png(size):
         # PNG solido verde con un rombo claro (icono minimo, sin libs)
         def chunk(typ, data):
@@ -1476,7 +1480,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v25';
+const CACHE='geoterreno-cdc-v26';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',

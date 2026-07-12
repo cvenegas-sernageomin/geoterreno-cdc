@@ -1,0 +1,60 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2f7a58"/>
+      <stop offset="1" stop-color="#143526"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f2f5f7"/>
+      <stop offset="1" stop-color="#b9c2c9"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d99a55"/>
+      <stop offset="1" stop-color="#a96b32"/>
+    </linearGradient>
+  </defs>
+
+  <!-- fondo -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- curvas de nivel sutiles -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="7">
+    <path d="M-20,150 C90,110 170,190 300,150 C400,120 470,160 540,130"/>
+    <path d="M-20,230 C100,190 200,270 330,230 C430,200 480,240 540,210"/>
+    <path d="M-20,320 C80,280 190,360 320,320 C420,290 480,330 540,300"/>
+    <path d="M-20,410 C100,370 180,440 320,405 C420,375 480,415 540,385"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="4">
+    <path d="M-20,110 C90,75 180,145 310,110 C410,82 470,118 540,92"/>
+    <path d="M-20,190 C95,152 195,228 325,190 C425,160 480,198 540,170"/>
+    <path d="M-20,275 C85,238 195,312 322,275 C422,246 480,282 540,255"/>
+    <path d="M-20,365 C95,328 185,398 322,362 C422,332 480,370 540,342"/>
+    <path d="M-20,455 C100,418 185,485 322,450 C422,420 480,458 540,430"/>
+  </g>
+
+  <!-- martillo geológico, rotado para dinamismo -->
+  <g transform="rotate(-38 256 256)">
+    <!-- sombra -->
+    <g transform="translate(7,9)" opacity="0.28">
+      <rect x="120" y="163" width="118" height="74" rx="10" fill="#000"/>
+      <polygon points="236,167 236,233 408,203" fill="#000"/>
+      <rect x="158" y="230" width="42" height="190" rx="16" fill="#000"/>
+    </g>
+    <!-- mango de madera -->
+    <rect x="158" y="222" width="42" height="196" rx="16" fill="url(#wood)" stroke="#6e4118" stroke-width="6"/>
+    <!-- correa -->
+    <rect x="160" y="380" width="38" height="14" fill="#6e4118" opacity="0.55"/>
+    <!-- cabeza: cara plana -->
+    <rect x="120" y="163" width="118" height="74" rx="10" fill="url(#steel)" stroke="#3c4750" stroke-width="7"/>
+    <!-- pica -->
+    <polygon points="236,167 236,233 408,203" fill="url(#steel)" stroke="#3c4750" stroke-width="7" stroke-linejoin="round"/>
+    <!-- brillo -->
+    <rect x="130" y="172" width="96" height="12" rx="6" fill="#ffffff" opacity="0.55"/>
+  </g>
+
+  <!-- símbolo rumbo/manteo pequeño, abajo derecha -->
+  <g transform="translate(398,404) rotate(30)" stroke="#eef4ee" stroke-width="11" stroke-linecap="round" opacity="0.9">
+    <line x1="-46" y1="0" x2="46" y2="0"/>
+    <line x1="0" y1="0" x2="0" y2="26"/>
+  </g>
+</svg>
