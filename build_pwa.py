@@ -79,7 +79,7 @@ HTML = r"""<!DOCTYPE html>
   .collap.lleno .collap-head{color:var(--verde2)}
   .collap.lleno .collap-head .ctitle::after{content:' ✓';font-weight:700}
   .chev{font-size:11px;color:var(--muted);width:12px;text-align:center}
-  .collap-fin{display:flex;justify-content:center;margin-top:10px}
+  .collap-fin{display:flex;justify-content:flex-end;margin-top:10px}
   .collap-fin button{background:var(--surface2);color:var(--muted);border:1px solid var(--bd);font-size:12px;padding:6px 16px}
   .multichips{display:flex;flex-wrap:wrap;gap:6px}
   .multichips .chip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid var(--inp-bd);border-radius:20px;background:var(--inp);font-size:13px;cursor:pointer}
@@ -170,7 +170,7 @@ const MODELO = __MODELO_JSON__;
 </script>
 <script>
 "use strict";
-const APP_VER = 'v28';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v29';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -1524,7 +1524,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v28';
+const CACHE='geoterreno-cdc-v29';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
