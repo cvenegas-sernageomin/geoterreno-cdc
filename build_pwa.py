@@ -73,11 +73,18 @@ HTML = r"""<!DOCTYPE html>
   .collap-head .ctitle{flex:1;letter-spacing:.2px}
   .collap-head .pill{font-weight:600}
   .collap-body{display:none;padding:0 14px 14px}
-  .collap.open .collap-body{display:block}
+  .collap.open .collap-body{display:flex;flex-direction:column}
+  .collap-fin{order:99}
   .collap.lleno{border-left:4px solid var(--verde2)}
   .collap.lleno .collap-head{color:var(--verde2)}
   .collap.lleno .collap-head .ctitle::after{content:' ✓';font-weight:700}
   .chev{font-size:11px;color:var(--muted);width:12px;text-align:center}
+  .collap-fin{display:flex;justify-content:center;margin-top:10px}
+  .collap-fin button{background:var(--surface2);color:var(--muted);border:1px solid var(--bd);font-size:12px;padding:6px 16px}
+  .multichips{display:flex;flex-wrap:wrap;gap:6px}
+  .multichips .chip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid var(--inp-bd);border-radius:20px;background:var(--inp);font-size:13px;cursor:pointer}
+  .multichips .chip.on{background:var(--verde);color:#fff;border-color:var(--verde)}
+  .multichips .chip input{width:15px;height:15px;margin:0}
   .row{display:flex;flex-wrap:wrap;gap:10px}
   .fld{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;flex:1 1 220px;min-width:0}
   .fld label{font-size:11.5px;font-weight:600;color:var(--lbl);letter-spacing:.2px}
@@ -163,7 +170,7 @@ const MODELO = __MODELO_JSON__;
 </script>
 <script>
 "use strict";
-const APP_VER = 'v27';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v28';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -288,7 +295,18 @@ function formulario(store, reg, ctx){
     fld.append(lab);
     let inp;
     const w=tipoWidget(campo);
-    if(w==='select'){
+    if(w==='select' && campo.multiple){
+      // selección múltiple: grupo de chips con checkbox (ej. propósito de análisis)
+      inp=el('div',{class:'multichips'});
+      const sel=new Set((reg[n]?String(reg[n]).split(/\s*;\s*/):[]).filter(Boolean));
+      opciones(campo.dominio,null).forEach(o=>{
+        const chip=el('label',{class:'chip'+(sel.has(o.value)?' on':'')});
+        const cb=el('input',{type:'checkbox'});cb.checked=sel.has(o.value);cb.value=o.value;
+        cb.addEventListener('change',()=>chip.classList.toggle('on',cb.checked));
+        chip.append(cb,el('span',{},o.label));inp.append(chip);
+      });
+      inp.name=n; inp._multi=true;
+    } else if(w==='select'){
       inp=el('select');
       inp.append(el('option',{value:''},'— seleccionar —'));
       const padre=campoPadreDe(store,campo);
@@ -366,7 +384,9 @@ function formulario(store, reg, ctx){
     }
   });
 
-  return {node:cont, getData(){const o={};for(const n in inputs)o[n]=inputs[n].value; return o;}};
+  return {node:cont, getData(){const o={};for(const n in inputs){const i=inputs[n];
+    o[n]= i._multi ? [...i.querySelectorAll('input:checked')].map(c=>c.value).join('; ') : i.value;
+  } return o;}};
 }
 
 // ============================ Mapa satelital (Leaflet + Esri) ============================
@@ -776,6 +796,8 @@ function tarjetaColapsable(titulo, opts){
     if(opts.clave){if(o)secAbiertas.add(opts.clave);else secAbiertas.delete(opts.clave);}
     if(o&&opts.onOpen)opts.onOpen();};
   head.addEventListener('click',()=>setOpen(!card.classList.contains('open')));
+  // botón contraer al pie de la sección
+  body.append(el('div',{class:'collap-fin'},el('button',{onclick:()=>{setOpen(false);card.scrollIntoView({behavior:'smooth',block:'nearest'});}},'▲ Contraer')));
   card.append(head,body);
   if(abierto)setOpen(true);
   return {card,body};
@@ -1502,7 +1524,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v27';
+const CACHE='geoterreno-cdc-v28';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
