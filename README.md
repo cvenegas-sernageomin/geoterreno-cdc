@@ -14,7 +14,10 @@ Instalable en celular; funciona sin conexión tras la primera carga.
   **tiles offline**, captura de vista satelital y overlay de **GeoTIFF** propio.
 - Cámara para fotografías y **esquema en canvas**.
 - **Exportación: CSV** (ZIP con las 8 tablas), **KMZ** (puntos + imagen satelital + GeoTIFF como
-  GroundOverlay) y **PDF libreta de terreno** (una página por punto).
+  GroundOverlay), **GeoPackage** (.gpkg con capas de puntos y líneas EPSG:4326 + tablas de
+  atributos con fotos/esquemas como BLOB; QGIS/ArcGIS), **GDB** (File Geodatabase de Esri en ZIP,
+  convertida en el navegador con GDAL/WASM — la primera vez requiere conexión, ~40 MB) y
+  **PDF libreta de terreno** (una página por punto).
 
 ## Uso local
 Requiere servirse por HTTP (no abrir el `index.html` con doble clic, por el Service Worker):
@@ -25,7 +28,8 @@ python -m http.server 8000    # luego abrir http://localhost:8000
 ## Estructura
 - `index.html` — app monolítica (generada por `build_pwa.py`, que inyecta el modelo canónico).
 - `manifest.json`, `sw.js`, `icons/` — PWA instalable/offline.
-- `vendor/` — librerías locales (Leaflet, leaflet.offline, idb, georaster) para 100% offline.
+- `vendor/` — librerías locales (Leaflet, leaflet.offline, idb, georaster, sql.js para GPKG,
+  gdal3.js para GDB) para 100% offline.
 - `build_pwa.py` — regenera `index.html` desde `../modelo/modelo_canonico.json`.
 
 Datos capturados quedan en el dispositivo (IndexedDB); el mapa satelital requiere internet la

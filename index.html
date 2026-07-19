@@ -1371,7 +1371,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v29';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v30';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2492,7 +2492,11 @@ async function exportMenu(){
   card.append(el('div',{class:'btnbar',style:'margin-top:12px;flex-direction:column;align-items:stretch'},
     el('button',{class:'btn',onclick:exportCSV},'⇩ CSV (ZIP con las 8 tablas)'),
     el('button',{class:'btn blue',onclick:exportKMZ},'🌎 KMZ (puntos para Google Earth)'),
+    el('button',{class:'btn blue',onclick:exportGPKG},'🗺️ GeoPackage (.gpkg — QGIS / ArcGIS)'),
+    el('button',{class:'btn blue',onclick:exportGDB},'🗄️ GDB — File Geodatabase de Esri (ZIP)'),
     el('button',{class:'btn orange',onclick:exportPDF},'📄 PDF — Libreta de terreno')));
+  card.append(el('div',{class:'muted',style:'margin-top:8px;font-size:12px',html:
+    'GDB: la primera vez requiere conexión (descarga el conversor GDAL, ~40 MB); después queda disponible offline.'}));
   app.append(card);
   $('#fab').append(el('button',{class:'btn sec',onclick:()=>nav({n:'home'})},'‹ Volver'));
 }
@@ -2572,6 +2576,117 @@ function zipStore(files){
   const cenOff=offset;
   const end=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cenSize),u32(cenOff),u16(0)));
   return new Blob([...parts,...central,end],{type:'application/zip'});
+}
+
+// -------- GeoPackage (sql.js) y GDB Esri (gdal3.js) --------
+function cargarLib(src){return new Promise((res,rej)=>{if(document.querySelector('script[data-lib="'+src+'"]'))return res();
+  const s=el('script',{src,'data-lib':src});s.onload=res;s.onerror=()=>rej(new Error('no se pudo cargar '+src+' — ¿sin conexión?'));document.head.append(s);});}
+function dataUrlBytes(d){return (d&&d.startsWith('data:'))?b64ToBytes(d.split(',')[1]):null;}
+function wkbPoint(lon,lat){const v=new DataView(new ArrayBuffer(21));v.setUint8(0,1);v.setUint32(1,1,true);
+  v.setFloat64(5,lon,true);v.setFloat64(13,lat,true);return new Uint8Array(v.buffer);}
+function wkbLine(coords){const v=new DataView(new ArrayBuffer(9+16*coords.length));v.setUint8(0,1);v.setUint32(1,2,true);
+  v.setUint32(5,coords.length,true);coords.forEach((c,i)=>{v.setFloat64(9+16*i,c[1],true);v.setFloat64(17+16*i,c[0],true);});
+  return new Uint8Array(v.buffer);}
+function gpkgGeom(wkb){const g=new Uint8Array(8+wkb.length);g[0]=0x47;g[1]=0x50;g[2]=0;g[3]=1;
+  new DataView(g.buffer).setInt32(4,4326,true);g.set(wkb,8);return g;}
+const WKT4326='GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AUTHORITY["EPSG","4326"]]';
+
+async function construirGPKG(){
+  if(!window.initSqlJs)await cargarLib('vendor/sql-wasm.js');
+  const SQL=await initSqlJs({locateFile:f=>'vendor/'+f});
+  const db=new SQL.Database();
+  const cq=n=>'"'+String(n).replace(/"/g,'""')+'"';
+  const txt=v=>(v==null||v==='')?null:String(v);
+  db.run('PRAGMA application_id=1196444487');  // 'GPKG'
+  db.run('PRAGMA user_version=10300');         // GeoPackage 1.3
+  db.run('CREATE TABLE gpkg_spatial_ref_sys (srs_name TEXT NOT NULL, srs_id INTEGER PRIMARY KEY, organization TEXT NOT NULL, organization_coordsys_id INTEGER NOT NULL, definition TEXT NOT NULL, description TEXT)');
+  db.run("INSERT INTO gpkg_spatial_ref_sys VALUES ('WGS 84',4326,'EPSG',4326,?,NULL),('Undefined cartesian SRS',-1,'NONE',-1,'undefined',NULL),('Undefined geographic SRS',0,'NONE',0,'undefined',NULL)",[WKT4326]);
+  db.run("CREATE TABLE gpkg_contents (table_name TEXT NOT NULL PRIMARY KEY, data_type TEXT NOT NULL, identifier TEXT UNIQUE, description TEXT DEFAULT '', last_change DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), min_x DOUBLE, min_y DOUBLE, max_x DOUBLE, max_y DOUBLE, srs_id INTEGER)");
+  db.run('CREATE TABLE gpkg_geometry_columns (table_name TEXT NOT NULL, column_name TEXT NOT NULL, geometry_type_name TEXT NOT NULL, srs_id INTEGER NOT NULL, z TINYINT NOT NULL, m TINYINT NOT NULL, CONSTRAINT pk_geom_cols PRIMARY KEY (table_name, column_name))');
+  // ID_REG/ID_PADRE replican id/_parent internos para conservar las relaciones entre tablas
+  function crear(tbl,cs,extras,conGeom){
+    const cols=['ID_REG TEXT','ID_PADRE TEXT'].concat(cs.map(n=>cq(n)+' TEXT')).concat(extras.map(e=>e[0]+' BLOB'));
+    db.run('CREATE TABLE '+cq(tbl)+' (fid INTEGER PRIMARY KEY AUTOINCREMENT'+(conGeom?', geom BLOB':'')+', '+cols.join(', ')+')');
+    const names=(conGeom?['geom']:[]).concat(['ID_REG','ID_PADRE'],cs.map(cq),extras.map(e=>e[0]));
+    return db.prepare('INSERT INTO '+cq(tbl)+' ('+names.join(', ')+') VALUES ('+names.map(()=>'?').join(',')+')');
+  }
+  const latF=p=>p['Coordenadas Geográficas Decimales_Lat']||p.LAT;
+  const lonF=p=>p['Coordenadas Geográficas Decimales_Long']||p.LONG;
+  let nP=0,nL=0;
+  {// capa de puntos de control
+   const cs=campos('punto').map(c=>c.nombre);
+   const extras=[['IMAGEN_SATELITAL',r=>r._satelital?b64ToBytes(r._satelital):null]];
+   const st=crear('PUNTO_CONTROL',cs,extras,true);
+   const env={x0:1/0,y0:1/0,x1:-1/0,y1:-1/0};
+   for(const r of await all('punto')){
+     const lat=parseFloat(latF(r)),lon=parseFloat(lonF(r));let g=null;
+     if(!isNaN(lat)&&!isNaN(lon)){g=gpkgGeom(wkbPoint(lon,lat));nP++;
+       env.x0=Math.min(env.x0,lon);env.x1=Math.max(env.x1,lon);env.y0=Math.min(env.y0,lat);env.y1=Math.max(env.y1,lat);}
+     st.run([g,txt(r.id),txt(r._parent)].concat(cs.map(c=>txt(r[c])),extras.map(e=>e[1](r))));
+   }
+   st.free();
+   db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,min_x,min_y,max_x,max_y,srs_id) VALUES ('PUNTO_CONTROL','features','PUNTO_CONTROL',?,?,?,?,4326)",nP?[env.x0,env.y0,env.x1,env.y1]:[null,null,null,null]);
+   db.run("INSERT INTO gpkg_geometry_columns VALUES ('PUNTO_CONTROL','geom','POINT',4326,0,0)");
+  }
+  {// capa de líneas geológicas dibujadas en el mapa
+   const st=crear('LINEAS_GEOLOGICAS',['TIPO','CERTEZA','NOTA'],[],true);
+   const env={x0:1/0,y0:1/0,x1:-1/0,y1:-1/0};
+   for(const l of await all('linea')){
+     if(!l.geom||l.geom.length<2)continue;nL++;
+     l.geom.forEach(c=>{env.x0=Math.min(env.x0,c[1]);env.x1=Math.max(env.x1,c[1]);env.y0=Math.min(env.y0,c[0]);env.y1=Math.max(env.y1,c[0]);});
+     st.run([gpkgGeom(wkbLine(l.geom)),txt(l.id),txt(l._parent),txt(l.TIPO),txt(l.CERTEZA),txt(l.NOTA)]);
+   }
+   st.free();
+   db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,min_x,min_y,max_x,max_y,srs_id) VALUES ('LINEAS_GEOLOGICAS','features','LINEAS_GEOLOGICAS',?,?,?,?,4326)",nL?[env.x0,env.y0,env.x1,env.y1]:[null,null,null,null]);
+   db.run("INSERT INTO gpkg_geometry_columns VALUES ('LINEAS_GEOLOGICAS','geom','LINESTRING',4326,0,0)");
+  }
+  for(const s of STORES){  // resto de tablas, sin geometría
+    if(s==='punto')continue;
+    const tbl=STORE2TBL[s];const cs=campos(s).map(c=>c.nombre);
+    const extras=(s==='foto'||s==='esquema')?[['IMAGEN',r=>dataUrlBytes(r._img)]]:[];
+    const st=crear(tbl,cs,extras,false);
+    for(const r of await all(s))st.run([txt(r.id),txt(r._parent)].concat(cs.map(c=>txt(r[c])),extras.map(e=>e[1](r))));
+    st.free();
+    db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,srs_id) VALUES (?,?,?,0)",[tbl,'attributes',tbl]);
+  }
+  const bytes=db.export();db.close();
+  return {bytes,nP,nL};
+}
+
+async function exportGPKG(){
+  try{
+    toast('Generando GeoPackage…');
+    const r=await construirGPKG();
+    descargar('captura_terreno.gpkg',new Blob([r.bytes],{type:'application/geopackage+sqlite3'}));
+    toast('GeoPackage exportado ('+r.nP+' puntos, '+r.nL+' líneas, 8 tablas)');
+  }catch(e){console.error(e);toast('Error al generar GeoPackage: '+e.message);}
+}
+
+async function exportGDB(){
+  try{
+    toast('Preparando conversor GDB…');
+    if(!window.initGdalJs)await cargarLib('vendor/gdal3.js');
+    if(!window._Gdal)window._Gdal=await initGdalJs({path:'vendor',useWorker:false});
+    const Gdal=window._Gdal;
+    const r=await construirGPKG();
+    const stem='ct_'+Date.now().toString(36);   // nombre único: aísla esta corrida de restos de intentos previos en /output
+    const res=await Gdal.open(new File([r.bytes],stem+'.gpkg'));
+    const ds=res.datasets[0];
+    toast('Convirtiendo a File Geodatabase…');
+    // sin API Arrow: usa hilos (pthreads) y falla en WASM sin COOP/COEP
+    await Gdal.ogr2ogr(ds,['-f','OpenFileGDB','--config','OGR2OGR_USE_ARROW_API','NO']);
+    const salidas=(await Gdal.getOutputFiles()).filter(o=>String(o.path||o).includes('/'+stem+'.gdb/'));
+    if(!salidas.length)throw new Error('GDAL no generó la GDB');
+    const files=[];
+    for(const o of salidas){
+      const p=String(o.path||o);
+      try{files.push({name:'captura_terreno.gdb/'+p.split('.gdb/')[1],data:new Uint8Array(await Gdal.getFileBytes(p))});}
+      catch(_){/* entradas de directorio */}
+    }
+    await Gdal.close(ds);
+    descargar('captura_terreno_GDB.zip',zipStore(files));
+    toast('GDB exportada ('+r.nP+' puntos, '+r.nL+' líneas) — descomprima el ZIP; la carpeta .gdb se abre en ArcGIS/QGIS');
+  }catch(e){console.error(e);toast('Error al generar GDB: '+e.message);}
 }
 
 // -------- PDF libreta de terreno (print) --------

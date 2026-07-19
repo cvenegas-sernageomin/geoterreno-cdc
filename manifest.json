@@ -1,7 +1,7 @@
 {
   "name": "GeoTerreno CDC — Libreta geológica de campo",
   "short_name": "GeoTerreno",
-  "description": "Libreta digital de geología básica en terreno, offline (captura, mapa satelital y export CSV/KMZ/PDF).",
+  "description": "Libreta digital de geología básica en terreno, offline (captura, mapa satelital y export CSV/KMZ/GeoPackage/GDB/PDF).",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
