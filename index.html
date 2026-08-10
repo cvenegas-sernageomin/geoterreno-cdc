@@ -2841,14 +2841,16 @@ async function exportKMZ(){
       overlays+='<GroundOverlay><name>GeoTIFF '+esc(pr.NOMBRE_PROYECTO||'')+'</name><Icon><href>'+fn+'</href></Icon>'
         +'<LatLonBox><north>'+b.north+'</north><south>'+b.south+'</south><east>'+b.east+'</east><west>'+b.west+'</west></LatLonBox></GroundOverlay>\n';}
   }
-  // líneas geológicas -> LineString con color por tipo
+  // líneas de control -> LineString con color por CLASE_LINEA
   let lineasKml=''; let nLin=0;
   const toKmlColor=hex=>{const h=(hex||'#444444').replace('#','');return 'ff'+h.slice(4,6)+h.slice(2,4)+h.slice(0,2);};
+  const subtipoLinea=l=>l.TIPO_CONTACTO_LINEA||l.TIPO_ESTRUCTURA_LINEA||l.GEOFORMA_LINEA||'';
   for(const l of await all('linea')){
     if(!l.geom||l.geom.length<2)continue; nLin++;
     const coords=l.geom.map(c=>c[1]+','+c[0]+',0').join(' ');
-    lineasKml+='<Placemark><name>'+esc((l.TIPO||'')+(l.CERTEZA?' — '+l.CERTEZA:''))+'</name><description>'+esc(l.NOTA||'')+'</description>'
-      +'<Style><LineStyle><color>'+toKmlColor(LINEA_COLOR[l.TIPO])+'</color><width>3</width></LineStyle></Style>'
+    const nombre=(l.CLASE_LINEA||'')+(subtipoLinea(l)?' — '+subtipoLinea(l):'')+(l.CERTEZA_LINEA?' ('+l.CERTEZA_LINEA+')':'');
+    lineasKml+='<Placemark><name>'+esc(nombre)+'</name><description>'+esc(l.NOTA||'')+'</description>'
+      +'<Style><LineStyle><color>'+toKmlColor(LINEA_CLASE_COLOR[l.CLASE_LINEA])+'</color><width>3</width></LineStyle></Style>'
       +'<LineString><tessellate>1</tessellate><coordinates>'+coords+'</coordinates></LineString></Placemark>\n';
   }
   const kml='<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Captura de terreno</name>\n'+overlays+lineasKml+pk+'</Document></kml>';
