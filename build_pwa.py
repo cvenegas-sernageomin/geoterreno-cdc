@@ -283,18 +283,13 @@ const CONDICIONALES = {
   GRANULOMETRIA: {modo:'ocultar', regla: v => opciones('GRANULOMETRIA', v['NOMBRE_ROCA']).length>0},
   // Tipo de falla solo cuando la estructura medida es una falla (formulario de punto).
   TIPO_FALLA: {modo:'ocultar', regla: v => v['TIPO_ESTRUCTURA']==='Estructura falla'},
-  // --- LINEA_CONTROL: grupos de campos por CLASE_LINEA. Cada regla lee CLASE_LINEA
-  // directamente (no el estado ya-oculto de otro campo) para no quedar un paso atrás
-  // cuando el usuario cambia de clase (aplicarCondicionales() calcula 'v' una sola vez
-  // por evento; encadenar sobre un campo que se oculta en el mismo pase queda con el
-  // valor viejo hasta el próximo 'change').
-  TIPO_CONTACTO_LINEA: {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Contacto'},
-  UNIDAD_TECHO_LINEA:  {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Contacto'},
-  UNIDAD_BASE_LINEA:   {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Contacto'},
-  TIPO_ESTRUCTURA_LINEA: {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Estructura/Falla'},
-  TIPO_FALLA_LINEA:    {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Estructura/Falla' && v['TIPO_ESTRUCTURA_LINEA']==='Estructura falla'},
-  CATEGORIA_GEOMORF_LINEA: {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Geomorfología'},
-  GEOFORMA_LINEA: {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Geomorfología'},
+  // --- LINEA_CONTROL: el tipo y el subtipo los resuelve la cascada
+  // CLASE_LINEA→TIPO_LINEA→SUBTIPO_LINEA, no reglas condicionales. Aquí solo quedan
+  // el subtipo (hay tipos sin subtipos: el select vacío se esconde, mismo criterio que
+  // GRANULOMETRIA) y las unidades techo/base, que solo tienen sentido en un contacto.
+  SUBTIPO_LINEA: {modo:'ocultar', regla: v => opciones('SUBTIPO_LINEA', v['TIPO_LINEA']).length>0},
+  UNIDAD_TECHO_LINEA: {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Contacto'},
+  UNIDAD_BASE_LINEA:  {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Contacto'},
 };
 
 // Construye el DOM de un formulario para (store, registro). Devuelve {node, getData}
@@ -1197,12 +1192,13 @@ function svgEstructura(e,cx,cy){
   if(lineaPura)s+=simboloLinea(cx,cy,az,dip,'#1a5fb4');
   return s;
 }
-// ---- Líneas geológicas (contactos/fallas) dibujadas sobre el satelital ----
-// El color va por CLASE_LINEA (no por cada sub-tipo, para no mantener una paleta de 20+
-// entradas); el punteado sigue yendo por certeza, igual que antes.
-const LINEA_CLASE_COLOR={'Contacto':'#1a1a1a','Estructura/Falla':'#c0392b','Geomorfología':'#16739e','Otro':'#666'};
+// ---- Líneas de control dibujadas sobre el satelital ----
+// El color va por CLASE_LINEA (no por cada tipo/subtipo, para no mantener una paleta de
+// 100+ entradas); el punteado sigue yendo por certeza, igual que antes.
+// Siempre 6 dígitos hex: toKmlColor() del export KMZ trocea de a 2 y con #abc produce basura.
+const LINEA_CLASE_COLOR={'Contacto':'#1a1a1a','Estructura tectónica':'#c0392b','Cuerpo tabular':'#8e44ad','Geomorfología':'#16739e','Otro':'#666666'};
 const LINEA_DASH={'Observado':null,'Inferido':'10,7','Cubierto':'2,7'};
-function estiloLinea(l){return {color:LINEA_CLASE_COLOR[l.CLASE_LINEA]||'#666', weight:3.5, opacity:.95, dashArray:LINEA_DASH[l.CERTEZA_LINEA]||null};}
+function estiloLinea(l){return {color:LINEA_CLASE_COLOR[l.CLASE_LINEA]||'#666666', weight:3.5, opacity:.95, dashArray:LINEA_DASH[l.CERTEZA_LINEA]||null};}
 let dibujando=false,_verts=[],_tmpLine=null,_tmpMk=[],_puntosMapa=[];
 let agregandoPunto=false, coordsPendientes=null;
 function limpiarTemp(){ if(mapaVista){ if(_tmpLine)mapaVista.removeLayer(_tmpLine); _tmpMk.forEach(m=>mapaVista.removeLayer(m)); } _tmpLine=null;_tmpMk=[];_verts=[]; }
@@ -1370,11 +1366,14 @@ async function exportKMZ(){
   // líneas de control -> LineString con color por CLASE_LINEA
   let lineasKml=''; let nLin=0;
   const toKmlColor=hex=>{const h=(hex||'#444444').replace('#','');return 'ff'+h.slice(4,6)+h.slice(2,4)+h.slice(0,2);};
-  const subtipoLinea=l=>l.TIPO_CONTACTO_LINEA||l.TIPO_ESTRUCTURA_LINEA||l.GEOFORMA_LINEA||'';
+  // nombre = clase — tipo (subtipo) [certeza], omitiendo los niveles que estén vacíos
+  const rotuloLinea=l=>[l.CLASE_LINEA,l.TIPO_LINEA].filter(Boolean).join(' — ')
+    +(l.SUBTIPO_LINEA?' '+l.SUBTIPO_LINEA:'')
+    +(l.CERTEZA_LINEA?' ('+l.CERTEZA_LINEA+')':'');
   for(const l of await all('linea')){
     if(!l.geom||l.geom.length<2)continue; nLin++;
     const coords=l.geom.map(c=>c[1]+','+c[0]+',0').join(' ');
-    const nombre=(l.CLASE_LINEA||'')+(subtipoLinea(l)?' — '+subtipoLinea(l):'')+(l.CERTEZA_LINEA?' ('+l.CERTEZA_LINEA+')':'');
+    const nombre=rotuloLinea(l);
     lineasKml+='<Placemark><name>'+esc(nombre)+'</name><description>'+esc(l.NOTA||'')+'</description>'
       +'<Style><LineStyle><color>'+toKmlColor(LINEA_CLASE_COLOR[l.CLASE_LINEA])+'</color><width>3</width></LineStyle></Style>'
       +'<LineString><tessellate>1</tessellate><coordinates>'+coords+'</coordinates></LineString></Placemark>\n';
@@ -1667,7 +1666,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v30';
+const CACHE='geoterreno-cdc-v31';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',

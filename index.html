@@ -733,19 +733,25 @@ const MODELO = {
           "nombre": "CLASE_LINEA",
           "obligatorio": true,
           "dominio": "CLASE_LINEA",
-          "nota": "De este campo depende qué grupo de campos se muestra: Contacto / Estructura-Falla / Geomorfología."
+          "nota": "Primer nivel: qué tipo de rasgo es la traza (contacto, estructura tectónica, cuerpo tabular, geomorfología)."
+        },
+        {
+          "nombre": "TIPO_LINEA",
+          "obligatorio": true,
+          "dominio": "TIPO_LINEA",
+          "nota": "Segundo nivel: la lista depende del campo CLASE_LINEA."
+        },
+        {
+          "nombre": "SUBTIPO_LINEA",
+          "obligatorio": false,
+          "dominio": "SUBTIPO_LINEA",
+          "nota": "Tercer nivel: la lista depende del campo TIPO_LINEA. Se oculta si el tipo elegido no tiene subtipos."
         },
         {
           "nombre": "CERTEZA_LINEA",
           "obligatorio": true,
           "dominio": "LINEA_CERTEZA",
           "nota": null
-        },
-        {
-          "nombre": "TIPO_CONTACTO_LINEA",
-          "obligatorio": false,
-          "dominio": "TIPO_CONTACTO",
-          "nota": "Solo si CLASE_LINEA = Contacto (mismo dominio que TBL_CONTACTO.TIPO_CONTACTO)."
         },
         {
           "nombre": "UNIDAD_TECHO_LINEA",
@@ -758,30 +764,6 @@ const MODELO = {
           "obligatorio": false,
           "dominio": null,
           "nota": "Solo si CLASE_LINEA = Contacto."
-        },
-        {
-          "nombre": "TIPO_ESTRUCTURA_LINEA",
-          "obligatorio": false,
-          "dominio": "TIPO_ESTRUCTURA",
-          "nota": "Solo si CLASE_LINEA = Estructura/Falla (mismo dominio que TBL_DATOS_ESTRUCTURALES.TIPO_ESTRUCTURA)."
-        },
-        {
-          "nombre": "TIPO_FALLA_LINEA",
-          "obligatorio": false,
-          "dominio": "TIPO_FALLA",
-          "nota": "Solo si CLASE_LINEA = Estructura/Falla y TIPO_ESTRUCTURA_LINEA = Estructura falla."
-        },
-        {
-          "nombre": "CATEGORIA_GEOMORF_LINEA",
-          "obligatorio": false,
-          "dominio": "CATEGORIA_GEOMORF_LINEA",
-          "nota": "Solo si CLASE_LINEA = Geomorfología."
-        },
-        {
-          "nombre": "GEOFORMA_LINEA",
-          "obligatorio": false,
-          "dominio": "GEOFORMA_LINEA",
-          "nota": "Depende de CATEGORIA_GEOMORF_LINEA; solo si CLASE_LINEA = Geomorfología."
         },
         {
           "nombre": "PUNTOS_APOYO",
@@ -1544,20 +1526,147 @@ const MODELO = {
       },
       "fuente": "lista geomorfologia.xlsx"
     },
-    "CATEGORIA_GEOMORF_LINEA": {
+    "CLASE_LINEA": {
       "tipo": "simple",
       "valores": [
-        "Antrópica",
-        "Terrestre",
-        "Glaciar",
-        "Volcánica"
+        "Contacto",
+        "Estructura tectónica",
+        "Cuerpo tabular",
+        "Geomorfología",
+        "Otro"
       ],
-      "fuente": "lista geomorfologia.xlsx (geoformas lineales; GB_GEOMORFOLOGIA_ANTROPICA consolidada en Antrópica)"
+      "fuente": "taxonomia_lineas.csv (validada por el usuario 2026-08-10)"
     },
-    "GEOFORMA_LINEA": {
+    "LINEA_CERTEZA": {
+      "tipo": "simple",
+      "valores": [
+        "Observado",
+        "Inferido",
+        "Cubierto"
+      ],
+      "fuente": "capa de líneas geológicas preexistente en build_pwa.py (promovida al modelo canónico)"
+    },
+    "TIPO_LINEA": {
       "tipo": "cascada",
-      "padre": "CATEGORIA_GEOMORF_LINEA",
+      "padre": "CLASE_LINEA",
       "mapa": {
+        "Contacto": [
+          "Estratigráfico",
+          "Discordancia",
+          "Intrusivo"
+        ],
+        "Estructura tectónica": [
+          "Falla",
+          "Fractura",
+          "Traza de pliegue",
+          "Zona de cizalla",
+          "Lineamiento"
+        ],
+        "Cuerpo tabular": [
+          "Dique",
+          "Veta",
+          "Filón manto (sill)",
+          "Zona de brecha"
+        ],
+        "Geomorfología": [
+          "Antrópica",
+          "Terrestre",
+          "Glaciar",
+          "Volcánica"
+        ],
+        "Otro": [
+          "Otro"
+        ]
+      },
+      "fuente": "taxonomia_lineas.csv"
+    },
+    "SUBTIPO_LINEA": {
+      "tipo": "cascada",
+      "padre": "TIPO_LINEA",
+      "mapa": {
+        "Estratigráfico": [
+          "Gradual",
+          "Neto",
+          "Interdigitado"
+        ],
+        "Discordancia": [
+          "Angular",
+          "Erosiva",
+          "Paraconformidad",
+          "No conformidad"
+        ],
+        "Intrusivo": [
+          "Neto",
+          "Gradacional",
+          "Indeterminado"
+        ],
+        "Falla": [
+          "Normal",
+          "Inversa",
+          "Cabalgamiento",
+          "De rumbo dextral",
+          "De rumbo sinistral",
+          "Normal-dextral (oblicua)",
+          "Normal-sinistral (oblicua)",
+          "Inversa-dextral (oblicua)",
+          "Inversa-sinistral (oblicua)",
+          "Lístrica",
+          "Indeterminada"
+        ],
+        "Fractura": [
+          "Diaclasa",
+          "Fractura de extensión",
+          "Fractura de cizalle",
+          "Zona de fracturamiento",
+          "Indeterminada"
+        ],
+        "Traza de pliegue": [
+          "Anticlinal",
+          "Sinclinal",
+          "Antiforma",
+          "Sinforma",
+          "Monoclinal",
+          "Anticlinal volcado",
+          "Sinclinal volcado",
+          "Indeterminado"
+        ],
+        "Zona de cizalla": [
+          "Dúctil",
+          "Frágil",
+          "Frágil-dúctil",
+          "Indeterminada"
+        ],
+        "Lineamiento": [
+          "Indeterminado"
+        ],
+        "Dique": [
+          "Máfico",
+          "Intermedio",
+          "Félsico",
+          "Aplítico",
+          "Pegmatítico",
+          "Indeterminado"
+        ],
+        "Veta": [
+          "Cuarzo",
+          "Calcita",
+          "Cuarzo-sulfuros",
+          "Óxidos de hierro",
+          "Baritina",
+          "Indeterminada"
+        ],
+        "Filón manto (sill)": [
+          "Máfico",
+          "Intermedio",
+          "Félsico",
+          "Indeterminado"
+        ],
+        "Zona de brecha": [
+          "Hidrotermal",
+          "Tectónica",
+          "Magmática",
+          "Indeterminada"
+        ],
         "Antrópica": [
           "Sondaje minero o pozo de agua",
           "Escarpe mina",
@@ -1597,33 +1706,15 @@ const MODELO = {
           "Escarpe de remoción en masa o avalancha",
           "Fisura volcánica",
           "Límite de campo de lava",
-          "Lóbulo de avance o de colada de lava ",
+          "Lóbulo de avance o de colada de lava",
           "Margen de caldera",
           "Montículos (cerrillos) o megabloques volcánicos",
           "Escarpe de frente de colada de lava",
           "Tubo de lava"
-        ]
+        ],
+        "Otro": []
       },
-      "fuente": "lista geomorfologia.xlsx"
-    },
-    "CLASE_LINEA": {
-      "tipo": "simple",
-      "valores": [
-        "Contacto",
-        "Estructura/Falla",
-        "Geomorfología",
-        "Otro"
-      ],
-      "fuente": "diseño CDC 2026-08 (discriminador de LINEA_CONTROL)"
-    },
-    "LINEA_CERTEZA": {
-      "tipo": "simple",
-      "valores": [
-        "Observado",
-        "Inferido",
-        "Cubierto"
-      ],
-      "fuente": "capa de líneas geológicas preexistente en build_pwa.py (promovida al modelo canónico)"
+      "fuente": "taxonomia_lineas.csv"
     }
   },
   "avisos": [
@@ -1639,8 +1730,7 @@ const MODELO = {
     "LV_FUENTE_COORDENADA: poblada desde diagrama v3 / estandar (CONFIRMAR).",
     "TIPO_DEPOSITO: poblada desde diagrama v3 / estandar (CONFIRMAR)."
   ]
-}
-;
+};
 </script>
 <script>
 "use strict";
@@ -1757,18 +1847,13 @@ const CONDICIONALES = {
   GRANULOMETRIA: {modo:'ocultar', regla: v => opciones('GRANULOMETRIA', v['NOMBRE_ROCA']).length>0},
   // Tipo de falla solo cuando la estructura medida es una falla (formulario de punto).
   TIPO_FALLA: {modo:'ocultar', regla: v => v['TIPO_ESTRUCTURA']==='Estructura falla'},
-  // --- LINEA_CONTROL: grupos de campos por CLASE_LINEA. Cada regla lee CLASE_LINEA
-  // directamente (no el estado ya-oculto de otro campo) para no quedar un paso atrás
-  // cuando el usuario cambia de clase (aplicarCondicionales() calcula 'v' una sola vez
-  // por evento; encadenar sobre un campo que se oculta en el mismo pase queda con el
-  // valor viejo hasta el próximo 'change').
-  TIPO_CONTACTO_LINEA: {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Contacto'},
-  UNIDAD_TECHO_LINEA:  {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Contacto'},
-  UNIDAD_BASE_LINEA:   {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Contacto'},
-  TIPO_ESTRUCTURA_LINEA: {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Estructura/Falla'},
-  TIPO_FALLA_LINEA:    {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Estructura/Falla' && v['TIPO_ESTRUCTURA_LINEA']==='Estructura falla'},
-  CATEGORIA_GEOMORF_LINEA: {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Geomorfología'},
-  GEOFORMA_LINEA: {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Geomorfología'},
+  // --- LINEA_CONTROL: el tipo y el subtipo los resuelve la cascada
+  // CLASE_LINEA→TIPO_LINEA→SUBTIPO_LINEA, no reglas condicionales. Aquí solo quedan
+  // el subtipo (hay tipos sin subtipos: el select vacío se esconde, mismo criterio que
+  // GRANULOMETRIA) y las unidades techo/base, que solo tienen sentido en un contacto.
+  SUBTIPO_LINEA: {modo:'ocultar', regla: v => opciones('SUBTIPO_LINEA', v['TIPO_LINEA']).length>0},
+  UNIDAD_TECHO_LINEA: {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Contacto'},
+  UNIDAD_BASE_LINEA:  {modo:'ocultar', regla: v => v['CLASE_LINEA']==='Contacto'},
 };
 
 // Construye el DOM de un formulario para (store, registro). Devuelve {node, getData}
@@ -2671,12 +2756,13 @@ function svgEstructura(e,cx,cy){
   if(lineaPura)s+=simboloLinea(cx,cy,az,dip,'#1a5fb4');
   return s;
 }
-// ---- Líneas geológicas (contactos/fallas) dibujadas sobre el satelital ----
-// El color va por CLASE_LINEA (no por cada sub-tipo, para no mantener una paleta de 20+
-// entradas); el punteado sigue yendo por certeza, igual que antes.
-const LINEA_CLASE_COLOR={'Contacto':'#1a1a1a','Estructura/Falla':'#c0392b','Geomorfología':'#16739e','Otro':'#666'};
+// ---- Líneas de control dibujadas sobre el satelital ----
+// El color va por CLASE_LINEA (no por cada tipo/subtipo, para no mantener una paleta de
+// 100+ entradas); el punteado sigue yendo por certeza, igual que antes.
+// Siempre 6 dígitos hex: toKmlColor() del export KMZ trocea de a 2 y con #abc produce basura.
+const LINEA_CLASE_COLOR={'Contacto':'#1a1a1a','Estructura tectónica':'#c0392b','Cuerpo tabular':'#8e44ad','Geomorfología':'#16739e','Otro':'#666666'};
 const LINEA_DASH={'Observado':null,'Inferido':'10,7','Cubierto':'2,7'};
-function estiloLinea(l){return {color:LINEA_CLASE_COLOR[l.CLASE_LINEA]||'#666', weight:3.5, opacity:.95, dashArray:LINEA_DASH[l.CERTEZA_LINEA]||null};}
+function estiloLinea(l){return {color:LINEA_CLASE_COLOR[l.CLASE_LINEA]||'#666666', weight:3.5, opacity:.95, dashArray:LINEA_DASH[l.CERTEZA_LINEA]||null};}
 let dibujando=false,_verts=[],_tmpLine=null,_tmpMk=[],_puntosMapa=[];
 let agregandoPunto=false, coordsPendientes=null;
 function limpiarTemp(){ if(mapaVista){ if(_tmpLine)mapaVista.removeLayer(_tmpLine); _tmpMk.forEach(m=>mapaVista.removeLayer(m)); } _tmpLine=null;_tmpMk=[];_verts=[]; }
@@ -2844,11 +2930,14 @@ async function exportKMZ(){
   // líneas de control -> LineString con color por CLASE_LINEA
   let lineasKml=''; let nLin=0;
   const toKmlColor=hex=>{const h=(hex||'#444444').replace('#','');return 'ff'+h.slice(4,6)+h.slice(2,4)+h.slice(0,2);};
-  const subtipoLinea=l=>l.TIPO_CONTACTO_LINEA||l.TIPO_ESTRUCTURA_LINEA||l.GEOFORMA_LINEA||'';
+  // nombre = clase — tipo (subtipo) [certeza], omitiendo los niveles que estén vacíos
+  const rotuloLinea=l=>[l.CLASE_LINEA,l.TIPO_LINEA].filter(Boolean).join(' — ')
+    +(l.SUBTIPO_LINEA?' '+l.SUBTIPO_LINEA:'')
+    +(l.CERTEZA_LINEA?' ('+l.CERTEZA_LINEA+')':'');
   for(const l of await all('linea')){
     if(!l.geom||l.geom.length<2)continue; nLin++;
     const coords=l.geom.map(c=>c[1]+','+c[0]+',0').join(' ');
-    const nombre=(l.CLASE_LINEA||'')+(subtipoLinea(l)?' — '+subtipoLinea(l):'')+(l.CERTEZA_LINEA?' ('+l.CERTEZA_LINEA+')':'');
+    const nombre=rotuloLinea(l);
     lineasKml+='<Placemark><name>'+esc(nombre)+'</name><description>'+esc(l.NOTA||'')+'</description>'
       +'<Style><LineStyle><color>'+toKmlColor(LINEA_CLASE_COLOR[l.CLASE_LINEA])+'</color><width>3</width></LineStyle></Style>'
       +'<LineString><tessellate>1</tessellate><coordinates>'+coords+'</coordinates></LineString></Placemark>\n';
