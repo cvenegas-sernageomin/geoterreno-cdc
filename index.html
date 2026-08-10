@@ -1750,7 +1750,8 @@ function ahora(){const d=new Date();return {FECHA:d.toISOString().slice(0,10),HO
 // Mapa store -> tabla del modelo
 const STORE2TBL = {proyecto:'TBL_PROYECTO',punto:'PUNTO_CONTROL',litologia:'TBL_LITOLOGIA',
   estructural:'TBL_DATOS_ESTRUCTURALES',contacto:'TBL_CONTACTO',muestreo:'TBL_MUESTREO',
-  foto:'TBL_FOTOGRAFIAS',esquema:'TBL_ESQUEMA_DIBUJO',geomorf:'TBL_GEOMORFOLOGIA'};
+  foto:'TBL_FOTOGRAFIAS',esquema:'TBL_ESQUEMA_DIBUJO',geomorf:'TBL_GEOMORFOLOGIA',
+  punto_gabinete:'PUNTO_CONTROL_GABINETE',linea_gabinete:'LINEA_CONTROL_GABINETE'};
 const STORES = Object.keys(STORE2TBL);
 // 'linea' no cuelga de un punto (es una capa aparte, hermana de PUNTO_CONTROL) -> no entra
 // en STORES/HIJAS, pero necesita su propia tabla del modelo para el formulario/exports.
@@ -1768,7 +1769,7 @@ function campos(store){return (MODELO.tablas[store==='linea'?LINEA_TBL:STORE2TBL
 function pkDe(store){return (MODELO.tablas[store==='linea'?LINEA_TBL:STORE2TBL[store]]||{}).pk;}
 
 // ============================ IndexedDB ============================
-const DB='captura-terreno', VER=4;   // v4: nuevo store 'geomorf' (TBL_GEOMORFOLOGIA)
+const DB='captura-terreno', VER=5;   // v5: nuevos stores 'punto_gabinete'/'linea_gabinete' (gabinete)
 let db;
 function openDB(){return new Promise((res,rej)=>{
   let done=false; const finish=(fn,v)=>{if(!done){done=true;fn(v);}};
