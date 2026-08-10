@@ -1452,17 +1452,18 @@ async function construirGPKG(){
    db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,min_x,min_y,max_x,max_y,srs_id) VALUES ('PUNTO_CONTROL','features','PUNTO_CONTROL',?,?,?,?,4326)",nP?[env.x0,env.y0,env.x1,env.y1]:[null,null,null,null]);
    db.run("INSERT INTO gpkg_geometry_columns VALUES ('PUNTO_CONTROL','geom','POINT',4326,0,0)");
   }
-  {// capa de líneas geológicas dibujadas en el mapa
-   const st=crear('LINEAS_GEOLOGICAS',['TIPO','CERTEZA','NOTA'],[],true);
+  {// capa de líneas de control (contacto/estructura-falla/geomorfología) dibujadas en el mapa
+   const csL=campos('linea').filter(c=>c.nombre!=='ID_PROYECTO'&&c.nombre!=='ID_LINEA').map(c=>c.nombre);
+   const st=crear('LINEA_CONTROL',csL,[],true);
    const env={x0:1/0,y0:1/0,x1:-1/0,y1:-1/0};
    for(const l of await all('linea')){
      if(!l.geom||l.geom.length<2)continue;nL++;
      l.geom.forEach(c=>{env.x0=Math.min(env.x0,c[1]);env.x1=Math.max(env.x1,c[1]);env.y0=Math.min(env.y0,c[0]);env.y1=Math.max(env.y1,c[0]);});
-     st.run([gpkgGeom(wkbLine(l.geom)),txt(l.id),txt(l._parent),txt(l.TIPO),txt(l.CERTEZA),txt(l.NOTA)]);
+     st.run([gpkgGeom(wkbLine(l.geom)),txt(l.id),txt(l._parent)].concat(csL.map(n=>txt(l[n]))));
    }
    st.free();
-   db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,min_x,min_y,max_x,max_y,srs_id) VALUES ('LINEAS_GEOLOGICAS','features','LINEAS_GEOLOGICAS',?,?,?,?,4326)",nL?[env.x0,env.y0,env.x1,env.y1]:[null,null,null,null]);
-   db.run("INSERT INTO gpkg_geometry_columns VALUES ('LINEAS_GEOLOGICAS','geom','LINESTRING',4326,0,0)");
+   db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,min_x,min_y,max_x,max_y,srs_id) VALUES ('LINEA_CONTROL','features','LINEA_CONTROL',?,?,?,?,4326)",nL?[env.x0,env.y0,env.x1,env.y1]:[null,null,null,null]);
+   db.run("INSERT INTO gpkg_geometry_columns VALUES ('LINEA_CONTROL','geom','LINESTRING',4326,0,0)");
   }
   for(const s of STORES){  // resto de tablas, sin geometría
     if(s==='punto')continue;
