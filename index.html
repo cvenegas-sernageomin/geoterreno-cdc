@@ -671,6 +671,135 @@ const MODELO = {
       "geometria": null,
       "pk": "ID_MUESTRA",
       "cardinalidad": "0..N"
+    },
+    "TBL_GEOMORFOLOGIA": {
+      "campos": [
+        {
+          "nombre": "ID_PUNTO_CONTROL",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "ID_GEOMORFOLOGIA",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "CATEGORIA_GEOMORF",
+          "obligatorio": true,
+          "dominio": "CATEGORIA_GEOMORF",
+          "nota": null
+        },
+        {
+          "nombre": "GEOFORMA",
+          "obligatorio": true,
+          "dominio": "GEOFORMA",
+          "nota": "la lista depende del campo CATEGORIA_GEOMORF"
+        },
+        {
+          "nombre": "AZIMUT",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Opcional; útil para geoformas direccionales (sentido de flujo, sentido de avance de hielo, indicador estratigráfico)."
+        },
+        {
+          "nombre": "DESCRIPCION_GEOMORFOLOGIA",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": null
+        }
+      ],
+      "geometria": null,
+      "pk": "ID_GEOMORFOLOGIA",
+      "cardinalidad": "0..N"
+    },
+    "LINEA_CONTROL": {
+      "campos": [
+        {
+          "nombre": "ID_PROYECTO",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "ID_LINEA",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "CLASE_LINEA",
+          "obligatorio": true,
+          "dominio": "CLASE_LINEA",
+          "nota": "De este campo depende qué grupo de campos se muestra: Contacto / Estructura-Falla / Geomorfología."
+        },
+        {
+          "nombre": "CERTEZA_LINEA",
+          "obligatorio": true,
+          "dominio": "LINEA_CERTEZA",
+          "nota": null
+        },
+        {
+          "nombre": "TIPO_CONTACTO_LINEA",
+          "obligatorio": false,
+          "dominio": "TIPO_CONTACTO",
+          "nota": "Solo si CLASE_LINEA = Contacto (mismo dominio que TBL_CONTACTO.TIPO_CONTACTO)."
+        },
+        {
+          "nombre": "UNIDAD_TECHO_LINEA",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Solo si CLASE_LINEA = Contacto."
+        },
+        {
+          "nombre": "UNIDAD_BASE_LINEA",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Solo si CLASE_LINEA = Contacto."
+        },
+        {
+          "nombre": "TIPO_ESTRUCTURA_LINEA",
+          "obligatorio": false,
+          "dominio": "TIPO_ESTRUCTURA",
+          "nota": "Solo si CLASE_LINEA = Estructura/Falla (mismo dominio que TBL_DATOS_ESTRUCTURALES.TIPO_ESTRUCTURA)."
+        },
+        {
+          "nombre": "TIPO_FALLA_LINEA",
+          "obligatorio": false,
+          "dominio": "TIPO_FALLA",
+          "nota": "Solo si CLASE_LINEA = Estructura/Falla y TIPO_ESTRUCTURA_LINEA = Estructura falla."
+        },
+        {
+          "nombre": "CATEGORIA_GEOMORF_LINEA",
+          "obligatorio": false,
+          "dominio": "CATEGORIA_GEOMORF_LINEA",
+          "nota": "Solo si CLASE_LINEA = Geomorfología."
+        },
+        {
+          "nombre": "GEOFORMA_LINEA",
+          "obligatorio": false,
+          "dominio": "GEOFORMA_LINEA",
+          "nota": "Depende de CATEGORIA_GEOMORF_LINEA; solo si CLASE_LINEA = Geomorfología."
+        },
+        {
+          "nombre": "PUNTOS_APOYO",
+          "obligatorio": false,
+          "dominio": null,
+          "multiple": true,
+          "nota": "Referencia opcional a IDs de PUNTO_CONTROL del mismo proyecto que sustentan esta traza (trazabilidad evidencia→interpretación). No es un dominio fijo: se puebla en tiempo real con los puntos del proyecto activo."
+        },
+        {
+          "nombre": "NOTA",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": null
+        }
+      ],
+      "geometria": "LINESTRING",
+      "pk": "ID_LINEA",
+      "cardinalidad": "0..N"
     }
   },
   "relaciones": [
@@ -718,6 +847,16 @@ const MODELO = {
       "padre": "TBL_LITOLOGIA",
       "hijo": "TBL_FOTOGRAFIAS",
       "campo": "ID_LITOLOGIA"
+    },
+    {
+      "padre": "PUNTO_CONTROL",
+      "hijo": "TBL_GEOMORFOLOGIA",
+      "campo": "ID_PUNTO_CONTROL"
+    },
+    {
+      "padre": "TBL_PROYECTO",
+      "hijo": "LINEA_CONTROL",
+      "campo": "ID_PROYECTO"
     }
   ],
   "dominios": {
@@ -1352,6 +1491,139 @@ const MODELO = {
       "valores": [],
       "fuente": "leyenda del proyecto (se llena por proyecto)",
       "editable": true
+    },
+    "CATEGORIA_GEOMORF": {
+      "tipo": "simple",
+      "valores": [
+        "Terrestre",
+        "Glaciar",
+        "Volcánica",
+        "Hidrogeológica",
+        "Indicador estratigráfico/flujo"
+      ],
+      "fuente": "lista geomorfologia.xlsx (geoformas puntuales)"
+    },
+    "GEOFORMA": {
+      "tipo": "cascada",
+      "padre": "CATEGORIA_GEOMORF",
+      "mapa": {
+        "Terrestre": [
+          "Cráter de impacto de bólido",
+          "Dolina",
+          "Duna barján",
+          "Duna parabólica"
+        ],
+        "Glaciar": [
+          "Eje de canal de desagüe glaciar",
+          "Depresión por derretimiento de bloque de hielo (Kettle hole)",
+          "Montículos o megabloques morrénicos",
+          "Estrías de avance glaciar"
+        ],
+        "Volcánica": [
+          "Centro de emisión sin cráter",
+          "Centro volcánico",
+          "Cono o anillo piroclástico",
+          "Cráter volcánico",
+          "Cuello volcánico",
+          "Domo volcánico",
+          "Fumarola",
+          "Montículos (cerrillos) o megabloques volcánicos",
+          "Túmulo"
+        ],
+        "Hidrogeológica": [
+          "Fuente de agua mineral",
+          "Fuente de agua termal",
+          "Geiser",
+          "Fuente de agua indiferenciada"
+        ],
+        "Indicador estratigráfico/flujo": [
+          "Indicador estratigráfico",
+          "Sentido de avance de hielo",
+          "Sentido de flujo"
+        ]
+      },
+      "fuente": "lista geomorfologia.xlsx"
+    },
+    "CATEGORIA_GEOMORF_LINEA": {
+      "tipo": "simple",
+      "valores": [
+        "Antrópica",
+        "Terrestre",
+        "Glaciar",
+        "Volcánica"
+      ],
+      "fuente": "lista geomorfologia.xlsx (geoformas lineales; GB_GEOMORFOLOGIA_ANTROPICA consolidada en Antrópica)"
+    },
+    "GEOFORMA_LINEA": {
+      "tipo": "cascada",
+      "padre": "CATEGORIA_GEOMORF_LINEA",
+      "mapa": {
+        "Antrópica": [
+          "Sondaje minero o pozo de agua",
+          "Escarpe mina",
+          "Límite de desmonte minero",
+          "Límite de relave minero",
+          "Límite de pila de lixiviación"
+        ],
+        "Terrestre": [
+          "Albardón (Levée)",
+          "Cordón litoral",
+          "Cráter de impacto de bólido",
+          "Cresta de duna",
+          "Dolina",
+          "Escarpe",
+          "Escarpe de erosión aluvial o fluvial",
+          "Escarpe de erosión marina",
+          "Escarpe de remoción en masa o avalancha",
+          "Límite de lóbulo sedimentario"
+        ],
+        "Glaciar": [
+          "Borde de terraza glacilacustre",
+          "Circo o escarpe glaciar",
+          "Depresión por derretimiento de bloque de hielo (Kettle hole)",
+          "Eje de canal de desagüe glaciar",
+          "Eje de cordón morrénico",
+          "Eje de forma subglaciar orientada",
+          "Grieta en glaciar",
+          "Límite máximo de avance del hielo",
+          "Montículos o megabloques morrénicos",
+          "Pendiente de contacto con hielo"
+        ],
+        "Volcánica": [
+          "Albardón (Levée)",
+          "Alineamiento de centros de emisión",
+          "Cordón transversal de colada de lava",
+          "Cráter volcánico",
+          "Escarpe de remoción en masa o avalancha",
+          "Fisura volcánica",
+          "Límite de campo de lava",
+          "Lóbulo de avance o de colada de lava ",
+          "Margen de caldera",
+          "Montículos (cerrillos) o megabloques volcánicos",
+          "Escarpe de frente de colada de lava",
+          "Tubo de lava"
+        ]
+      },
+      "fuente": "lista geomorfologia.xlsx"
+    },
+    "CLASE_LINEA": {
+      "tipo": "simple",
+      "valores": [
+        "Contacto",
+        "Estructura/Falla",
+        "Geomorfología",
+        "Otro"
+      ],
+      "fuente": "diseño CDC 2026-08 (discriminador de LINEA_CONTROL)"
+    },
+    "LINEA_CERTEZA": {
+      "tipo": "simple",
+      "valores": [
+        "Observado",
+        "Inferido",
+        "Cubierto"
+      ],
+      "fuente": "capa de líneas geológicas preexistente en build_pwa.py (promovida al modelo canónico)"
     }
   },
   "avisos": [
@@ -1367,7 +1639,8 @@ const MODELO = {
     "LV_FUENTE_COORDENADA: poblada desde diagrama v3 / estandar (CONFIRMAR).",
     "TIPO_DEPOSITO: poblada desde diagrama v3 / estandar (CONFIRMAR)."
   ]
-};
+}
+;
 </script>
 <script>
 "use strict";
@@ -1388,21 +1661,25 @@ function ahora(){const d=new Date();return {FECHA:d.toISOString().slice(0,10),HO
 // Mapa store -> tabla del modelo
 const STORE2TBL = {proyecto:'TBL_PROYECTO',punto:'PUNTO_CONTROL',litologia:'TBL_LITOLOGIA',
   estructural:'TBL_DATOS_ESTRUCTURALES',contacto:'TBL_CONTACTO',muestreo:'TBL_MUESTREO',
-  foto:'TBL_FOTOGRAFIAS',esquema:'TBL_ESQUEMA_DIBUJO'};
+  foto:'TBL_FOTOGRAFIAS',esquema:'TBL_ESQUEMA_DIBUJO',geomorf:'TBL_GEOMORFOLOGIA'};
 const STORES = Object.keys(STORE2TBL);
+// 'linea' no cuelga de un punto (es una capa aparte, hermana de PUNTO_CONTROL) -> no entra
+// en STORES/HIJAS, pero necesita su propia tabla del modelo para el formulario/exports.
+const LINEA_TBL = 'LINEA_CONTROL';
 const HIJAS = [
   {store:'litologia', titulo:'Litología', clase:'lito', oblig:true},
   {store:'estructural', titulo:'Datos estructurales', clase:''},
   {store:'contacto', titulo:'Contactos', clase:''},
+  {store:'geomorf', titulo:'Geomorfología', clase:''},
   {store:'muestreo', titulo:'Muestreo', clase:''},
   {store:'foto', titulo:'Fotografías', clase:''},
   {store:'esquema', titulo:'Esquemas / dibujos', clase:''},
 ];
-function campos(store){return (MODELO.tablas[STORE2TBL[store]]||{}).campos||[];}
-function pkDe(store){return (MODELO.tablas[STORE2TBL[store]]||{}).pk;}
+function campos(store){return (MODELO.tablas[store==='linea'?LINEA_TBL:STORE2TBL[store]]||{}).campos||[];}
+function pkDe(store){return (MODELO.tablas[store==='linea'?LINEA_TBL:STORE2TBL[store]]||{}).pk;}
 
 // ============================ IndexedDB ============================
-const DB='captura-terreno', VER=3;
+const DB='captura-terreno', VER=4;   // v4: nuevo store 'geomorf' (TBL_GEOMORFOLOGIA)
 let db;
 function openDB(){return new Promise((res,rej)=>{
   let done=false; const finish=(fn,v)=>{if(!done){done=true;fn(v);}};

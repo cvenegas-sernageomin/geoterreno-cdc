@@ -187,21 +187,25 @@ function ahora(){const d=new Date();return {FECHA:d.toISOString().slice(0,10),HO
 // Mapa store -> tabla del modelo
 const STORE2TBL = {proyecto:'TBL_PROYECTO',punto:'PUNTO_CONTROL',litologia:'TBL_LITOLOGIA',
   estructural:'TBL_DATOS_ESTRUCTURALES',contacto:'TBL_CONTACTO',muestreo:'TBL_MUESTREO',
-  foto:'TBL_FOTOGRAFIAS',esquema:'TBL_ESQUEMA_DIBUJO'};
+  foto:'TBL_FOTOGRAFIAS',esquema:'TBL_ESQUEMA_DIBUJO',geomorf:'TBL_GEOMORFOLOGIA'};
 const STORES = Object.keys(STORE2TBL);
+// 'linea' no cuelga de un punto (es una capa aparte, hermana de PUNTO_CONTROL) -> no entra
+// en STORES/HIJAS, pero necesita su propia tabla del modelo para el formulario/exports.
+const LINEA_TBL = 'LINEA_CONTROL';
 const HIJAS = [
   {store:'litologia', titulo:'Litología', clase:'lito', oblig:true},
   {store:'estructural', titulo:'Datos estructurales', clase:''},
   {store:'contacto', titulo:'Contactos', clase:''},
+  {store:'geomorf', titulo:'Geomorfología', clase:''},
   {store:'muestreo', titulo:'Muestreo', clase:''},
   {store:'foto', titulo:'Fotografías', clase:''},
   {store:'esquema', titulo:'Esquemas / dibujos', clase:''},
 ];
-function campos(store){return (MODELO.tablas[STORE2TBL[store]]||{}).campos||[];}
-function pkDe(store){return (MODELO.tablas[STORE2TBL[store]]||{}).pk;}
+function campos(store){return (MODELO.tablas[store==='linea'?LINEA_TBL:STORE2TBL[store]]||{}).campos||[];}
+function pkDe(store){return (MODELO.tablas[store==='linea'?LINEA_TBL:STORE2TBL[store]]||{}).pk;}
 
 // ============================ IndexedDB ============================
-const DB='captura-terreno', VER=3;
+const DB='captura-terreno', VER=4;   // v4: nuevo store 'geomorf' (TBL_GEOMORFOLOGIA)
 let db;
 function openDB(){return new Promise((res,rej)=>{
   let done=false; const finish=(fn,v)=>{if(!done){done=true;fn(v);}};
