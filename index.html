@@ -153,6 +153,16 @@
     <h1 id="ttl">GeoTerreno CDC</h1>
     <div class="ctx" id="ctx"></div>
   </div>
+  <div style="margin:0 10px; display:inline-flex; gap:10px;">
+    <label style="font-weight:bold;">
+      <input type="radio" name="coleccion-toggle" value="terreno" checked onchange="toggleColeccion('terreno')">
+      🏔️ Terreno
+    </label>
+    <label>
+      <input type="radio" name="coleccion-toggle" value="gabinete" onchange="toggleColeccion('gabinete')">
+      📋 Gabinete
+    </label>
+  </div>
   <button class="btn sec mini" onclick="openBackupModal()" title="Archivar/Cargar día">💾</button>
   <input type="file" id="kmz-file-input" accept=".kmz" style="display:none;">
   <button class="btn sec mini" onclick="document.getElementById('kmz-file-input').click()" title="Cargar geometrías de KMZ">📂</button>
@@ -3548,6 +3558,9 @@ document.getElementById('kmz-file-input').addEventListener('change', async (e) =
 
   e.target.value = '';
 });
+
+const coleccionGuardada = localStorage.getItem('captura-coleccion-activa') || 'terreno';
+toggleColeccion(coleccionGuardada);
 </script>
 
 <!-- Modal Backup/Import -->
