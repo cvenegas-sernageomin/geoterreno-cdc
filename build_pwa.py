@@ -1198,11 +1198,11 @@ function svgEstructura(e,cx,cy){
   return s;
 }
 // ---- Líneas geológicas (contactos/fallas) dibujadas sobre el satelital ----
-const LINEA_TIPOS=['Contacto estratigráfico','Contacto intrusivo','Falla','Discordancia','Eje de pliegue','Dique','Otro'];
-const LINEA_CERTEZA=['Observado','Inferido','Cubierto'];
-const LINEA_COLOR={'Contacto estratigráfico':'#1a1a1a','Contacto intrusivo':'#8e44ad','Falla':'#c0392b','Discordancia':'#d35400','Eje de pliegue':'#16739e','Dique':'#2e7d32','Otro':'#444'};
+// El color va por CLASE_LINEA (no por cada sub-tipo, para no mantener una paleta de 20+
+// entradas); el punteado sigue yendo por certeza, igual que antes.
+const LINEA_CLASE_COLOR={'Contacto':'#1a1a1a','Estructura/Falla':'#c0392b','Geomorfología':'#16739e','Otro':'#666'};
 const LINEA_DASH={'Observado':null,'Inferido':'10,7','Cubierto':'2,7'};
-function estiloLinea(l){return {color:LINEA_COLOR[l.TIPO]||'#444', weight:3.5, opacity:.95, dashArray:LINEA_DASH[l.CERTEZA]||null};}
+function estiloLinea(l){return {color:LINEA_CLASE_COLOR[l.CLASE_LINEA]||'#666', weight:3.5, opacity:.95, dashArray:LINEA_DASH[l.CERTEZA_LINEA]||null};}
 let dibujando=false,_verts=[],_tmpLine=null,_tmpMk=[],_puntosMapa=[];
 let agregandoPunto=false, coordsPendientes=null;
 function limpiarTemp(){ if(mapaVista){ if(_tmpLine)mapaVista.removeLayer(_tmpLine); _tmpMk.forEach(m=>mapaVista.removeLayer(m)); } _tmpLine=null;_tmpMk=[];_verts=[]; }
@@ -1231,23 +1231,20 @@ function iniciarDibujoLinea(){ if(!mapaVista)return; dibujando=true; limpiarTemp
 function cancelarDibujo(){ dibujando=false; limpiarTemp(); const b=document.getElementById('drawbanner');if(b)b.remove(); if(mapaVista)mapaVista.getContainer().style.cursor=''; }
 function terminarDibujo(){
   if(_verts.length<2){toast('Traza al menos 2 puntos');return;}
-  const l={id:uid(),_parent:curProyecto.id,geom:_verts.slice(),TIPO:LINEA_TIPOS[0],CERTEZA:LINEA_CERTEZA[0],NOTA:''};
+  const l={id:uid(),_parent:curProyecto.id,geom:_verts.slice(),CLASE_LINEA:'Contacto',CERTEZA_LINEA:'Observado',NOTA:''};
   const b=document.getElementById('drawbanner');if(b)b.remove();
   dibujando=false; limpiarTemp(); if(mapaVista)mapaVista.getContainer().style.cursor='';
   formLinea(l, async()=>{await put('linea',l);initMapaVista(_puntosMapa);toast('Línea guardada');}, null);
 }
 function formLinea(linea,onSave,onDelete){
   const ov=el('div',{class:'fmov',onclick:e=>{if(e.target===ov)ov.remove();}});
-  const box=el('div',{class:'card',style:'max-width:400px;width:92vw'});
-  box.append(el('h2',{},'✏️ Línea geológica'));
-  const selT=el('select');LINEA_TIPOS.forEach(t=>selT.append(el('option',{value:t},t)));selT.value=linea.TIPO||LINEA_TIPOS[0];
-  const selC=el('select');LINEA_CERTEZA.forEach(t=>selC.append(el('option',{value:t},t)));selC.value=linea.CERTEZA||LINEA_CERTEZA[0];
-  const nota=el('textarea',{rows:2});nota.value=linea.NOTA||'';
-  const fld=(lab,inp)=>el('div',{class:'fld'},el('label',{},lab),inp);
-  box.append(el('div',{class:'row'},fld('Tipo',selT),fld('Certeza',selC)),fld('Nota',nota));
+  const box=el('div',{class:'card',style:'max-width:440px;width:92vw'});
+  box.append(el('h2',{},'✏️ Línea de control'));
+  const f=formulario('linea', linea, {puntos:_puntosMapa});
+  box.append(f.node);
   box.append(el('div',{class:'muted',style:'font-size:11px'},(linea.geom||[]).length+' vértices'));
   const bar=el('div',{class:'btnbar'});
-  bar.append(el('button',{class:'btn',onclick:()=>{linea.TIPO=selT.value;linea.CERTEZA=selC.value;linea.NOTA=nota.value;ov.remove();onSave();}},'Guardar'));
+  bar.append(el('button',{class:'btn',onclick:()=>{Object.assign(linea,f.getData());ov.remove();onSave();}},'Guardar'));
   if(onDelete)bar.append(el('button',{class:'btn del',onclick:()=>{if(confirm('¿Eliminar esta línea?')){ov.remove();onDelete();}}},'Eliminar'));
   bar.append(el('button',{class:'btn sec',onclick:()=>ov.remove()},'Cancelar'));
   box.append(bar);ov.append(box);document.body.append(ov);
