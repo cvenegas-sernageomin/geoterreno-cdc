@@ -154,6 +154,8 @@
     <div class="ctx" id="ctx"></div>
   </div>
   <button class="btn sec mini" onclick="openBackupModal()" title="Archivar/Cargar día">💾</button>
+  <input type="file" id="kmz-file-input" accept=".kmz" style="display:none;">
+  <button class="btn sec mini" onclick="document.getElementById('kmz-file-input').click()" title="Cargar geometrías de KMZ">📂</button>
 </header>
 <main id="app"></main>
 <div class="fab" id="fab"></div>
@@ -1835,6 +1837,7 @@ function toggleColeccion(nuevoValor) {
   if (radio) {
     radio.checked = true;
     localStorage.setItem('captura-coleccion-activa', nuevoValor);
+    updateFormReadonly();
   }
 }
 
@@ -1987,10 +1990,130 @@ async function importBackupUI(coleccion) {
     const statusDiv = document.getElementById(`backup-status-${coleccion}`);
     statusDiv.innerHTML = `<span style="color:var(--verde);">✓ Importadas: ${result.insertadas} registros. Omitidas: ${result.omitidas} (duplicadas).</span>`;
     fileInput.value = '';
+    updateFormReadonly();
   } catch (err) {
     const statusDiv = document.getElementById(`backup-status-${coleccion}`);
     statusDiv.innerHTML = `<span style="color:var(--rojo);">✗ Error: ${err.message}</span>`;
   }
+}
+
+async function parseKmzFile(file) {
+  if (!file.name.toLowerCase().endsWith('.kmz')) {
+    throw new Error('Archivo debe ser .kmz');
+  }
+
+  const zip = new JSZip();
+  const zipData = await file.arrayBuffer();
+  const zipContent = await zip.loadAsync(zipData);
+
+  let kmlFile = null;
+  for (const filename of Object.keys(zipContent.files)) {
+    if (filename.toLowerCase().endsWith('.kml')) {
+      kmlFile = await zipContent.file(filename).async('text');
+      break;
+    }
+  }
+
+  if (!kmlFile) {
+    throw new Error('No se encontró archivo .kml dentro del ZIP');
+  }
+
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(kmlFile, 'text/xml');
+
+  if (xmlDoc.parseError.errorCode !== 0) {
+    throw new Error('Error al parsear KML: ' + xmlDoc.parseError.reason);
+  }
+
+  const geometrias = [];
+
+  const placemarks = xmlDoc.querySelectorAll('Placemark');
+  for (const pm of placemarks) {
+    const nombre = pm.querySelector('name')?.textContent || 'Sin nombre';
+    const description = pm.querySelector('description')?.textContent || '';
+
+    const pointNode = pm.querySelector('Point');
+    if (pointNode) {
+      const coords = pointNode.querySelector('coordinates')?.textContent.trim().split(',');
+      if (coords && coords.length >= 2) {
+        geometrias.push({
+          tipo: 'punto',
+          lng: parseFloat(coords[0]),
+          lat: parseFloat(coords[1]),
+          nombre: nombre,
+          descripcion: description,
+        });
+      }
+    }
+
+    const lineNode = pm.querySelector('LineString');
+    if (lineNode) {
+      const coordsText = lineNode.querySelector('coordinates')?.textContent.trim();
+      if (coordsText) {
+        const coords = coordsText.split(/\s+/).map(c => {
+          const [lng, lat] = c.split(',');
+          return { lat: parseFloat(lat), lng: parseFloat(lng) };
+        });
+        if (coords.length > 0) {
+          geometrias.push({
+            tipo: 'linea',
+            coordenadas: coords,
+            nombre: nombre,
+            descripcion: description,
+          });
+        }
+      }
+    }
+  }
+
+  return geometrias;
+}
+
+async function insertKmzGeometries(geometrias, coleccion = null) {
+  const col = coleccion || storeActivo();
+  let puntosInsertados = 0;
+  let lineasInsertadas = 0;
+
+  for (const geom of geometrias) {
+    if (geom.tipo === 'punto') {
+      const punto = {
+        id: 'PUNTO_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        nombre: geom.nombre,
+        descripcion: geom.descripcion,
+        latitud: geom.lat,
+        longitud: geom.lng,
+        origen: 'kmz_importado',
+        fecha: new Date().toISOString(),
+        confirmed: false,
+      };
+      try {
+        await put(storeActivo(), punto);
+        puntosInsertados++;
+      } catch (err) {
+        console.warn('Error insertando punto:', err);
+      }
+    } else if (geom.tipo === 'linea') {
+      const linea = {
+        id: 'LINEA_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        nombre: geom.nombre,
+        descripcion: geom.descripcion,
+        coordenadas: geom.coordenadas,
+        origen: 'kmz_importado',
+        fecha: new Date().toISOString(),
+      };
+      try {
+        await put(storeLineaActivo(), linea);
+        lineasInsertadas++;
+      } catch (err) {
+        console.warn('Error insertando línea:', err);
+      }
+    }
+  }
+
+  return {
+    puntosInsertados,
+    lineasInsertadas,
+  };
 }
 
 // ============================ Dominios / cascadas ============================
@@ -3347,6 +3470,40 @@ async function paginaLibreta(pr,pt){
     +'</div>';
 }
 
+// ============================ Modo lectura (colección Gabinete) ============================
+function updateFormReadonly() {
+  const esGabinete = storeActivo() === RM_GAB_STORE;
+  const inputs = document.querySelectorAll('input, textarea, select');
+
+  inputs.forEach(input => {
+    if (esGabinete) {
+      input.disabled = true;
+      input.style.opacity = '0.6';
+    } else {
+      input.disabled = false;
+      input.style.opacity = '1';
+    }
+  });
+
+  const leyenda = document.getElementById('readonly-legend');
+  if (esGabinete) {
+    if (!leyenda) {
+      const leg = document.createElement('div');
+      leg.id = 'readonly-legend';
+      leg.style.cssText = `
+        position: fixed; top: 10px; right: 10px;
+        background: #fff3cd; color: #856404; padding: 10px 15px;
+        border: 1px solid #ffc107; border-radius: 4px;
+        font-weight: bold; z-index: 999;
+      `;
+      leg.textContent = '🔒 Lectura - Datos de Gabinete';
+      document.body.appendChild(leg);
+    }
+  } else {
+    if (leyenda) leyenda.remove();
+  }
+}
+
 // ============================ Init ============================
 function pantallaError(msg,detalle){
   const app=$('#app'); if(!app)return;
@@ -3376,6 +3533,21 @@ window.addEventListener('error',e=>{if(!db)pantallaError('Error al iniciar',(e.m
     try{await navigator.serviceWorker.register('sw.js');}catch(e){}
   }
 })();
+
+document.getElementById('kmz-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    const geometrias = await parseKmzFile(file);
+    const resultado = await insertKmzGeometries(geometrias);
+    alert(`✓ Cargado: ${resultado.puntosInsertados} puntos, ${resultado.lineasInsertadas} líneas`);
+  } catch (err) {
+    alert(`✗ Error: ${err.message}`);
+  }
+
+  e.target.value = '';
+});
 </script>
 
 <!-- Modal Backup/Import -->
