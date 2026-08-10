@@ -1794,6 +1794,36 @@ function all(store){return new Promise((res,rej)=>{const r=tx(store).getAll();r.
 function get(store,id){return new Promise((res,rej)=>{const r=tx(store).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
 async function childrenOf(store,parentId){return (await all(store)).filter(x=>x._parent===parentId);}
 
+// ============================ Colección activa (terreno / gabinete) ============================
+const RM_STORE = 'punto';
+const RM_GAB_STORE = 'punto_gabinete';
+const LINE_STORE = 'linea';
+const LINE_GAB_STORE = 'linea_gabinete';
+
+function storeActivo() {
+  const coleccion = document.querySelector('input[name="coleccion-toggle"]:checked');
+  if (coleccion && coleccion.value === 'gabinete') {
+    return RM_GAB_STORE;
+  }
+  return RM_STORE;
+}
+
+function storeLineaActivo() {
+  const coleccion = document.querySelector('input[name="coleccion-toggle"]:checked');
+  if (coleccion && coleccion.value === 'gabinete') {
+    return LINE_GAB_STORE;
+  }
+  return LINE_STORE;
+}
+
+function toggleColeccion(nuevoValor) {
+  const radio = document.querySelector(`input[name="coleccion-toggle"][value="${nuevoValor}"]`);
+  if (radio) {
+    radio.checked = true;
+    localStorage.setItem('captura-coleccion-activa', nuevoValor);
+  }
+}
+
 // ============================ Dominios / cascadas ============================
 function dominio(nombre){return MODELO.dominios[nombre];}
 // opciones [{value,label}] para un campo, dado el valor del padre (si cascada)
@@ -2070,7 +2100,7 @@ async function capturarSatelital(){
   try{const r=await fetch(url,{signal:AbortSignal.timeout(9000)});if(!r.ok)throw 0;const blob=await r.blob();
     const b64=await new Promise(res=>{const rd=new FileReader();rd.onload=()=>res(rd.result.split(',')[1]);rd.readAsDataURL(blob);});
     curPunto._satelital=b64;curPunto._satBounds={west:b.getWest(),south:b.getSouth(),east:b.getEast(),north:b.getNorth()};
-    await put('punto',curPunto);
+    await put(storeActivo(),curPunto);
     const th=document.getElementById('satthumb');th.innerHTML='';th.append(el('img',{src:'data:image/jpeg;base64,'+b64}));
     toast('Satelital capturada ✓');
   }catch(e){toast('No se pudo capturar (¿sin conexión?)');}
@@ -2346,7 +2376,7 @@ async function renderProyecto(app){
   $('#ttl').textContent=curProyecto.NOMBRE_PROYECTO||'Proyecto';
   $('#ctx').textContent='ID '+(curProyecto.ID_PROYECTO||'—');
   app.append(toggleModo('puntos'));
-  const puntos=(await childrenOf('punto',curProyecto.id));
+  const puntos=(await childrenOf(storeActivo(),curProyecto.id));
   curProyecto._npuntos=puntos.length;put('proyecto',curProyecto);
   const head=el('div',{class:'card'});
   head.append(el('h2',{},'Proyecto'),
@@ -2396,7 +2426,7 @@ async function renderPunto(app){
   const nuevo = vista.id==='__new__';
   // punto nuevo: precarga colector y campos constantes recordados + fecha/hora automáticas
   curPunto = nuevo ? Object.assign({id:uid(),_parent:curProyecto.id}, stickyGet(), ahora())
-                   : await get('punto',vista.id);
+                   : await get(storeActivo(),vista.id);
   if(nuevo){const c=namingCfg(curProyecto).pc; if(c.on){curPunto.ID_PUNTO_CONTROL=fmtName(c);curPunto._idPreview=curPunto.ID_PUNTO_CONTROL;}}
   if(nuevo&&coordsPendientes){curPunto[inLat]=coordsPendientes[0].toFixed(6);curPunto[inLon]=coordsPendientes[1].toFixed(6);coordsPendientes=null;}
   if(!curPunto)return nav({n:'proyecto',id:curProyecto.id});
@@ -2438,7 +2468,7 @@ async function renderPunto(app){
       const full=namingCfg(curProyecto);full.pc.next=nc.next+1;curProyecto._naming=full;await put('proyecto',curProyecto);
     }
     curPunto._idDone=true;
-    await put('punto',curPunto);
+    await put(storeActivo(),curPunto);
     stickySet(curPunto);  // recuerda colector/proyección/etc. para el próximo punto
     if(vista.id==='__new__')vista={n:'punto',id:curPunto.id};  // fija id real: evita re-crear punto vacío al re-render
     return curPunto;
@@ -2565,7 +2595,7 @@ function bloqueEsquema(reg){
 async function borrarPunto(id){
   for(const h of HIJAS){const its=await childrenOf(h.store,id);for(const it of its)await del(h.store,it.id);}
   for(const fm of await fotomapasRaiz(id)) await borrarFotomapaArbol(fm.id);
-  await del('punto',id);
+  await del(storeActivo(),id);
 }
 
 // ============================ Foto-mapa (image basemap anidado, estilo StraboSpot) ============================
@@ -2656,7 +2686,7 @@ async function renderMapa(app){
   const card=el('div',{class:'card mapcard'});
   card.append(el('div',{id:'projmap',class:'mapbig'}));
   app.append(card);
-  const puntos=await childrenOf('punto',curProyecto.id);
+  const puntos=await childrenOf(storeActivo(),curProyecto.id);
   const conC=puntos.filter(p=>!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Lat']))&&!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Long'])));
   $('#fab').className='fab compact';
   $('#fab').append(
@@ -2696,13 +2726,13 @@ async function initMapaVista(puntos){
     pts.push([lat,lon]);
   }
   // --- líneas geológicas (contactos/fallas) del proyecto ---
-  const lineas=await childrenOf('linea',curProyecto.id);
+  const lineas=await childrenOf(storeLineaActivo(),curProyecto.id);
   for(const L2 of lineas){
     if(!L2.geom||L2.geom.length<2)continue;
     const pl=L.polyline(L2.geom, estiloLinea(L2)).addTo(mapaVista);
     pl.on('click',ev=>{ if(dibujando)return; L.DomEvent.stop(ev);
-      formLinea(L2, async()=>{await put('linea',L2);initMapaVista(_puntosMapa);},
-                    async()=>{await del('linea',L2.id);initMapaVista(_puntosMapa);}); });
+      formLinea(L2, async()=>{await put(storeLineaActivo(),L2);initMapaVista(_puntosMapa);},
+                    async()=>{await del(storeLineaActivo(),L2.id);initMapaVista(_puntosMapa);}); });
   }
   _puntosMapa=puntos;
   // click en el mapa: si está el modo dibujo activo, agrega vértice
@@ -2794,7 +2824,7 @@ function terminarDibujo(){
   const l={id:uid(),_parent:curProyecto.id,geom:_verts.slice(),CLASE_LINEA:'Contacto',CERTEZA_LINEA:'Observado',NOTA:''};
   const b=document.getElementById('drawbanner');if(b)b.remove();
   dibujando=false; limpiarTemp(); if(mapaVista)mapaVista.getContainer().style.cursor='';
-  formLinea(l, async()=>{await put('linea',l);initMapaVista(_puntosMapa);toast('Línea guardada');}, null);
+  formLinea(l, async()=>{await put(storeLineaActivo(),l);initMapaVista(_puntosMapa);toast('Línea guardada');}, null);
 }
 function formLinea(linea,onSave,onDelete){
   const ov=el('div',{class:'fmov',onclick:e=>{if(e.target===ov)ov.remove();}});
@@ -2833,12 +2863,12 @@ function compositaFotomapa(node){return new Promise(async res=>{
 // Duplica un punto con sus datos DESCRIPTIVOS (litología, estructurales, contactos, muestreo),
 // pero deja en blanco las coordenadas y NO copia fotos/esquemas/imagen satelital (son propios del sitio).
 async function duplicarPunto(srcId){
-  const src=await get('punto',srcId); if(!src)return null;
+  const src=await get(storeActivo(),srcId); if(!src)return null;
   const np=Object.assign({},src,{id:uid(),_parent:src._parent},ahora());
   ['Coordenadas Geográficas Decimales_Lat','Coordenadas Geográficas Decimales_Long','COTA','PRECISION_GPS','ID_PUNTO_CONTROL']
     .forEach(k=>np[k]='');
   delete np._satelital; delete np._satBounds;   // la vista satelital es del sitio anterior
-  await put('punto',np);
+  await put(storeActivo(),np);
   // litologías (remapear ids para reenlazar estructurales)
   const mapLito={};
   for(const li of await childrenOf('litologia',srcId)){const n=Object.assign({},li,{id:uid(),_parent:np.id});mapLito[li.id]=n.id;await put('litologia',n);}
