@@ -131,6 +131,19 @@
   .sensorwrap{display:flex;gap:6px;align-items:stretch}
   .sensorwrap input{flex:1;min-width:0}
   .sensorwrap .btn{white-space:nowrap;padding:0 13px;font-size:16px}
+  .modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:1000;padding:14px}
+  .modal-content{background:var(--surface);color:var(--txt);border:1px solid var(--bd);border-radius:14px;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow)}
+  .modal-header{padding:14px 15px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center}
+  .modal-header h3{margin:0;font-size:15px;color:var(--verde)}
+  .modal-close{background:none;border:none;font-size:1.5rem;line-height:1;cursor:pointer;color:var(--muted);padding:0}
+  .modal-body{padding:15px}
+  .modal-body h4{margin:0 0 6px;font-size:13px;color:var(--txt)}
+  .modal-body p{margin:0 0 8px;font-size:12.5px;color:var(--muted)}
+  .tabs{display:flex;margin-bottom:15px;gap:10px;border-bottom:2px solid var(--bd)}
+  .tab-button{padding:10px 15px;border:none;background:none;cursor:pointer;font-weight:650;color:var(--muted);border-bottom:3px solid transparent;font-size:13px}
+  .tab-button.active{color:var(--verde);border-bottom-color:var(--verde)}
+  .tab-content{display:none}
+  .tab-content.active{display:block}
 </style>
 </head>
 <body>
@@ -140,6 +153,7 @@
     <h1 id="ttl">GeoTerreno CDC</h1>
     <div class="ctx" id="ctx"></div>
   </div>
+  <button class="btn sec mini" onclick="openBackupModal()" title="Archivar/Cargar día">💾</button>
 </header>
 <main id="app"></main>
 <div class="fab" id="fab"></div>
@@ -1921,6 +1935,64 @@ async function importBackup(file, destinoColeccion = null) {
   });
 }
 
+// ============================ UI Backup/Import (modal) ============================
+function openBackupModal() {
+  document.getElementById('backup-modal').style.display = 'flex';
+}
+
+function closeBackupModal() {
+  document.getElementById('backup-modal').style.display = 'none';
+}
+
+function switchBackupTab(tab, btn) {
+  document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+  if (btn) btn.classList.add('active');
+  document.getElementById(`backup-${tab}-tab`).classList.add('active');
+}
+
+async function exportBackupUI(coleccion) {
+  try {
+    const blob = await buildBackupBlob(coleccion);
+    const fecha = new Date().toISOString().slice(0, 10);
+    const hora = new Date().toTimeString().slice(0, 5).replace(':', '');
+    const filename = `captura-terreno_${coleccion}_${fecha}_${hora}.json`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    const statusDiv = document.getElementById(`backup-status-${coleccion}`);
+    statusDiv.innerHTML = `<span style="color:var(--verde);">✓ Descargado: ${filename}</span>`;
+  } catch (err) {
+    const statusDiv = document.getElementById(`backup-status-${coleccion}`);
+    statusDiv.innerHTML = `<span style="color:var(--rojo);">✗ Error: ${err.message}</span>`;
+  }
+}
+
+async function importBackupUI(coleccion) {
+  const fileInput = document.getElementById(`backup-file-${coleccion}`);
+  const file = fileInput.files[0];
+  if (!file) {
+    alert('Selecciona un archivo JSON primero');
+    return;
+  }
+
+  try {
+    const result = await importBackup(file, coleccion);
+    const statusDiv = document.getElementById(`backup-status-${coleccion}`);
+    statusDiv.innerHTML = `<span style="color:var(--verde);">✓ Importadas: ${result.insertadas} registros. Omitidas: ${result.omitidas} (duplicadas).</span>`;
+    fileInput.value = '';
+  } catch (err) {
+    const statusDiv = document.getElementById(`backup-status-${coleccion}`);
+    statusDiv.innerHTML = `<span style="color:var(--rojo);">✗ Error: ${err.message}</span>`;
+  }
+}
+
 // ============================ Dominios / cascadas ============================
 function dominio(nombre){return MODELO.dominios[nombre];}
 // opciones [{value,label}] para un campo, dado el valor del padre (si cascada)
@@ -3305,5 +3377,46 @@ window.addEventListener('error',e=>{if(!db)pantallaError('Error al iniciar',(e.m
   }
 })();
 </script>
+
+<!-- Modal Backup/Import -->
+<div id="backup-modal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>💾 Archivar/Cargar Día de Trabajo</h3>
+      <button class="modal-close" onclick="closeBackupModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <!-- Tabs: Terreno / Gabinete -->
+      <div class="tabs">
+        <button class="tab-button active" onclick="switchBackupTab('terreno', this)">🏔️ Terreno</button>
+        <button class="tab-button" onclick="switchBackupTab('gabinete', this)">📋 Gabinete</button>
+      </div>
+
+      <div id="backup-terreno-tab" class="tab-content active">
+        <h4>Archivar Día Terreno</h4>
+        <p>Descarga un archivo JSON con todos los puntos y líneas del día.</p>
+        <button onclick="exportBackupUI('terreno')" class="btn">📥 Descargar Backup Terreno</button>
+
+        <h4 style="margin-top:20px;">Cargar Día Anterior</h4>
+        <p>Sube un JSON de un día anterior para ver en lectura (no se edita).</p>
+        <input type="file" id="backup-file-terreno" accept=".json" style="margin:10px 0;display:block;">
+        <button onclick="importBackupUI('terreno')" class="btn sec">📤 Importar</button>
+        <div id="backup-status-terreno" style="margin-top:10px; font-size:0.9em;"></div>
+      </div>
+
+      <div id="backup-gabinete-tab" class="tab-content">
+        <h4>Archivar Día Gabinete</h4>
+        <p>Descarga un archivo JSON con todos los puntos y líneas de gabinete.</p>
+        <button onclick="exportBackupUI('gabinete')" class="btn">📥 Descargar Backup Gabinete</button>
+
+        <h4 style="margin-top:20px;">Cargar Datos Anteriores</h4>
+        <p>Sube un JSON de gabinete anterior para ver en lectura.</p>
+        <input type="file" id="backup-file-gabinete" accept=".json" style="margin:10px 0;display:block;">
+        <button onclick="importBackupUI('gabinete')" class="btn sec">📤 Importar</button>
+        <div id="backup-status-gabinete" style="margin-top:10px; font-size:0.9em;"></div>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
