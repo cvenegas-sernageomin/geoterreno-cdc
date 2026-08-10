@@ -1824,6 +1824,103 @@ function toggleColeccion(nuevoValor) {
   }
 }
 
+function coleccionActiva() {
+  const r = document.querySelector('input[name="coleccion-toggle"]:checked');
+  return (r && r.value === 'gabinete') ? 'gabinete' : 'terreno';
+}
+
+// ============================ Backup / restauración (JSON) ============================
+async function buildBackupBlob(coleccion = 'terreno') {
+  const backup = {
+    app: 'captura-terreno',
+    formato: 1,
+    coleccion: coleccion,
+    exportado: new Date().toISOString(),
+  };
+
+  const storeList = [
+    'proyecto',
+    coleccion === 'gabinete' ? 'punto_gabinete' : 'punto',
+    coleccion === 'gabinete' ? 'linea_gabinete' : 'linea',
+    'litologia',
+    'estructural',
+    'contacto',
+    'muestreo',
+    'foto',
+    'esquema',
+    'geomorf',
+  ];
+
+  for (const store of storeList) {
+    backup[store] = await all(store);
+  }
+
+  const json = JSON.stringify(backup, null, 2);
+  return new Blob([json], { type: 'application/json' });
+}
+
+async function importBackup(file, destinoColeccion = null) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+
+        if (data.app !== 'captura-terreno' || data.formato !== 1) {
+          reject(new Error('Archivo inválido: no es un backup de captura-terreno'));
+          return;
+        }
+
+        const coleccion = destinoColeccion || coleccionActiva();
+        const esGabinete = coleccion === 'gabinete';
+
+        const storeMap = {
+          proyecto: 'proyecto',
+          punto: esGabinete ? 'punto_gabinete' : 'punto',
+          linea: esGabinete ? 'linea_gabinete' : 'linea',
+          punto_gabinete: esGabinete ? 'punto_gabinete' : 'punto',
+          linea_gabinete: esGabinete ? 'linea_gabinete' : 'linea',
+          litologia: 'litologia',
+          estructural: 'estructural',
+          contacto: 'contacto',
+          muestreo: 'muestreo',
+          foto: 'foto',
+          esquema: 'esquema',
+          geomorf: 'geomorf',
+        };
+
+        let totalInsertadas = 0;
+        let totalOmitidas = 0;
+
+        for (const [storeOrigen, storeDestino] of Object.entries(storeMap)) {
+          if (!data[storeOrigen]) continue;
+
+          const records = data[storeOrigen];
+          for (const record of records) {
+            try {
+              await put(storeDestino, record);
+              totalInsertadas++;
+            } catch (err) {
+              totalOmitidas++;
+            }
+          }
+        }
+
+        resolve({
+          ok: true,
+          insertadas: totalInsertadas,
+          omitidas: totalOmitidas,
+          coleccion: coleccion,
+        });
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
 // ============================ Dominios / cascadas ============================
 function dominio(nombre){return MODELO.dominios[nombre];}
 // opciones [{value,label}] para un campo, dado el valor del padre (si cascada)
