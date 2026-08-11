@@ -2596,10 +2596,11 @@ let curProyecto=null, curPunto=null;
 async function render(){
   dibujando=false; agregandoPunto=false;   // corta modos de dibujo/agregar al navegar
   const app=$('#app'); app.innerHTML=''; $('#fab').innerHTML=''; $('#fab').className='fab';
-  if(vista.n==='home') return renderHome(app);
-  if(vista.n==='proyecto') return renderProyecto(app);
-  if(vista.n==='mapa') return renderMapa(app);
-  if(vista.n==='punto') return renderPunto(app);
+  if(vista.n==='home') await renderHome(app);
+  else if(vista.n==='proyecto') await renderProyecto(app);
+  else if(vista.n==='mapa') await renderMapa(app);
+  else if(vista.n==='punto') await renderPunto(app);
+  updateFormReadonly();   // re-aplica el bloqueo: render() rehace #app desde cero
 }
 
 // -------- Home: proyectos --------
@@ -3482,12 +3483,20 @@ async function paginaLibreta(pr,pt){
 }
 
 // ============================ Modo lectura (colección Gabinete) ============================
+// Controles que NUNCA se bloquean: el propio toggle de coleccion (si se bloquea no
+// hay forma de volver a Terreno), el modal de respaldo y el input de KMZ.
+const READONLY_EXENTOS = [
+  'input[name="coleccion-toggle"]',
+  '#backup-modal input', '#backup-modal textarea', '#backup-modal select',
+  '#kmz-file-input'
+].join(',');
+
 function updateFormReadonly() {
   const esGabinete = storeActivo() === RM_GAB_STORE;
   const inputs = document.querySelectorAll('input, textarea, select');
 
   inputs.forEach(input => {
-    if (esGabinete) {
+    if (esGabinete && !input.matches(READONLY_EXENTOS)) {
       input.disabled = true;
       input.style.opacity = '0.6';
     } else {
@@ -3505,14 +3514,26 @@ function updateFormReadonly() {
         position: fixed; top: 10px; right: 10px;
         background: #fff3cd; color: #856404; padding: 10px 15px;
         border: 1px solid #ffc107; border-radius: 4px;
-        font-weight: bold; z-index: 999;
+        font-weight: bold; z-index: 999; cursor: pointer;
       `;
-      leg.textContent = '🔒 Lectura - Datos de Gabinete';
+      leg.title = 'Volver a Terreno (edicion)';
+      leg.textContent = '🔒 Lectura - Gabinete · volver a Terreno';
+      leg.addEventListener('click', () => toggleColeccion('terreno'));
       document.body.appendChild(leg);
     }
   } else {
     if (leyenda) leyenda.remove();
   }
+}
+
+// #app lo reconstruyen varios editores (editorProyecto, editorPunto, fichas hijas...) que
+// no pasan por render(); este observer re-aplica el bloqueo sin parchar cada uno.
+// Solo escucha childList: cambiar .disabled/.style es un cambio de atributo, asi que
+// updateFormReadonly() no se re-dispara a si misma.
+function observarReadonly(){
+  const app=document.getElementById('app');
+  if(!app||!window.MutationObserver) return;
+  new MutationObserver(()=>updateFormReadonly()).observe(app,{childList:true,subtree:true});
 }
 
 // ============================ Init ============================
@@ -3560,6 +3581,7 @@ document.getElementById('kmz-file-input').addEventListener('change', async (e) =
   e.target.value = '';
 });
 
+observarReadonly();
 const coleccionGuardada = localStorage.getItem('captura-coleccion-activa') || 'terreno';
 toggleColeccion(coleccionGuardada);
 </script>
