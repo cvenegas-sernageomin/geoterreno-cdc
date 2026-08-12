@@ -5,6 +5,14 @@ Build de la PWA 'Captura de datos en terreno' (Track A).
 Inyecta modelo_canonico.json en un index.html monolitico offline.
 Genera tambien manifest.json, sw.js e iconos PNG minimos.
 Sin Node. Solo stdlib. Ejecutar tras (re)generar el modelo canonico.
+
+!!! NO EJECUTAR TAL CUAL (2026-08-12) !!!
+Las funciones de colecciones Terreno/Gabinete (storeActivo, toggleColeccion,
+updateFormReadonly), respaldo JSON (buildBackupBlob, importBackup), import de
+KMZ (parseKmzFile, insertKmzGeometries) y su UI se agregaron DIRECTO en
+index.html (commits 421dbb6..ef3a761) y NO estan en esta plantilla todavia.
+Correr este script regenera index.html y sw.js y BORRA todo eso.
+Portar esos bloques aca antes de volver a usarlo.
 """
 import json, os, struct, zlib, base64
 
@@ -170,7 +178,7 @@ const MODELO = __MODELO_JSON__;
 </script>
 <script>
 "use strict";
-const APP_VER = 'v30';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v32';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -1666,7 +1674,7 @@ def escribir_manifest():
 
 def escribir_sw():
     sw = r"""// Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v31';
+const CACHE='geoterreno-cdc-v32';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
