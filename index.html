@@ -3511,10 +3511,11 @@ function updateFormReadonly() {
       const leg = document.createElement('div');
       leg.id = 'readonly-legend';
       leg.style.cssText = `
-        position: fixed; top: 10px; right: 10px;
-        background: #fff3cd; color: #856404; padding: 10px 15px;
+        position: fixed; top: 60px; right: 10px;
+        background: #fff3cd; color: #856404; padding: 6px 12px;
         border: 1px solid #ffc107; border-radius: 4px;
-        font-weight: bold; z-index: 999; cursor: pointer;
+        font-weight: bold; font-size: 0.85em; z-index: 9;
+        box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer;
       `;
       leg.title = 'Volver a Terreno (edicion)';
       leg.textContent = '🔒 Lectura - Gabinete · volver a Terreno';
