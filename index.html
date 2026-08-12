@@ -2112,9 +2112,25 @@ const HIJAS = [
   {store:'foto', titulo:'Fotografías', clase:''},
   {store:'esquema', titulo:'Esquemas / dibujos', clase:''},
 ];
-function tblDe(store){return store==='linea'?LINEA_TBL:store==='nota'?NOTA_TBL:STORE2TBL[store];}
+// Terreno y Gabinete son dos COLECCIONES del mismo esquema, no dos esquemas: el store de
+// gabinete describe sus campos con la misma tabla del modelo que su gemelo de terreno.
+// (Antes STORE2TBL los mandaba a 'PUNTO_CONTROL_GABINETE'/'LINEA_CONTROL_GABINETE', que no
+// existen en el modelo canonico -> campos() devolvia [] y gabinete se exportaba sin columnas.)
+const STORE_ESQUEMA = {punto_gabinete:'punto', linea_gabinete:'linea'};
+const COLECCION_DE  = {punto:'Terreno', punto_gabinete:'Gabinete', linea:'Terreno', linea_gabinete:'Gabinete'};
+// Todos los stores con datos: STORES mas los hermanos que no cuelgan del punto.
+const STORES_TODOS = STORES.concat(['linea','nota']);
+function tblDe(store){const s=STORE_ESQUEMA[store]||store;
+  return s==='linea'?LINEA_TBL:s==='nota'?NOTA_TBL:STORE2TBL[s];}
 function campos(store){return (MODELO.tablas[tblDe(store)]||{}).campos||[];}
 function pkDe(store){return (MODELO.tablas[tblDe(store)]||{}).pk;}
+// Agrupa los stores por la tabla del modelo que comparten: {PUNTO_CONTROL:['punto','punto_gabinete'], ...}
+function tablasExport(){const g={};
+  for(const s of STORES_TODOS){const t=tblDe(s);(g[t]=g[t]||[]).push(s);}
+  return g;}
+// Registros de un store etiquetados con su coleccion (para la columna COLECCION de los exports)
+async function conColeccion(store){const c=COLECCION_DE[store];
+  return (await all(store)).map(r=>c?Object.assign({},r,{COLECCION:c}):r);}
 
 // ============================ IndexedDB ============================
 const DB='captura-terreno', VER=6;   // v6: nuevo store 'nota' (Notas de campo)
@@ -3660,43 +3676,49 @@ function csvCell(v){v=v==null?'':String(v);return /[",\n;]/.test(v)?'"'+v.replac
 
 async function exportCSV(){
   const files=[];
-  for(const s of STORES){
-    const rows=await all(s);const cs=campos(s).map(c=>c.nombre);
-    const extra=['id','_parent'];const cols=extra.concat(cs);
+  // Un CSV por tabla del modelo. Terreno y Gabinete comparten tabla y se distinguen por
+  // la columna COLECCION; antes salian como dos archivos y el de gabinete iba sin columnas.
+  // 'linea' entra por tablasExport(): estaba fuera de STORES y no se exportaba nunca.
+  for(const [tbl,stores] of Object.entries(tablasExport())){
+    const cs=campos(stores[0]).map(c=>c.nombre);
+    const conCol=stores.some(s=>COLECCION_DE[s]);
+    const cols=['id','_parent'].concat(conCol?['COLECCION']:[],cs);
     const lines=[cols.join(',')];
-    rows.forEach(r=>lines.push(cols.map(c=>csvCell(c.startsWith('_img')?'':r[c])).join(',')));
-    files.push({name:STORE2TBL[s]+'.csv',data:new TextEncoder().encode('﻿'+lines.join('\r\n'))});
-  }
-  { // nota: hermana de punto/línea, no entra en STORES
-    const rows=await all('nota');const cs=campos('nota').map(c=>c.nombre);
-    const extra=['id','_parent'];const cols=extra.concat(cs);
-    const lines=[cols.join(',')];
-    rows.forEach(r=>lines.push(cols.map(c=>csvCell(c.startsWith('_img')?'':r[c])).join(',')));
-    files.push({name:'NOTA_CAMPO.csv',data:new TextEncoder().encode('﻿'+lines.join('\r\n'))});
+    for(const s of stores)
+      (await conColeccion(s)).forEach(r=>lines.push(cols.map(c=>csvCell(c.startsWith('_img')?'':r[c])).join(',')));
+    files.push({name:tbl+'.csv',data:new TextEncoder().encode('﻿'+lines.join('\r\n'))});
   }
   descargar('captura_terreno_CSV.zip', zipStore(files));
-  toast('CSV exportado');
+  toast('CSV exportado ('+files.length+' tablas)');
 }
 
 async function exportKMZ(){
-  const puntos=await all('punto');
   const proyectos=await all('proyecto');
   const latF=p=>p['Coordenadas Geográficas Decimales_Lat']||p.LAT;
   const lonF=p=>p['Coordenadas Geográficas Decimales_Long']||p.LONG;
-  const files=[]; let pk='', overlays='', n=0;
-  for(const p of puntos){
-    const lat=parseFloat(latF(p)),lon=parseFloat(lonF(p));if(isNaN(lat)||isNaN(lon))continue;
-    n++;
-    const litos=await childrenOf('litologia',p.id);
-    const ed=campos('punto').filter(c=>p[c.nombre]&&!c.nombre.startsWith('_')).map(c=>'<Data name="'+esc(c.nombre)+'"><value>'+esc(p[c.nombre])+'</value></Data>').join('');
-    let satImg='';
-    if(p._satelital){const fn='sat_'+p.id+'.jpg';files.push({name:fn,data:b64ToBytes(p._satelital)});
-      satImg='<br><img src="'+fn+'" style="max-width:340px"/>';}
-    const desc='<![CDATA['+'<b>'+esc(p.ID_PUNTO_CONTROL||'')+'</b><br>'+litos.map(l=>'• '+esc(l.NOMBRE_ROCA||l.TIPO_ROCA||'')).join('<br>')+satImg+']]>';
-    pk+='<Placemark><name>'+esc(p.ID_PUNTO_CONTROL||p.id)+'</name><description>'+desc+'</description>'
-      +'<ExtendedData>'+ed+'</ExtendedData>'
-      +'<Point><coordinates>'+lon+','+lat+',0</coordinates></Point></Placemark>\n';
-  }
+  const files=[]; let overlays='', n=0;
+  // Puntos de las dos colecciones; cada una va en su propia carpeta de Google Earth.
+  const placemarksPunto=async(store)=>{
+    let s='';
+    for(const p of await all(store)){
+      const lat=parseFloat(latF(p)),lon=parseFloat(lonF(p));if(isNaN(lat)||isNaN(lon))continue;
+      n++;
+      const litos=await childrenOf('litologia',p.id);
+      const ed=campos(store).filter(c=>p[c.nombre]&&!c.nombre.startsWith('_')).map(c=>'<Data name="'+esc(c.nombre)+'"><value>'+esc(p[c.nombre])+'</value></Data>').join('')
+        +'<Data name="COLECCION"><value>'+esc(COLECCION_DE[store])+'</value></Data>';
+      let satImg='';
+      if(p._satelital){const fn='sat_'+p.id+'.jpg';files.push({name:fn,data:b64ToBytes(p._satelital)});
+        satImg='<br><img src="'+fn+'" style="max-width:340px"/>';}
+      const desc='<![CDATA['+'<b>'+esc(p.ID_PUNTO_CONTROL||'')+'</b><br>'+litos.map(l=>'• '+esc(l.NOMBRE_ROCA||l.TIPO_ROCA||'')).join('<br>')+satImg+']]>';
+      s+='<Placemark><name>'+esc(p.ID_PUNTO_CONTROL||p.id)+'</name><description>'+desc+'</description>'
+        +'<ExtendedData>'+ed+'</ExtendedData>'
+        +'<Point><coordinates>'+lon+','+lat+',0</coordinates></Point></Placemark>\n';
+    }
+    return s;
+  };
+  const carpeta=(titulo,contenido)=>contenido?'<Folder><name>'+esc(titulo)+'</name>\n'+contenido+'</Folder>\n':'';
+  const pk=carpeta('📍 Puntos · Terreno', await placemarksPunto('punto'))
+          +carpeta('📍 Puntos · Gabinete', await placemarksPunto('punto_gabinete'));
   // GeoTIFF por proyecto -> GroundOverlay
   for(const pr of proyectos){
     if(pr._geotiffB64&&pr._geotiffBounds){const fn='geotiff_'+pr.id+'.jpg';files.push({name:fn,data:b64ToBytes(pr._geotiffB64)});
@@ -3711,14 +3733,20 @@ async function exportKMZ(){
   const rotuloLinea=l=>[l.CLASE_LINEA,l.TIPO_LINEA].filter(Boolean).join(' — ')
     +(l.SUBTIPO_LINEA?' '+l.SUBTIPO_LINEA:'')
     +(l.CERTEZA_LINEA?' ('+l.CERTEZA_LINEA+')':'');
-  for(const l of await all('linea')){
-    if(!l.geom||l.geom.length<2)continue; nLin++;
-    const coords=l.geom.map(c=>c[1]+','+c[0]+',0').join(' ');
-    const nombre=rotuloLinea(l);
-    lineasKml+='<Placemark><name>'+esc(nombre)+'</name><description>'+esc(l.NOTA||'')+'</description>'
-      +'<Style><LineStyle><color>'+toKmlColor(LINEA_CLASE_COLOR[l.CLASE_LINEA])+'</color><width>3</width></LineStyle></Style>'
-      +'<LineString><tessellate>1</tessellate><coordinates>'+coords+'</coordinates></LineString></Placemark>\n';
-  }
+  const placemarksLinea=async(store)=>{
+    let s='';
+    for(const l of await all(store)){
+      if(!l.geom||l.geom.length<2)continue; nLin++;
+      const coords=l.geom.map(c=>c[1]+','+c[0]+',0').join(' ');
+      s+='<Placemark><name>'+esc(rotuloLinea(l))+'</name><description>'+esc(l.NOTA||'')+'</description>'
+        +'<ExtendedData><Data name="COLECCION"><value>'+esc(COLECCION_DE[store])+'</value></Data></ExtendedData>'
+        +'<Style><LineStyle><color>'+toKmlColor(LINEA_CLASE_COLOR[l.CLASE_LINEA])+'</color><width>3</width></LineStyle></Style>'
+        +'<LineString><tessellate>1</tessellate><coordinates>'+coords+'</coordinates></LineString></Placemark>\n';
+    }
+    return s;
+  };
+  lineasKml=carpeta('✏️ Líneas · Terreno', await placemarksLinea('linea'))
+           +carpeta('✏️ Líneas · Gabinete', await placemarksLinea('linea_gabinete'));
   // notas de campo -> Placemark de punto, foto opcional embebida igual que _satelital
   let notasKml=''; let nNot=0;
   for(const nt of await all('nota')){
@@ -3783,8 +3811,9 @@ async function construirGPKG(){
   db.run("CREATE TABLE gpkg_contents (table_name TEXT NOT NULL PRIMARY KEY, data_type TEXT NOT NULL, identifier TEXT UNIQUE, description TEXT DEFAULT '', last_change DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), min_x DOUBLE, min_y DOUBLE, max_x DOUBLE, max_y DOUBLE, srs_id INTEGER)");
   db.run('CREATE TABLE gpkg_geometry_columns (table_name TEXT NOT NULL, column_name TEXT NOT NULL, geometry_type_name TEXT NOT NULL, srs_id INTEGER NOT NULL, z TINYINT NOT NULL, m TINYINT NOT NULL, CONSTRAINT pk_geom_cols PRIMARY KEY (table_name, column_name))');
   // ID_REG/ID_PADRE replican id/_parent internos para conservar las relaciones entre tablas
+  // extras: [nombre, fn(registro), tipoSQL?] — el tipo por defecto es BLOB (imágenes)
   function crear(tbl,cs,extras,conGeom){
-    const cols=['ID_REG TEXT','ID_PADRE TEXT'].concat(cs.map(n=>cq(n)+' TEXT')).concat(extras.map(e=>e[0]+' BLOB'));
+    const cols=['ID_REG TEXT','ID_PADRE TEXT'].concat(cs.map(n=>cq(n)+' TEXT')).concat(extras.map(e=>e[0]+' '+(e[2]||'BLOB')));
     db.run('CREATE TABLE '+cq(tbl)+' (fid INTEGER PRIMARY KEY AUTOINCREMENT'+(conGeom?', geom BLOB':'')+', '+cols.join(', ')+')');
     const names=(conGeom?['geom']:[]).concat(['ID_REG','ID_PADRE'],cs.map(cq),extras.map(e=>e[0]));
     return db.prepare('INSERT INTO '+cq(tbl)+' ('+names.join(', ')+') VALUES ('+names.map(()=>'?').join(',')+')');
@@ -3792,12 +3821,14 @@ async function construirGPKG(){
   const latF=p=>p['Coordenadas Geográficas Decimales_Lat']||p.LAT;
   const lonF=p=>p['Coordenadas Geográficas Decimales_Long']||p.LONG;
   let nP=0,nL=0;
-  {// capa de puntos de control
+  {// capa de puntos de control — las dos colecciones en una capa, con columna COLECCION
    const cs=campos('punto').map(c=>c.nombre);
-   const extras=[['IMAGEN_SATELITAL',r=>r._satelital?b64ToBytes(r._satelital):null]];
+   const extras=[['COLECCION',r=>r.COLECCION||'Terreno','TEXT'],
+                 ['IMAGEN_SATELITAL',r=>r._satelital?b64ToBytes(r._satelital):null]];
    const st=crear('PUNTO_CONTROL',cs,extras,true);
    const env={x0:1/0,y0:1/0,x1:-1/0,y1:-1/0};
-   for(const r of await all('punto')){
+   for(const store of ['punto','punto_gabinete'])
+   for(const r of await conColeccion(store)){
      const lat=parseFloat(latF(r)),lon=parseFloat(lonF(r));let g=null;
      if(!isNaN(lat)&&!isNaN(lon)){g=gpkgGeom(wkbPoint(lon,lat));nP++;
        env.x0=Math.min(env.x0,lon);env.x1=Math.max(env.x1,lon);env.y0=Math.min(env.y0,lat);env.y1=Math.max(env.y1,lat);}
@@ -3809,12 +3840,14 @@ async function construirGPKG(){
   }
   {// capa de líneas de control (contacto/estructura-falla/geomorfología) dibujadas en el mapa
    const csL=campos('linea').filter(c=>c.nombre!=='ID_PROYECTO'&&c.nombre!=='ID_LINEA').map(c=>c.nombre);
-   const st=crear('LINEA_CONTROL',csL,[],true);
+   const extrasL=[['COLECCION',l=>l.COLECCION||'Terreno','TEXT']];
+   const st=crear('LINEA_CONTROL',csL,extrasL,true);
    const env={x0:1/0,y0:1/0,x1:-1/0,y1:-1/0};
-   for(const l of await all('linea')){
+   for(const store of ['linea','linea_gabinete'])
+   for(const l of await conColeccion(store)){
      if(!l.geom||l.geom.length<2)continue;nL++;
      l.geom.forEach(c=>{env.x0=Math.min(env.x0,c[1]);env.x1=Math.max(env.x1,c[1]);env.y0=Math.min(env.y0,c[0]);env.y1=Math.max(env.y1,c[0]);});
-     st.run([gpkgGeom(wkbLine(l.geom)),txt(l.id),txt(l._parent)].concat(csL.map(n=>txt(l[n]))));
+     st.run([gpkgGeom(wkbLine(l.geom)),txt(l.id),txt(l._parent)].concat(csL.map(n=>txt(l[n])),extrasL.map(e=>e[1](l))));
    }
    st.free();
    db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,min_x,min_y,max_x,max_y,srs_id) VALUES ('LINEA_CONTROL','features','LINEA_CONTROL',?,?,?,?,4326)",nL?[env.x0,env.y0,env.x1,env.y1]:[null,null,null,null]);
@@ -3836,7 +3869,7 @@ async function construirGPKG(){
    db.run("INSERT INTO gpkg_geometry_columns VALUES ('NOTA_CAMPO','geom','POINT',4326,0,0)");
   }
   for(const s of STORES){  // resto de tablas, sin geometría
-    if(s==='punto')continue;
+    if(s==='punto'||s==='punto_gabinete'||s==='linea_gabinete')continue;   // ya salieron como capas espaciales
     const tbl=STORE2TBL[s];const cs=campos(s).map(c=>c.nombre);
     const extras=(s==='foto'||s==='esquema')?[['IMAGEN',r=>dataUrlBytes(r._img)]]:[];
     const st=crear(tbl,cs,extras,false);
@@ -3889,10 +3922,9 @@ async function exportPDF(){
   const proyectos=await all('proyecto');
   let paginas='';
   for(const pr of proyectos){
-    const puntos=await childrenOf('punto',pr.id);
-    for(const pt of puntos){
-      paginas+=await paginaLibreta(pr,pt);
-    }
+    for(const store of ['punto','punto_gabinete'])
+      for(const pt of await childrenOf(store,pr.id))
+        paginas+=await paginaLibreta(pr,pt,COLECCION_DE[store]);
   }
   if(!paginas){toast('No hay puntos para exportar');return;}
   const html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Libreta de terreno</title><style>'
@@ -3916,7 +3948,7 @@ function tablaRegs(store,regs){
   regs.forEach(r=>{h+='<tr>'+cs.map(c=>'<td>'+esc(r[c]||'')+'</td>').join('')+'</tr>';});
   return h+'</table>';
 }
-async function paginaLibreta(pr,pt){
+async function paginaLibreta(pr,pt,coleccion){
   const lat=pt['Coordenadas Geográficas Decimales_Lat']||pt.LAT||'';
   const lon=pt['Coordenadas Geográficas Decimales_Long']||pt.LONG||'';
   const litos=await childrenOf('litologia',pt.id);
@@ -3943,7 +3975,8 @@ async function paginaLibreta(pr,pt){
     +'<div><span class="lbl">Fecha/Hora:</span> '+esc((pt.FECHA||'')+' '+(pt.HORA||''))+'</div>'
     +'<div><span class="lbl">Coord:</span> '+esc(lat)+', '+esc(lon)+'  (cota '+esc(pt.COTA||'—')+')</div>'
     +'<div><span class="lbl">Localidad:</span> '+esc(pt.NOMBRE_LOCALIDAD||'')+'</div>'
-    +'<div><span class="lbl">Geomorfología:</span> '+esc(pt.CONTEXTO_GEOMORFOLOGICO||'')+'</div></div>'
+    +'<div><span class="lbl">Geomorfología:</span> '+esc(pt.CONTEXTO_GEOMORFOLOGICO||'')+'</div>'
+    +(coleccion?'<div><span class="lbl">Colección:</span> '+esc(coleccion)+'</div>':'')+'</div>'
     +'<div class="sec"><h2>Litología ('+litos.length+')</h2>'+tablaRegs('litologia',litos)+'</div>'
     +(estr.length?'<div class="sec"><h2>Datos estructurales</h2>'+tablaRegs('estructural',estr)+'</div>':'')
     +(cont.length?'<div class="sec"><h2>Contactos</h2>'+tablaRegs('contacto',cont)+'</div>':'')
