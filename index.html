@@ -2066,7 +2066,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v35';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v36';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2913,6 +2913,7 @@ let curProyecto=null, curPunto=null;
 
 async function render(){
   dibujando=false; agregandoPunto=false;   // corta modos de dibujo/agregar al navegar
+  if(vista.n!=='mapa') pararGPSLive();     // no seguir consumiendo GPS fuera de la vista mapa
   const app=$('#app'); app.innerHTML=''; $('#fab').innerHTML=''; $('#fab').className='fab';
   if(vista.n==='home') await renderHome(app);
   else if(vista.n==='proyecto') await renderProyecto(app);
@@ -3317,6 +3318,7 @@ async function renderMapa(app){
     el('button',{class:'btn orange mini',onclick:iniciarAgregarNota},'📝+ Nota'),
     el('button',{class:'btn sec mini',onclick:legendaSimbologia},'ⓘ'),
     el('span',{class:'muted',style:'flex:1;align-self:center;font-size:11px'},conC.length+'/'+puntos.length+' pts'),
+    el('button',{class:'btn sec mini',onclick:e=>toggleGPSLive(e.target)},'📡 GPS'),
     el('button',{class:'btn sec mini',onclick:descargarTilesConZoom},'⬇️ Tiles'),
     el('button',{class:'btn sec mini',onclick:()=>nav({n:'home'})},'⌂'));
   setTimeout(()=>initMapaVista(conC),80);
@@ -3451,6 +3453,30 @@ function iconoNota(cat){
 let dibujando=false,_verts=[],_tmpLine=null,_tmpMk=[],_puntosMapa=[];
 let agregandoPunto=false, coordsPendientes=null;
 let agregandoNota=false;
+// ---- GPS en vivo (vista mapa): watchPosition con recentrado continuo, para navegar en auto ----
+let gpsWatchId=null, gpsDot=null, gpsAcc=null;
+function toggleGPSLive(btn){
+  if(gpsWatchId!=null){ pararGPSLive(); if(btn){btn.textContent='📡 GPS';btn.className='btn sec mini';} return; }
+  if(!navigator.geolocation){toast('Sin geolocalización');return;}
+  toast('Siguiendo GPS…');
+  if(btn){btn.textContent='📡 GPS ●';btn.className='btn blue mini';}
+  gpsWatchId=navigator.geolocation.watchPosition(p=>{
+    if(!mapaVista)return;
+    const ll=[p.coords.latitude,p.coords.longitude];
+    if(!gpsDot||!mapaVista.hasLayer(gpsDot)){
+      gpsAcc=L.circle(ll,{radius:p.coords.accuracy,color:'#12a4ff',weight:1,fillOpacity:.12}).addTo(mapaVista);
+      gpsDot=L.circleMarker(ll,{radius:7,color:'#fff',weight:2,fillColor:'#12a4ff',fillOpacity:1}).addTo(mapaVista);
+    } else {
+      gpsDot.setLatLng(ll); gpsAcc.setLatLng(ll).setRadius(p.coords.accuracy);
+    }
+    mapaVista.setView(ll, mapaVista.getZoom()<15?17:mapaVista.getZoom());
+  }, e=>toast('GPS: '+e.message), {enableHighAccuracy:true, maximumAge:0, timeout:20000});
+}
+function pararGPSLive(){
+  if(gpsWatchId!=null){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null;}
+  if(mapaVista){ if(gpsDot)try{mapaVista.removeLayer(gpsDot);}catch(e){} if(gpsAcc)try{mapaVista.removeLayer(gpsAcc);}catch(e){} }
+  gpsDot=null; gpsAcc=null;
+}
 function limpiarTemp(){ if(mapaVista){ if(_tmpLine)mapaVista.removeLayer(_tmpLine); _tmpMk.forEach(m=>mapaVista.removeLayer(m)); } _tmpLine=null;_tmpMk=[];_verts=[]; }
 function bannerDibujo(){
   const cont=document.querySelector('.mapcard'); if(!cont)return;
