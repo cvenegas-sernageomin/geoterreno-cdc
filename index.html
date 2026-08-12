@@ -164,6 +164,7 @@
       📋 Gabinete
     </label>
   </div>
+  <button id="btn-bloqueo-gabinete" class="btn sec mini" style="display:none" onclick="toggleBloqueoGabinete()"></button>
   <button class="btn sec mini" onclick="openBackupModal()" title="Archivar/Cargar día">💾</button>
   <input type="file" id="kmz-file-input" accept=".kmz" style="display:none;">
   <button class="btn sec mini" onclick="document.getElementById('kmz-file-input').click()" title="Cargar geometrías de KMZ">📂</button>
@@ -1848,7 +1849,7 @@ function toggleColeccion(nuevoValor) {
   if (radio) {
     radio.checked = true;
     localStorage.setItem('captura-coleccion-activa', nuevoValor);
-    updateFormReadonly();
+    actualizarUIColeccion();
   }
 }
 
@@ -3482,21 +3483,55 @@ async function paginaLibreta(pr,pt){
     +'</div>';
 }
 
-// ============================ Modo lectura (colección Gabinete) ============================
-// Controles que NUNCA se bloquean: el propio toggle de coleccion (si se bloquea no
-// hay forma de volver a Terreno), el modal de respaldo y el input de KMZ.
+// ============================ Bloqueo manual de Gabinete (para llevar a terreno) ============================
+// Gabinete es una coleccion tan editable como Terreno: ahi se prepara el dia en la
+// oficina (puntos, lineas). Recien queda de solo lectura cuando el usuario aprieta
+// "Llevar a terreno" -antes NO, ese era el bug- para no editarla sin querer en el
+// campo. El bloqueo es una preferencia manual (localStorage), no depende de que
+// pestaña este activa: se puede volver a Terreno y Gabinete sigue bloqueado o no
+// segun lo que el usuario decidio la ultima vez.
+function gabineteBloqueado() {
+  return localStorage.getItem('captura-gabinete-bloqueado') === '1';
+}
+
+function toggleBloqueoGabinete() {
+  localStorage.setItem('captura-gabinete-bloqueado', gabineteBloqueado() ? '0' : '1');
+  actualizarUIColeccion();
+}
+
+// Controles que NUNCA se bloquean: el propio toggle de coleccion, el botón de
+// bloqueo, el modal de respaldo y el input de KMZ.
 const READONLY_EXENTOS = [
   'input[name="coleccion-toggle"]',
   '#backup-modal input', '#backup-modal textarea', '#backup-modal select',
   '#kmz-file-input'
 ].join(',');
 
+// Actualiza el botón "Llevar a terreno"/"Desbloquear" del header (visible solo en
+// la pestaña Gabinete) y re-aplica el bloqueo de campos. Se llama al cambiar de
+// pestaña y al tocar el botón.
+function actualizarUIColeccion() {
+  const enGabinete = coleccionActiva() === 'gabinete';
+  const btn = document.getElementById('btn-bloqueo-gabinete');
+  if (btn) {
+    btn.style.display = enGabinete ? '' : 'none';
+    if (gabineteBloqueado()) {
+      btn.textContent = '🔓 Desbloquear';
+      btn.title = 'Permitir editar Gabinete de nuevo';
+    } else {
+      btn.textContent = '🔒 Llevar a terreno';
+      btn.title = 'Bloquear Gabinete para que no se edite sin querer en el campo';
+    }
+  }
+  updateFormReadonly();
+}
+
 function updateFormReadonly() {
-  const esGabinete = storeActivo() === RM_GAB_STORE;
+  const soloLectura = storeActivo() === RM_GAB_STORE && gabineteBloqueado();
   const inputs = document.querySelectorAll('input, textarea, select');
 
   inputs.forEach(input => {
-    if (esGabinete && !input.matches(READONLY_EXENTOS)) {
+    if (soloLectura && !input.matches(READONLY_EXENTOS)) {
       input.disabled = true;
       input.style.opacity = '0.6';
     } else {
@@ -3506,7 +3541,7 @@ function updateFormReadonly() {
   });
 
   const leyenda = document.getElementById('readonly-legend');
-  if (esGabinete) {
+  if (soloLectura) {
     if (!leyenda) {
       const leg = document.createElement('div');
       leg.id = 'readonly-legend';
@@ -3517,9 +3552,9 @@ function updateFormReadonly() {
         font-weight: bold; font-size: 0.85em; z-index: 9;
         box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer;
       `;
-      leg.title = 'Volver a Terreno (edicion)';
-      leg.textContent = '🔒 Lectura - Gabinete · volver a Terreno';
-      leg.addEventListener('click', () => toggleColeccion('terreno'));
+      leg.title = 'Desbloquear para editar';
+      leg.textContent = '🔒 Gabinete bloqueado (llevado a terreno) · clic para desbloquear';
+      leg.addEventListener('click', () => toggleBloqueoGabinete());
       document.body.appendChild(leg);
     }
   } else {
