@@ -2487,8 +2487,15 @@ function hideField(store,n){
 const CONDICIONALES = {
   // Una litología es roca O depósito: TIPO_DEPOSITO solo con TIPO_ROCA = "Depósito".
   TIPO_DEPOSITO: {modo:'bloquear', regla: v => v['TIPO_ROCA']==='Depósito'},
-  // Granulometría solo para siliciclásticos y piroclásticos (la cascada tiene opciones solo para esos).
-  GRANULOMETRIA: {modo:'ocultar', regla: v => opciones('GRANULOMETRIA', v['NOMBRE_ROCA']).length>0},
+  // Granulometría solo para: (1) todos los depósitos, (2) rocas sedimentarias detríticas (Arenisca, Lutita, Conglomerado, Brecha), (3) volcánicas piroclásticas.
+  GRANULOMETRIA: {modo:'ocultar', regla: v => {
+    const tipo = v['TIPO_ROCA'];
+    const nombre = v['NOMBRE_ROCA'];
+    if (tipo === 'Depósito') return true;
+    if (tipo === 'Sedimentaria') return ['Arenisca', 'Lutita', 'Conglomerado', 'Brecha'].includes(nombre);
+    if (tipo === 'Volcánica') return ['Toba', 'Ignimbrita', 'Tefra', 'Brecha piroclástica', 'Aglomerado volcánico', 'Lapillita'].includes(nombre);
+    return false;
+  }},
   // Tipo de falla solo cuando la estructura medida es una falla (formulario de punto).
   TIPO_FALLA: {modo:'ocultar', regla: v => v['TIPO_ESTRUCTURA']==='Estructura falla'},
   // --- LINEA_CONTROL: el tipo y el subtipo los resuelve la cascada
