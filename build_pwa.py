@@ -6,13 +6,6 @@ Inyecta modelo_canonico.json en un index.html monolitico offline.
 Genera tambien manifest.json, sw.js e iconos PNG minimos.
 Sin Node. Solo stdlib. Ejecutar tras (re)generar el modelo canonico.
 
-!!! NO EJECUTAR TAL CUAL (2026-08-12) !!!
-Las funciones de colecciones Terreno/Gabinete (storeActivo, toggleColeccion,
-updateFormReadonly), respaldo JSON (buildBackupBlob, importBackup), import de
-KMZ (parseKmzFile, insertKmzGeometries) y su UI se agregaron DIRECTO en
-index.html (commits 421dbb6..ef3a761) y NO estan en esta plantilla todavia.
-Correr este script regenera index.html y sw.js y BORRA todo eso.
-Portar esos bloques aca antes de volver a usarlo.
 """
 import json, os, struct, zlib, base64
 
@@ -41,6 +34,7 @@ HTML = r"""<!DOCTYPE html>
 <script src="vendor/leaflet.offline.js"></script>
 <script src="vendor/georaster.browser.bundle.min.js"></script>
 <script src="vendor/georaster-layer-for-leaflet.min.js"></script>
+<script src="vendor/jszip.js"></script>
 <style>
   /* ---- Paleta: cálida, natural (geología), suave a la vista + modo oscuro auto ---- */
   :root{
@@ -159,6 +153,19 @@ HTML = r"""<!DOCTYPE html>
   .sensorwrap{display:flex;gap:6px;align-items:stretch}
   .sensorwrap input{flex:1;min-width:0}
   .sensorwrap .btn{white-space:nowrap;padding:0 13px;font-size:16px}
+  .modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:1000;padding:14px}
+  .modal-content{background:var(--surface);color:var(--txt);border:1px solid var(--bd);border-radius:14px;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow)}
+  .modal-header{padding:14px 15px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center}
+  .modal-header h3{margin:0;font-size:15px;color:var(--verde)}
+  .modal-close{background:none;border:none;font-size:1.5rem;line-height:1;cursor:pointer;color:var(--muted);padding:0}
+  .modal-body{padding:15px}
+  .modal-body h4{margin:0 0 6px;font-size:13px;color:var(--txt)}
+  .modal-body p{margin:0 0 8px;font-size:12.5px;color:var(--muted)}
+  .tabs{display:flex;margin-bottom:15px;gap:10px;border-bottom:2px solid var(--bd)}
+  .tab-button{padding:10px 15px;border:none;background:none;cursor:pointer;font-weight:650;color:var(--muted);border-bottom:3px solid transparent;font-size:13px}
+  .tab-button.active{color:var(--verde);border-bottom-color:var(--verde)}
+  .tab-content{display:none}
+  .tab-content.active{display:block}
 </style>
 </head>
 <body>
@@ -168,6 +175,19 @@ HTML = r"""<!DOCTYPE html>
     <h1 id="ttl">GeoTerreno CDC</h1>
     <div class="ctx" id="ctx"></div>
   </div>
+  <div style="margin:0 10px; display:inline-flex; gap:10px;">
+    <label style="font-weight:bold;">
+      <input type="radio" name="coleccion-toggle" value="terreno" checked onchange="toggleColeccion('terreno')">
+      🏔️ Terreno
+    </label>
+    <label>
+      <input type="radio" name="coleccion-toggle" value="gabinete" onchange="toggleColeccion('gabinete')">
+      📋 Gabinete
+    </label>
+  </div>
+  <button class="btn sec mini" onclick="openBackupModal()" title="Archivar/Cargar día">💾</button>
+  <input type="file" id="kmz-file-input" accept=".kmz" style="display:none;">
+  <button class="btn sec mini" onclick="document.getElementById('kmz-file-input').click()" title="Cargar geometrías de KMZ">📂</button>
 </header>
 <main id="app"></main>
 <div class="fab" id="fab"></div>
@@ -195,7 +215,8 @@ function ahora(){const d=new Date();return {FECHA:d.toISOString().slice(0,10),HO
 // Mapa store -> tabla del modelo
 const STORE2TBL = {proyecto:'TBL_PROYECTO',punto:'PUNTO_CONTROL',litologia:'TBL_LITOLOGIA',
   estructural:'TBL_DATOS_ESTRUCTURALES',contacto:'TBL_CONTACTO',muestreo:'TBL_MUESTREO',
-  foto:'TBL_FOTOGRAFIAS',esquema:'TBL_ESQUEMA_DIBUJO',geomorf:'TBL_GEOMORFOLOGIA'};
+  foto:'TBL_FOTOGRAFIAS',esquema:'TBL_ESQUEMA_DIBUJO',geomorf:'TBL_GEOMORFOLOGIA',
+  punto_gabinete:'PUNTO_CONTROL_GABINETE',linea_gabinete:'LINEA_CONTROL_GABINETE'};
 const STORES = Object.keys(STORE2TBL);
 // 'linea' no cuelga de un punto (es una capa aparte, hermana de PUNTO_CONTROL) -> no entra
 // en STORES/HIJAS, pero necesita su propia tabla del modelo para el formulario/exports.
@@ -213,7 +234,7 @@ function campos(store){return (MODELO.tablas[store==='linea'?LINEA_TBL:STORE2TBL
 function pkDe(store){return (MODELO.tablas[store==='linea'?LINEA_TBL:STORE2TBL[store]]||{}).pk;}
 
 // ============================ IndexedDB ============================
-const DB='captura-terreno', VER=4;   // v4: nuevo store 'geomorf' (TBL_GEOMORFOLOGIA)
+const DB='captura-terreno', VER=5;   // v5: nuevos stores 'punto_gabinete'/'linea_gabinete' (gabinete)
 let db;
 function openDB(){return new Promise((res,rej)=>{
   let done=false; const finish=(fn,v)=>{if(!done){done=true;fn(v);}};
@@ -237,6 +258,312 @@ function del(store,id){return new Promise((res,rej)=>{const r=tx(store,'readwrit
 function all(store){return new Promise((res,rej)=>{const r=tx(store).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
 function get(store,id){return new Promise((res,rej)=>{const r=tx(store).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
 async function childrenOf(store,parentId){return (await all(store)).filter(x=>x._parent===parentId);}
+
+// ============================ Colección activa (terreno / gabinete) ============================
+const RM_STORE = 'punto';
+const RM_GAB_STORE = 'punto_gabinete';
+const LINE_STORE = 'linea';
+const LINE_GAB_STORE = 'linea_gabinete';
+
+function storeActivo() {
+  const coleccion = document.querySelector('input[name="coleccion-toggle"]:checked');
+  if (coleccion && coleccion.value === 'gabinete') {
+    return RM_GAB_STORE;
+  }
+  return RM_STORE;
+}
+
+function storeLineaActivo() {
+  const coleccion = document.querySelector('input[name="coleccion-toggle"]:checked');
+  if (coleccion && coleccion.value === 'gabinete') {
+    return LINE_GAB_STORE;
+  }
+  return LINE_STORE;
+}
+
+function toggleColeccion(nuevoValor) {
+  const radio = document.querySelector(`input[name="coleccion-toggle"][value="${nuevoValor}"]`);
+  if (radio) {
+    radio.checked = true;
+    localStorage.setItem('captura-coleccion-activa', nuevoValor);
+    updateFormReadonly();
+  }
+}
+
+function coleccionActiva() {
+  const r = document.querySelector('input[name="coleccion-toggle"]:checked');
+  return (r && r.value === 'gabinete') ? 'gabinete' : 'terreno';
+}
+
+// ============================ Backup / restauración (JSON) ============================
+async function buildBackupBlob(coleccion = 'terreno') {
+  const backup = {
+    app: 'captura-terreno',
+    formato: 1,
+    coleccion: coleccion,
+    exportado: new Date().toISOString(),
+  };
+
+  const storeList = [
+    'proyecto',
+    coleccion === 'gabinete' ? 'punto_gabinete' : 'punto',
+    coleccion === 'gabinete' ? 'linea_gabinete' : 'linea',
+    'litologia',
+    'estructural',
+    'contacto',
+    'muestreo',
+    'foto',
+    'esquema',
+    'geomorf',
+  ];
+
+  for (const store of storeList) {
+    backup[store] = await all(store);
+  }
+
+  const json = JSON.stringify(backup, null, 2);
+  return new Blob([json], { type: 'application/json' });
+}
+
+async function importBackup(file, destinoColeccion = null) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+
+        if (data.app !== 'captura-terreno' || data.formato !== 1) {
+          reject(new Error('Archivo inválido: no es un backup de captura-terreno'));
+          return;
+        }
+
+        const coleccion = destinoColeccion || coleccionActiva();
+        const esGabinete = coleccion === 'gabinete';
+
+        const storeMap = {
+          proyecto: 'proyecto',
+          punto: esGabinete ? 'punto_gabinete' : 'punto',
+          linea: esGabinete ? 'linea_gabinete' : 'linea',
+          punto_gabinete: esGabinete ? 'punto_gabinete' : 'punto',
+          linea_gabinete: esGabinete ? 'linea_gabinete' : 'linea',
+          litologia: 'litologia',
+          estructural: 'estructural',
+          contacto: 'contacto',
+          muestreo: 'muestreo',
+          foto: 'foto',
+          esquema: 'esquema',
+          geomorf: 'geomorf',
+        };
+
+        let totalInsertadas = 0;
+        let totalOmitidas = 0;
+
+        for (const [storeOrigen, storeDestino] of Object.entries(storeMap)) {
+          if (!data[storeOrigen]) continue;
+
+          const records = data[storeOrigen];
+          for (const record of records) {
+            try {
+              await put(storeDestino, record);
+              totalInsertadas++;
+            } catch (err) {
+              totalOmitidas++;
+            }
+          }
+        }
+
+        resolve({
+          ok: true,
+          insertadas: totalInsertadas,
+          omitidas: totalOmitidas,
+          coleccion: coleccion,
+        });
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
+// ============================ UI Backup/Import (modal) ============================
+function openBackupModal() {
+  document.getElementById('backup-modal').style.display = 'flex';
+}
+
+function closeBackupModal() {
+  document.getElementById('backup-modal').style.display = 'none';
+}
+
+function switchBackupTab(tab, btn) {
+  document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+  if (btn) btn.classList.add('active');
+  document.getElementById(`backup-${tab}-tab`).classList.add('active');
+}
+
+async function exportBackupUI(coleccion) {
+  try {
+    const blob = await buildBackupBlob(coleccion);
+    const fecha = new Date().toISOString().slice(0, 10);
+    const hora = new Date().toTimeString().slice(0, 5).replace(':', '');
+    const filename = `captura-terreno_${coleccion}_${fecha}_${hora}.json`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    const statusDiv = document.getElementById(`backup-status-${coleccion}`);
+    statusDiv.innerHTML = `<span style="color:var(--verde);">✓ Descargado: ${filename}</span>`;
+  } catch (err) {
+    const statusDiv = document.getElementById(`backup-status-${coleccion}`);
+    statusDiv.innerHTML = `<span style="color:var(--rojo);">✗ Error: ${err.message}</span>`;
+  }
+}
+
+async function importBackupUI(coleccion) {
+  const fileInput = document.getElementById(`backup-file-${coleccion}`);
+  const file = fileInput.files[0];
+  if (!file) {
+    alert('Selecciona un archivo JSON primero');
+    return;
+  }
+
+  try {
+    const result = await importBackup(file, coleccion);
+    const statusDiv = document.getElementById(`backup-status-${coleccion}`);
+    statusDiv.innerHTML = `<span style="color:var(--verde);">✓ Importadas: ${result.insertadas} registros. Omitidas: ${result.omitidas} (duplicadas).</span>`;
+    fileInput.value = '';
+    updateFormReadonly();
+  } catch (err) {
+    const statusDiv = document.getElementById(`backup-status-${coleccion}`);
+    statusDiv.innerHTML = `<span style="color:var(--rojo);">✗ Error: ${err.message}</span>`;
+  }
+}
+
+async function parseKmzFile(file) {
+  if (!file.name.toLowerCase().endsWith('.kmz')) {
+    throw new Error('Archivo debe ser .kmz');
+  }
+
+  const zip = new JSZip();
+  const zipData = await file.arrayBuffer();
+  const zipContent = await zip.loadAsync(zipData);
+
+  let kmlFile = null;
+  for (const filename of Object.keys(zipContent.files)) {
+    if (filename.toLowerCase().endsWith('.kml')) {
+      kmlFile = await zipContent.file(filename).async('text');
+      break;
+    }
+  }
+
+  if (!kmlFile) {
+    throw new Error('No se encontró archivo .kml dentro del ZIP');
+  }
+
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(kmlFile, 'text/xml');
+
+  if (xmlDoc.parseError.errorCode !== 0) {
+    throw new Error('Error al parsear KML: ' + xmlDoc.parseError.reason);
+  }
+
+  const geometrias = [];
+
+  const placemarks = xmlDoc.querySelectorAll('Placemark');
+  for (const pm of placemarks) {
+    const nombre = pm.querySelector('name')?.textContent || 'Sin nombre';
+    const description = pm.querySelector('description')?.textContent || '';
+
+    const pointNode = pm.querySelector('Point');
+    if (pointNode) {
+      const coords = pointNode.querySelector('coordinates')?.textContent.trim().split(',');
+      if (coords && coords.length >= 2) {
+        geometrias.push({
+          tipo: 'punto',
+          lng: parseFloat(coords[0]),
+          lat: parseFloat(coords[1]),
+          nombre: nombre,
+          descripcion: description,
+        });
+      }
+    }
+
+    const lineNode = pm.querySelector('LineString');
+    if (lineNode) {
+      const coordsText = lineNode.querySelector('coordinates')?.textContent.trim();
+      if (coordsText) {
+        const coords = coordsText.split(/\s+/).map(c => {
+          const [lng, lat] = c.split(',');
+          return { lat: parseFloat(lat), lng: parseFloat(lng) };
+        });
+        if (coords.length > 0) {
+          geometrias.push({
+            tipo: 'linea',
+            coordenadas: coords,
+            nombre: nombre,
+            descripcion: description,
+          });
+        }
+      }
+    }
+  }
+
+  return geometrias;
+}
+
+async function insertKmzGeometries(geometrias, coleccion = null) {
+  const col = coleccion || storeActivo();
+  let puntosInsertados = 0;
+  let lineasInsertadas = 0;
+
+  for (const geom of geometrias) {
+    if (geom.tipo === 'punto') {
+      const punto = {
+        id: 'PUNTO_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        nombre: geom.nombre,
+        descripcion: geom.descripcion,
+        latitud: geom.lat,
+        longitud: geom.lng,
+        origen: 'kmz_importado',
+        fecha: new Date().toISOString(),
+        confirmed: false,
+      };
+      try {
+        await put(storeActivo(), punto);
+        puntosInsertados++;
+      } catch (err) {
+        console.warn('Error insertando punto:', err);
+      }
+    } else if (geom.tipo === 'linea') {
+      const linea = {
+        id: 'LINEA_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        nombre: geom.nombre,
+        descripcion: geom.descripcion,
+        coordenadas: geom.coordenadas,
+        origen: 'kmz_importado',
+        fecha: new Date().toISOString(),
+      };
+      try {
+        await put(storeLineaActivo(), linea);
+        lineasInsertadas++;
+      } catch (err) {
+        console.warn('Error insertando línea:', err);
+      }
+    }
+  }
+
+  return {
+    puntosInsertados,
+    lineasInsertadas,
+  };
+}
 
 // ============================ Dominios / cascadas ============================
 function dominio(nombre){return MODELO.dominios[nombre];}
@@ -514,7 +841,7 @@ async function capturarSatelital(){
   try{const r=await fetch(url,{signal:AbortSignal.timeout(9000)});if(!r.ok)throw 0;const blob=await r.blob();
     const b64=await new Promise(res=>{const rd=new FileReader();rd.onload=()=>res(rd.result.split(',')[1]);rd.readAsDataURL(blob);});
     curPunto._satelital=b64;curPunto._satBounds={west:b.getWest(),south:b.getSouth(),east:b.getEast(),north:b.getNorth()};
-    await put('punto',curPunto);
+    await put(storeActivo(),curPunto);
     const th=document.getElementById('satthumb');th.innerHTML='';th.append(el('img',{src:'data:image/jpeg;base64,'+b64}));
     toast('Satelital capturada ✓');
   }catch(e){toast('No se pudo capturar (¿sin conexión?)');}
@@ -707,10 +1034,11 @@ let curProyecto=null, curPunto=null;
 async function render(){
   dibujando=false; agregandoPunto=false;   // corta modos de dibujo/agregar al navegar
   const app=$('#app'); app.innerHTML=''; $('#fab').innerHTML=''; $('#fab').className='fab';
-  if(vista.n==='home') return renderHome(app);
-  if(vista.n==='proyecto') return renderProyecto(app);
-  if(vista.n==='mapa') return renderMapa(app);
-  if(vista.n==='punto') return renderPunto(app);
+  if(vista.n==='home') await renderHome(app);
+  else if(vista.n==='proyecto') await renderProyecto(app);
+  else if(vista.n==='mapa') await renderMapa(app);
+  else if(vista.n==='punto') await renderPunto(app);
+  updateFormReadonly();   // re-aplica el bloqueo: render() rehace #app desde cero
 }
 
 // -------- Home: proyectos --------
@@ -790,7 +1118,7 @@ async function renderProyecto(app){
   $('#ttl').textContent=curProyecto.NOMBRE_PROYECTO||'Proyecto';
   $('#ctx').textContent='ID '+(curProyecto.ID_PROYECTO||'—');
   app.append(toggleModo('puntos'));
-  const puntos=(await childrenOf('punto',curProyecto.id));
+  const puntos=(await childrenOf(storeActivo(),curProyecto.id));
   curProyecto._npuntos=puntos.length;put('proyecto',curProyecto);
   const head=el('div',{class:'card'});
   head.append(el('h2',{},'Proyecto'),
@@ -840,7 +1168,7 @@ async function renderPunto(app){
   const nuevo = vista.id==='__new__';
   // punto nuevo: precarga colector y campos constantes recordados + fecha/hora automáticas
   curPunto = nuevo ? Object.assign({id:uid(),_parent:curProyecto.id}, stickyGet(), ahora())
-                   : await get('punto',vista.id);
+                   : await get(storeActivo(),vista.id);
   if(nuevo){const c=namingCfg(curProyecto).pc; if(c.on){curPunto.ID_PUNTO_CONTROL=fmtName(c);curPunto._idPreview=curPunto.ID_PUNTO_CONTROL;}}
   if(nuevo&&coordsPendientes){curPunto[inLat]=coordsPendientes[0].toFixed(6);curPunto[inLon]=coordsPendientes[1].toFixed(6);coordsPendientes=null;}
   if(!curPunto)return nav({n:'proyecto',id:curProyecto.id});
@@ -882,7 +1210,7 @@ async function renderPunto(app){
       const full=namingCfg(curProyecto);full.pc.next=nc.next+1;curProyecto._naming=full;await put('proyecto',curProyecto);
     }
     curPunto._idDone=true;
-    await put('punto',curPunto);
+    await put(storeActivo(),curPunto);
     stickySet(curPunto);  // recuerda colector/proyección/etc. para el próximo punto
     if(vista.id==='__new__')vista={n:'punto',id:curPunto.id};  // fija id real: evita re-crear punto vacío al re-render
     return curPunto;
@@ -1009,7 +1337,7 @@ function bloqueEsquema(reg){
 async function borrarPunto(id){
   for(const h of HIJAS){const its=await childrenOf(h.store,id);for(const it of its)await del(h.store,it.id);}
   for(const fm of await fotomapasRaiz(id)) await borrarFotomapaArbol(fm.id);
-  await del('punto',id);
+  await del(storeActivo(),id);
 }
 
 // ============================ Foto-mapa (image basemap anidado, estilo StraboSpot) ============================
@@ -1100,7 +1428,7 @@ async function renderMapa(app){
   const card=el('div',{class:'card mapcard'});
   card.append(el('div',{id:'projmap',class:'mapbig'}));
   app.append(card);
-  const puntos=await childrenOf('punto',curProyecto.id);
+  const puntos=await childrenOf(storeActivo(),curProyecto.id);
   const conC=puntos.filter(p=>!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Lat']))&&!isNaN(parseFloat(p['Coordenadas Geográficas Decimales_Long'])));
   $('#fab').className='fab compact';
   $('#fab').append(
@@ -1140,13 +1468,13 @@ async function initMapaVista(puntos){
     pts.push([lat,lon]);
   }
   // --- líneas geológicas (contactos/fallas) del proyecto ---
-  const lineas=await childrenOf('linea',curProyecto.id);
+  const lineas=await childrenOf(storeLineaActivo(),curProyecto.id);
   for(const L2 of lineas){
     if(!L2.geom||L2.geom.length<2)continue;
     const pl=L.polyline(L2.geom, estiloLinea(L2)).addTo(mapaVista);
     pl.on('click',ev=>{ if(dibujando)return; L.DomEvent.stop(ev);
-      formLinea(L2, async()=>{await put('linea',L2);initMapaVista(_puntosMapa);},
-                    async()=>{await del('linea',L2.id);initMapaVista(_puntosMapa);}); });
+      formLinea(L2, async()=>{await put(storeLineaActivo(),L2);initMapaVista(_puntosMapa);},
+                    async()=>{await del(storeLineaActivo(),L2.id);initMapaVista(_puntosMapa);}); });
   }
   _puntosMapa=puntos;
   // click en el mapa: si está el modo dibujo activo, agrega vértice
@@ -1238,7 +1566,7 @@ function terminarDibujo(){
   const l={id:uid(),_parent:curProyecto.id,geom:_verts.slice(),CLASE_LINEA:'Contacto',CERTEZA_LINEA:'Observado',NOTA:''};
   const b=document.getElementById('drawbanner');if(b)b.remove();
   dibujando=false; limpiarTemp(); if(mapaVista)mapaVista.getContainer().style.cursor='';
-  formLinea(l, async()=>{await put('linea',l);initMapaVista(_puntosMapa);toast('Línea guardada');}, null);
+  formLinea(l, async()=>{await put(storeLineaActivo(),l);initMapaVista(_puntosMapa);toast('Línea guardada');}, null);
 }
 function formLinea(linea,onSave,onDelete){
   const ov=el('div',{class:'fmov',onclick:e=>{if(e.target===ov)ov.remove();}});
@@ -1277,12 +1605,12 @@ function compositaFotomapa(node){return new Promise(async res=>{
 // Duplica un punto con sus datos DESCRIPTIVOS (litología, estructurales, contactos, muestreo),
 // pero deja en blanco las coordenadas y NO copia fotos/esquemas/imagen satelital (son propios del sitio).
 async function duplicarPunto(srcId){
-  const src=await get('punto',srcId); if(!src)return null;
+  const src=await get(storeActivo(),srcId); if(!src)return null;
   const np=Object.assign({},src,{id:uid(),_parent:src._parent},ahora());
   ['Coordenadas Geográficas Decimales_Lat','Coordenadas Geográficas Decimales_Long','COTA','PRECISION_GPS','ID_PUNTO_CONTROL']
     .forEach(k=>np[k]='');
   delete np._satelital; delete np._satBounds;   // la vista satelital es del sitio anterior
-  await put('punto',np);
+  await put(storeActivo(),np);
   // litologías (remapear ids para reenlazar estructurales)
   const mapLito={};
   for(const li of await childrenOf('litologia',srcId)){const n=Object.assign({},li,{id:uid(),_parent:np.id});mapLito[li.id]=n.id;await put('litologia',n);}
@@ -1592,6 +1920,60 @@ async function paginaLibreta(pr,pt){
     +'</div>';
 }
 
+// ============================ Modo lectura (colección Gabinete) ============================
+// Controles que NUNCA se bloquean: el propio toggle de coleccion (si se bloquea no
+// hay forma de volver a Terreno), el modal de respaldo y el input de KMZ.
+const READONLY_EXENTOS = [
+  'input[name="coleccion-toggle"]',
+  '#backup-modal input', '#backup-modal textarea', '#backup-modal select',
+  '#kmz-file-input'
+].join(',');
+
+function updateFormReadonly() {
+  const esGabinete = storeActivo() === RM_GAB_STORE;
+  const inputs = document.querySelectorAll('input, textarea, select');
+
+  inputs.forEach(input => {
+    if (esGabinete && !input.matches(READONLY_EXENTOS)) {
+      input.disabled = true;
+      input.style.opacity = '0.6';
+    } else {
+      input.disabled = false;
+      input.style.opacity = '1';
+    }
+  });
+
+  const leyenda = document.getElementById('readonly-legend');
+  if (esGabinete) {
+    if (!leyenda) {
+      const leg = document.createElement('div');
+      leg.id = 'readonly-legend';
+      leg.style.cssText = `
+        position: fixed; top: 10px; right: 10px;
+        background: #fff3cd; color: #856404; padding: 10px 15px;
+        border: 1px solid #ffc107; border-radius: 4px;
+        font-weight: bold; z-index: 999; cursor: pointer;
+      `;
+      leg.title = 'Volver a Terreno (edicion)';
+      leg.textContent = '🔒 Lectura - Gabinete · volver a Terreno';
+      leg.addEventListener('click', () => toggleColeccion('terreno'));
+      document.body.appendChild(leg);
+    }
+  } else {
+    if (leyenda) leyenda.remove();
+  }
+}
+
+// #app lo reconstruyen varios editores (editorProyecto, editorPunto, fichas hijas...) que
+// no pasan por render(); este observer re-aplica el bloqueo sin parchar cada uno.
+// Solo escucha childList: cambiar .disabled/.style es un cambio de atributo, asi que
+// updateFormReadonly() no se re-dispara a si misma.
+function observarReadonly(){
+  const app=document.getElementById('app');
+  if(!app||!window.MutationObserver) return;
+  new MutationObserver(()=>updateFormReadonly()).observe(app,{childList:true,subtree:true});
+}
+
 // ============================ Init ============================
 function pantallaError(msg,detalle){
   const app=$('#app'); if(!app)return;
@@ -1621,7 +2003,67 @@ window.addEventListener('error',e=>{if(!db)pantallaError('Error al iniciar',(e.m
     try{await navigator.serviceWorker.register('sw.js');}catch(e){}
   }
 })();
+
+document.getElementById('kmz-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    const geometrias = await parseKmzFile(file);
+    const resultado = await insertKmzGeometries(geometrias);
+    alert(`✓ Cargado: ${resultado.puntosInsertados} puntos, ${resultado.lineasInsertadas} líneas`);
+  } catch (err) {
+    alert(`✗ Error: ${err.message}`);
+  }
+
+  e.target.value = '';
+});
+
+observarReadonly();
+const coleccionGuardada = localStorage.getItem('captura-coleccion-activa') || 'terreno';
+toggleColeccion(coleccionGuardada);
 </script>
+
+<!-- Modal Backup/Import -->
+<div id="backup-modal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>💾 Archivar/Cargar Día de Trabajo</h3>
+      <button class="modal-close" onclick="closeBackupModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <!-- Tabs: Terreno / Gabinete -->
+      <div class="tabs">
+        <button class="tab-button active" onclick="switchBackupTab('terreno', this)">🏔️ Terreno</button>
+        <button class="tab-button" onclick="switchBackupTab('gabinete', this)">📋 Gabinete</button>
+      </div>
+
+      <div id="backup-terreno-tab" class="tab-content active">
+        <h4>Archivar Día Terreno</h4>
+        <p>Descarga un archivo JSON con todos los puntos y líneas del día.</p>
+        <button onclick="exportBackupUI('terreno')" class="btn">📥 Descargar Backup Terreno</button>
+
+        <h4 style="margin-top:20px;">Cargar Día Anterior</h4>
+        <p>Sube un JSON de un día anterior para ver en lectura (no se edita).</p>
+        <input type="file" id="backup-file-terreno" accept=".json" style="margin:10px 0;display:block;">
+        <button onclick="importBackupUI('terreno')" class="btn sec">📤 Importar</button>
+        <div id="backup-status-terreno" style="margin-top:10px; font-size:0.9em;"></div>
+      </div>
+
+      <div id="backup-gabinete-tab" class="tab-content">
+        <h4>Archivar Día Gabinete</h4>
+        <p>Descarga un archivo JSON con todos los puntos y líneas de gabinete.</p>
+        <button onclick="exportBackupUI('gabinete')" class="btn">📥 Descargar Backup Gabinete</button>
+
+        <h4 style="margin-top:20px;">Cargar Datos Anteriores</h4>
+        <p>Sube un JSON de gabinete anterior para ver en lectura.</p>
+        <input type="file" id="backup-file-gabinete" accept=".json" style="margin:10px 0;display:block;">
+        <button onclick="importBackupUI('gabinete')" class="btn sec">📤 Importar</button>
+        <div id="backup-status-gabinete" style="margin-top:10px; font-size:0.9em;"></div>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
 """
@@ -1678,7 +2120,7 @@ const CACHE='geoterreno-cdc-v32';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
-  './vendor/sql-wasm.js','./vendor/sql-wasm.wasm',
+  './vendor/sql-wasm.js','./vendor/sql-wasm.wasm','./vendor/jszip.js',
   './vendor/images/marker-icon.png','./vendor/images/marker-icon-2x.png','./vendor/images/marker-shadow.png',
   './vendor/images/layers.png','./vendor/images/layers-2x.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));});
