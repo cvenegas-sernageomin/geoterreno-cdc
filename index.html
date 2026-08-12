@@ -2080,6 +2080,18 @@ function stickyGet(){try{return JSON.parse(localStorage.getItem('gt-sticky')||'{
 function stickySet(reg){const s=stickyGet();STICKY.forEach(k=>{if(reg[k])s[k]=reg[k];});localStorage.setItem('gt-sticky',JSON.stringify(s));}
 function ahora(){const d=new Date();return {FECHA:d.toISOString().slice(0,10),HORA:d.toTimeString().slice(0,5)};}
 
+// Dominios abiertos (UNIDAD_GEOLOGICA, CATEGORIA_NOTA): lo que el usuario agrega con
+// "➕ Agregar nuevo…" se guardaba solo en MODELO, que se reinyecta entero en cada build
+// -> al recargar la lista volvia a quedar vacia y el valor guardado en el registro ya no
+// tenia opcion en el select, asi que getData() devolvia '' y el auto-guardado lo borraba.
+// Se persisten aparte y se re-mezclan al arrancar.
+function abiertosGet(){try{return JSON.parse(localStorage.getItem('gt-abiertos')||'{}');}catch(e){return {};}}
+function abiertosAdd(dom,val){const a=abiertosGet();a[dom]=a[dom]||[];
+  if(!a[dom].includes(val)){a[dom].push(val);localStorage.setItem('gt-abiertos',JSON.stringify(a));}}
+function restaurarAbiertos(){const a=abiertosGet();
+  for(const d in a){const dd=dominio(d);if(!dd||!Array.isArray(dd.valores))continue;
+    a[d].forEach(v=>{if(!dd.valores.includes(v))dd.valores.push(v);});}}
+
 // Mapa store -> tabla del modelo
 const STORE2TBL = {proyecto:'TBL_PROYECTO',punto:'PUNTO_CONTROL',litologia:'TBL_LITOLOGIA',
   estructural:'TBL_DATOS_ESTRUCTURALES',contacto:'TBL_CONTACTO',muestreo:'TBL_MUESTREO',
@@ -2459,6 +2471,16 @@ function campoPadreDe(store, campo){
 }
 
 // ============================ Widgets de formulario ============================
+// Un valor guardado que ya no existe en el dominio (dominio abierto que se repobló vacío,
+// o una lista que cambió entre versiones de la app) dejaría al select en blanco y
+// getData() lo devolvería como '': al guardar se borraría del disco sin aviso. Se
+// re-agrega como opción para que el dato sobreviva a cualquier cambio del diccionario.
+function preservarValor(inp,val){
+  if(val==null||val==='')return;
+  const v=String(val);
+  if([...inp.options].some(o=>o.value===v))return;
+  inp.insertBefore(el('option',{value:v},v), inp.querySelector('option[value="__add__"]'));
+}
 function tipoWidget(campo){
   const n=campo.nombre;
   if(campo.dominio) return 'select';
@@ -2543,6 +2565,7 @@ function formulario(store, reg, ctx){
       if((dominio(campo.dominio)||{}).tipo==='abierta'){
         const add=el('option',{value:'__add__'},'➕ Agregar nuevo…');inp.append(add);
       }
+      preservarValor(inp, reg[n]);
     } else if(w==='textarea'){ inp=el('textarea',{rows:2});
     } else if(w==='number'){ inp=el('input',{type:'number',step:'any',inputmode:'decimal'});
     } else if(w==='date'){ inp=el('input',{type:'date'});
@@ -2617,6 +2640,7 @@ function formulario(store, reg, ctx){
       const campo=cs.find(c=>c.nombre===e.target.name);
       const nv=prompt('Nuevo valor para '+e.target.name.replace(/_/g,' ')+':');
       if(nv){dominio(campo.dominio).valores.push(nv);
+        abiertosAdd(campo.dominio,nv);   // sobrevive a la recarga (MODELO se reinyecta en cada build)
         const opt=el('option',{value:nv},nv);e.target.insertBefore(opt,e.target.querySelector('option[value="__add__"]'));e.target.value=nv;}
       else e.target.value='';
     }
@@ -4029,6 +4053,7 @@ function pantallaError(msg,detalle){
 // muestra cualquier error de JS en pantalla (para no quedar en blanco)
 window.addEventListener('error',e=>{if(!db)pantallaError('Error al iniciar',(e.message||'')+'');});
 (async()=>{
+  restaurarAbiertos();   // re-mezcla los valores de dominio abierto agregados en sesiones previas
   try{
     await openDB();
   }catch(e){
