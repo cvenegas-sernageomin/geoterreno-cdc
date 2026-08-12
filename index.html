@@ -2066,7 +2066,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v36';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v37';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2371,8 +2371,12 @@ async function parseKmzFile(file) {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(kmlFile, 'text/xml');
 
-  if (xmlDoc.parseError.errorCode !== 0) {
-    throw new Error('Error al parsear KML: ' + xmlDoc.parseError.reason);
+  // xmlDoc.parseError es una API SOLO de IE/MSXML: en Chrome/Firefox/Safari vale
+  // undefined, asi que leer .errorCode lanzaba TypeError con CUALQUIER archivo y el
+  // import nunca funciono. El estandar marca el error con un elemento <parsererror>.
+  const err = xmlDoc.querySelector('parsererror');
+  if (err) {
+    throw new Error('KML mal formado: ' + err.textContent.trim().split('\n')[0]);
   }
 
   const geometrias = [];
@@ -2382,88 +2386,63 @@ async function parseKmzFile(file) {
     const nombre = pm.querySelector('name')?.textContent || 'Sin nombre';
     const description = pm.querySelector('description')?.textContent || '';
 
+    // KML da "lon,lat[,alt]"; la app trabaja siempre en [lat, lon] (orden de Leaflet).
+    const aLatLon = txt => txt.trim().split(/\s+/).map(par => {
+      const [lon, lat] = par.split(',');
+      return [parseFloat(lat), parseFloat(lon)];
+    }).filter(([la, lo]) => !isNaN(la) && !isNaN(lo));
+
     const pointNode = pm.querySelector('Point');
     if (pointNode) {
-      const coords = pointNode.querySelector('coordinates')?.textContent.trim().split(',');
-      if (coords && coords.length >= 2) {
-        geometrias.push({
-          tipo: 'punto',
-          lng: parseFloat(coords[0]),
-          lat: parseFloat(coords[1]),
-          nombre: nombre,
-          descripcion: description,
-        });
-      }
+      const c = aLatLon(pointNode.querySelector('coordinates')?.textContent || '');
+      if (c.length) geometrias.push({tipo:'punto', lat:c[0][0], lon:c[0][1], nombre, descripcion:description});
     }
 
     const lineNode = pm.querySelector('LineString');
     if (lineNode) {
-      const coordsText = lineNode.querySelector('coordinates')?.textContent.trim();
-      if (coordsText) {
-        const coords = coordsText.split(/\s+/).map(c => {
-          const [lng, lat] = c.split(',');
-          return { lat: parseFloat(lat), lng: parseFloat(lng) };
-        });
-        if (coords.length > 0) {
-          geometrias.push({
-            tipo: 'linea',
-            coordenadas: coords,
-            nombre: nombre,
-            descripcion: description,
-          });
-        }
-      }
+      const c = aLatLon(lineNode.querySelector('coordinates')?.textContent || '');
+      if (c.length >= 2) geometrias.push({tipo:'linea', geom:c, nombre, descripcion:description});
     }
   }
 
   return geometrias;
 }
 
-async function insertKmzGeometries(geometrias, coleccion = null) {
-  const col = coleccion || storeActivo();
-  let puntosInsertados = 0;
-  let lineasInsertadas = 0;
+// Inserta lo leido del KMZ como registros CANONICOS colgando del proyecto indicado.
+// Antes escribia {latitud, longitud, coordenadas, nombre...} y sin _parent: campos que
+// ningun otro punto de la app lee (el mapa busca 'Coordenadas Geograficas Decimales_Lat/
+// _Long' y l.geom, y las listas filtran por _parent), asi que lo importado quedaba
+// invisible en el mapa, en las listas y en todos los exports.
+async function insertKmzGeometries(geometrias, proyectoId) {
+  if (!proyectoId) throw new Error('Abre un proyecto antes de importar el KMZ');
+  const f = ahora();
+  let puntosInsertados = 0, lineasInsertadas = 0, omitidas = 0;
 
-  for (const geom of geometrias) {
-    if (geom.tipo === 'punto') {
-      const punto = {
-        id: 'PUNTO_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        nombre: geom.nombre,
-        descripcion: geom.descripcion,
-        latitud: geom.lat,
-        longitud: geom.lng,
-        origen: 'kmz_importado',
-        fecha: new Date().toISOString(),
-        confirmed: false,
-      };
-      try {
-        await put(storeActivo(), punto);
+  for (const g of geometrias) {
+    try {
+      if (g.tipo === 'punto') {
+        await put(storeActivo(), Object.assign({
+          id: uid(), _parent: proyectoId,
+          ID_PUNTO_CONTROL: g.nombre || '',
+          [inLat]: g.lat.toFixed(6), [inLon]: g.lon.toFixed(6),
+          FUENTE_COORDENADAS: 'KMZ importado',
+          NOTA: g.descripcion || '',
+        }, f));
         puntosInsertados++;
-      } catch (err) {
-        console.warn('Error insertando punto:', err);
-      }
-    } else if (geom.tipo === 'linea') {
-      const linea = {
-        id: 'LINEA_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        nombre: geom.nombre,
-        descripcion: geom.descripcion,
-        coordenadas: geom.coordenadas,
-        origen: 'kmz_importado',
-        fecha: new Date().toISOString(),
-      };
-      try {
-        await put(storeLineaActivo(), linea);
+      } else if (g.tipo === 'linea') {
+        await put(storeLineaActivo(), {
+          id: uid(), _parent: proyectoId,
+          geom: g.geom,
+          NOTA: [g.nombre, g.descripcion].filter(Boolean).join(' — '),
+        });
         lineasInsertadas++;
-      } catch (err) {
-        console.warn('Error insertando línea:', err);
       }
+    } catch (err) {
+      console.warn('No se pudo insertar una geometría del KMZ:', err);
+      omitidas++;
     }
   }
-
-  return {
-    puntosInsertados,
-    lineasInsertadas,
-  };
+  return {puntosInsertados, lineasInsertadas, omitidas};
 }
 
 // ============================ Dominios / cascadas ============================
@@ -3730,9 +3709,12 @@ async function exportKMZ(){
   let lineasKml=''; let nLin=0;
   const toKmlColor=hex=>{const h=(hex||'#444444').replace('#','');return 'ff'+h.slice(4,6)+h.slice(2,4)+h.slice(0,2);};
   // nombre = clase — tipo (subtipo) [certeza], omitiendo los niveles que estén vacíos
-  const rotuloLinea=l=>[l.CLASE_LINEA,l.TIPO_LINEA].filter(Boolean).join(' — ')
+  // una línea recién importada de KMZ aún no tiene clase/tipo: sin respaldo el Placemark
+  // salía con <name> vacío y en Google Earth aparecía como una entrada en blanco.
+  const rotuloLinea=l=>([l.CLASE_LINEA,l.TIPO_LINEA].filter(Boolean).join(' — ')
     +(l.SUBTIPO_LINEA?' '+l.SUBTIPO_LINEA:'')
-    +(l.CERTEZA_LINEA?' ('+l.CERTEZA_LINEA+')':'');
+    +(l.CERTEZA_LINEA?' ('+l.CERTEZA_LINEA+')':'')).trim()
+    || (l.NOTA||'Línea sin clasificar');
   const placemarksLinea=async(store)=>{
     let s='';
     for(const l of await all(store)){
@@ -4111,9 +4093,14 @@ document.getElementById('kmz-file-input').addEventListener('change', async (e) =
   if (!file) return;
 
   try {
+    if (!curProyecto) throw new Error('Abre primero el proyecto donde quieres cargar el KMZ');
     const geometrias = await parseKmzFile(file);
-    const resultado = await insertKmzGeometries(geometrias);
-    alert(`✓ Cargado: ${resultado.puntosInsertados} puntos, ${resultado.lineasInsertadas} líneas`);
+    if (!geometrias.length) throw new Error('El KMZ no trae puntos ni líneas');
+    const r = await insertKmzGeometries(geometrias, curProyecto.id);
+    alert(`✓ Cargado en "${curProyecto.NOMBRE_PROYECTO || 'proyecto'}" (${coleccionActiva()}): `
+        + `${r.puntosInsertados} puntos, ${r.lineasInsertadas} líneas`
+        + (r.omitidas ? `\n⚠️ ${r.omitidas} no se pudieron insertar` : ''));
+    render();   // que aparezcan sin recargar
   } catch (err) {
     alert(`✗ Error: ${err.message}`);
   }
