@@ -122,6 +122,7 @@
   .fab.compact{padding:6px 10px}
   .fab.compact .btn{padding:7px 10px;font-size:12.5px}
   .estsym{background:none;border:none}
+  .notasym{background:none;border:none}
   .ptlabel{background:rgba(20,30,22,.72);color:#fff;border:none;border-radius:4px;font-size:10px;font-weight:600;padding:1px 5px;box-shadow:none;white-space:nowrap}
   .ptlabel:before{display:none!important}
   .fpin img{width:44px;height:44px;object-fit:cover;border:2px solid #fff;border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.55);cursor:pointer}
@@ -810,6 +811,67 @@ const MODELO = {
       "geometria": "LINESTRING",
       "pk": "ID_LINEA",
       "cardinalidad": "0..N"
+    },
+    "NOTA_CAMPO": {
+      "campos": [
+        {
+          "nombre": "ID_PROYECTO",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "ID_NOTA",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "CATEGORIA_NOTA",
+          "obligatorio": true,
+          "dominio": "CATEGORIA_NOTA",
+          "nota": null
+        },
+        {
+          "nombre": "TEXTO",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": "Texto libre: aviso para otros geologos en futuras campanas (ej. 'porton cerrado')."
+        },
+        {
+          "nombre": "GEOLOGO",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "LATITUD",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "LONGITUD",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "FECHA",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "HORA",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        }
+      ],
+      "geometria": "POINT",
+      "pk": "ID_NOTA",
+      "cardinalidad": "0..N"
     }
   },
   "relaciones": [
@@ -866,6 +928,11 @@ const MODELO = {
     {
       "padre": "TBL_PROYECTO",
       "hijo": "LINEA_CONTROL",
+      "campo": "ID_PROYECTO"
+    },
+    {
+      "padre": "TBL_PROYECTO",
+      "hijo": "NOTA_CAMPO",
       "campo": "ID_PROYECTO"
     }
   ],
@@ -1742,6 +1809,17 @@ const MODELO = {
         "Otro": []
       },
       "fuente": "taxonomia_lineas.csv"
+    },
+    "CATEGORIA_NOTA": {
+      "tipo": "abierta",
+      "valores": [
+        "Acceso",
+        "Peligro",
+        "Hallazgo",
+        "Otro"
+      ],
+      "fuente": "decision de producto 2026-08-12: Acceso/Peligro/Hallazgo/Otro, ampliable en runtime",
+      "editable": true
     }
   },
   "avisos": [
@@ -1761,7 +1839,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v33';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v34';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -1784,6 +1862,8 @@ const STORES = Object.keys(STORE2TBL);
 // 'linea' no cuelga de un punto (es una capa aparte, hermana de PUNTO_CONTROL) -> no entra
 // en STORES/HIJAS, pero necesita su propia tabla del modelo para el formulario/exports.
 const LINEA_TBL = 'LINEA_CONTROL';
+// 'nota' tampoco cuelga de un punto: hermana de PUNTO_CONTROL/LINEA_CONTROL bajo TBL_PROYECTO.
+const NOTA_TBL = 'NOTA_CAMPO';
 const HIJAS = [
   {store:'litologia', titulo:'Litología', clase:'lito', oblig:true},
   {store:'estructural', titulo:'Datos estructurales', clase:''},
@@ -1793,16 +1873,17 @@ const HIJAS = [
   {store:'foto', titulo:'Fotografías', clase:''},
   {store:'esquema', titulo:'Esquemas / dibujos', clase:''},
 ];
-function campos(store){return (MODELO.tablas[store==='linea'?LINEA_TBL:STORE2TBL[store]]||{}).campos||[];}
-function pkDe(store){return (MODELO.tablas[store==='linea'?LINEA_TBL:STORE2TBL[store]]||{}).pk;}
+function tblDe(store){return store==='linea'?LINEA_TBL:store==='nota'?NOTA_TBL:STORE2TBL[store];}
+function campos(store){return (MODELO.tablas[tblDe(store)]||{}).campos||[];}
+function pkDe(store){return (MODELO.tablas[tblDe(store)]||{}).pk;}
 
 // ============================ IndexedDB ============================
-const DB='captura-terreno', VER=5;   // v5: nuevos stores 'punto_gabinete'/'linea_gabinete' (gabinete)
+const DB='captura-terreno', VER=6;   // v6: nuevo store 'nota' (Notas de campo)
 let db;
 function openDB(){return new Promise((res,rej)=>{
   let done=false; const finish=(fn,v)=>{if(!done){done=true;fn(v);}};
   const r=indexedDB.open(DB,VER);
-  r.onupgradeneeded=()=>{const d=r.result;STORES.concat(['fotomapa','linea']).forEach(s=>{if(!d.objectStoreNames.contains(s)){const os=d.createObjectStore(s,{keyPath:'id'});
+  r.onupgradeneeded=()=>{const d=r.result;STORES.concat(['fotomapa','linea','nota']).forEach(s=>{if(!d.objectStoreNames.contains(s)){const os=d.createObjectStore(s,{keyPath:'id'});
     if(s!=='proyecto')os.createIndex('parent','_parent',{unique:false});}});};
   r.onsuccess=()=>{db=r.result;
     db.onversionchange=()=>{try{db.close();}catch(e){}};   // libera para que otra instancia pueda actualizar
@@ -1871,6 +1952,7 @@ async function buildBackupBlob(coleccion = 'terreno') {
     'proyecto',
     coleccion === 'gabinete' ? 'punto_gabinete' : 'punto',
     coleccion === 'gabinete' ? 'linea_gabinete' : 'linea',
+    'nota',
     'litologia',
     'estructural',
     'contacto',
@@ -1909,6 +1991,7 @@ async function importBackup(file, destinoColeccion = null) {
           linea: esGabinete ? 'linea_gabinete' : 'linea',
           punto_gabinete: esGabinete ? 'punto_gabinete' : 'punto',
           linea_gabinete: esGabinete ? 'linea_gabinete' : 'linea',
+          nota: 'nota',
           litologia: 'litologia',
           estructural: 'estructural',
           contacto: 'contacto',
@@ -2156,7 +2239,7 @@ function tipoWidget(campo){
   if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|RUMBO|ORIENTACION|TREND|PLUNGE/.test(n)) return 'number';
   if(n==='FECHA') return 'date';
   if(n==='HORA') return 'time';
-  if(/DESCRIPCION|OBSERVACION|COMENTARIO|RELACION_LITOLOGIA|DISTRIBUCION/.test(n)) return 'textarea';
+  if(/DESCRIPCION|OBSERVACION|COMENTARIO|RELACION_LITOLOGIA|DISTRIBUCION|TEXTO/.test(n)) return 'textarea';
   return 'text';
 }
 const esPK = (store,n)=> n===pkDe(store);
@@ -2997,6 +3080,7 @@ async function renderMapa(app){
   $('#fab').append(
     el('button',{class:'btn mini',onclick:iniciarAgregarPunto},'📍+ Punto'),
     el('button',{class:'btn blue mini',onclick:iniciarDibujoLinea},'✏️ Línea'),
+    el('button',{class:'btn orange mini',onclick:iniciarAgregarNota},'📝+ Nota'),
     el('button',{class:'btn sec mini',onclick:legendaSimbologia},'ⓘ'),
     el('span',{class:'muted',style:'flex:1;align-self:center;font-size:11px'},conC.length+'/'+puntos.length+' pts'),
     el('button',{class:'btn sec mini',onclick:descargarTilesConZoom},'⬇️ Tiles'),
@@ -3039,9 +3123,31 @@ async function initMapaVista(puntos){
       formLinea(L2, async()=>{await put(storeLineaActivo(),L2);initMapaVista(_puntosMapa);},
                     async()=>{await del(storeLineaActivo(),L2.id);initMapaVista(_puntosMapa);}); });
   }
+  // --- notas de campo del proyecto (avisos para futuras campañas: sin colección terreno/gabinete) ---
+  const notas=await childrenOf('nota',curProyecto.id);
+  for(const n of notas){
+    const lat=parseFloat(n.LATITUD), lon=parseFloat(n.LONGITUD);
+    if(isNaN(lat)||isNaN(lon))continue;
+    const m=L.marker([lat,lon],{icon:iconoNota(n.CATEGORIA_NOTA)}).addTo(mapaVista);
+    m.on('click',()=>{
+      formNota(n, async()=>{await put('nota',n);initMapaVista(_puntosMapa);},
+                  async()=>{await del('nota',n.id);initMapaVista(_puntosMapa);});
+    });
+  }
   _puntosMapa=puntos;
   // click en el mapa: si está el modo dibujo activo, agrega vértice
   mapaVista.on('click',ev=>{
+    if(agregandoNota){ agregandoNota=false;
+      const b=document.getElementById('drawbanner'); if(b)b.remove();
+      mapaVista.getContainer().style.cursor='';
+      const nota={id:uid(), _parent:curProyecto.id,
+        LATITUD:ev.latlng.lat.toFixed(6), LONGITUD:ev.latlng.lng.toFixed(6),
+        ...stickyGet(), ...ahora()};
+      formNota(nota, async()=>{
+        await put('nota',nota); stickySet(nota);
+        initMapaVista(_puntosMapa); toast('Nota guardada');
+      }, null);
+      return; }
     if(agregandoPunto){ agregandoPunto=false;
       const b=document.getElementById('drawbanner'); if(b)b.remove();
       mapaVista.getContainer().style.cursor='';
@@ -3098,8 +3204,19 @@ function svgEstructura(e,cx,cy){
 const LINEA_CLASE_COLOR={'Contacto':'#1a1a1a','Estructura tectónica':'#c0392b','Cuerpo tabular':'#8e44ad','Geomorfología':'#16739e','Otro':'#666666'};
 const LINEA_DASH={'Observado':null,'Inferido':'10,7','Cubierto':'2,7'};
 function estiloLinea(l){return {color:LINEA_CLASE_COLOR[l.CLASE_LINEA]||'#666666', weight:3.5, opacity:.95, dashArray:LINEA_DASH[l.CERTEZA_LINEA]||null};}
+// Categoría es dominio abierto (el usuario puede agregar valores sobre la marcha): el
+// fallback '#666666' cubre cualquier categoría nueva sin color predefinido.
+const NOTA_CATEGORIA_COLOR={'Acceso':'#b9761f','Peligro':'#c0392b','Hallazgo':'#16739e','Otro':'#666666'};
+function iconoNota(cat){
+  const col=NOTA_CATEGORIA_COLOR[cat]||'#666666';
+  const svg='<svg width="34" height="34" viewBox="0 0 34 34" xmlns="http://www.w3.org/2000/svg">'
+    +'<circle cx="17" cy="17" r="14" fill="'+col+'" stroke="#fff" stroke-width="2.4"/>'
+    +'<text x="17" y="19" font-size="14" text-anchor="middle" dominant-baseline="middle">📝</text></svg>';
+  return L.divIcon({className:'notasym', html:svg, iconSize:[34,34], iconAnchor:[17,17]});
+}
 let dibujando=false,_verts=[],_tmpLine=null,_tmpMk=[],_puntosMapa=[];
 let agregandoPunto=false, coordsPendientes=null;
+let agregandoNota=false;
 function limpiarTemp(){ if(mapaVista){ if(_tmpLine)mapaVista.removeLayer(_tmpLine); _tmpMk.forEach(m=>mapaVista.removeLayer(m)); } _tmpLine=null;_tmpMk=[];_verts=[]; }
 function bannerDibujo(){
   const cont=document.querySelector('.mapcard'); if(!cont)return;
@@ -3122,6 +3239,17 @@ function iniciarAgregarPunto(){
     cont.append(b); }
   toast('Toca el mapa para ubicar el punto');
 }
+function iniciarAgregarNota(){
+  if(!mapaVista)return; cancelarDibujo(); agregandoNota=true;
+  mapaVista.getContainer().style.cursor='crosshair';
+  const cont=document.querySelector('.mapcard'); if(cont){
+    let b=document.getElementById('drawbanner'); if(b)b.remove();
+    b=el('div',{id:'drawbanner',class:'drawbanner'},
+      el('span',{},'📝 Toca el mapa donde va la nota'),
+      el('button',{class:'btn del mini',onclick:()=>{agregandoNota=false;b.remove();mapaVista.getContainer().style.cursor='';}},'✕'));
+    cont.append(b); }
+  toast('Toca el mapa para ubicar la nota');
+}
 function iniciarDibujoLinea(){ if(!mapaVista)return; dibujando=true; limpiarTemp(); mapaVista.getContainer().style.cursor='crosshair'; bannerDibujo(); toast('Modo dibujo: toca el mapa'); }
 function cancelarDibujo(){ dibujando=false; limpiarTemp(); const b=document.getElementById('drawbanner');if(b)b.remove(); if(mapaVista)mapaVista.getContainer().style.cursor=''; }
 function terminarDibujo(){
@@ -3143,6 +3271,29 @@ function formLinea(linea,onSave,onDelete){
   if(onDelete)bar.append(el('button',{class:'btn del',onclick:()=>{if(confirm('¿Eliminar esta línea?')){ov.remove();onDelete();}}},'Eliminar'));
   bar.append(el('button',{class:'btn sec',onclick:()=>ov.remove()},'Cancelar'));
   box.append(bar);ov.append(box);document.body.append(ov);
+}
+
+function formNota(nota,onSave,onDelete){
+  const ov=el('div',{class:'fmov',onclick:e=>{if(e.target===ov)ov.remove();}});
+  const box=el('div',{class:'card',style:'max-width:420px;width:92vw'});
+  box.append(el('h2',{},'📝 Nota de campo'));
+  const f=formulario('nota', nota, {});
+  box.append(f.node);
+  // foto opcional: campo runtime nota._img (dataURL con prefijo data:), mismo patrón que bloqueFoto()
+  const thumbs=el('div',{class:'thumbs'});
+  if(nota._img)thumbs.append(el('img',{src:nota._img}));
+  const inp=el('input',{type:'file',accept:'image/*',capture:'environment',style:'display:none'});
+  inp.addEventListener('change',async e=>{
+    const file=e.target.files[0]; if(!file)return;
+    nota._img=await comprimir(file,1280,.72);
+    thumbs.innerHTML=''; thumbs.append(el('img',{src:nota._img})); toast('Foto agregada');
+  });
+  box.append(el('div',{class:'btnbar'},el('button',{class:'btn orange mini',onclick:()=>inp.click()},'📷 Foto (opcional)'),inp),thumbs);
+  const bar2=el('div',{class:'btnbar'});
+  bar2.append(el('button',{class:'btn',onclick:()=>{Object.assign(nota,f.getData());ov.remove();onSave();}},'Guardar'));
+  if(onDelete)bar2.append(el('button',{class:'btn del',onclick:()=>{if(confirm('¿Eliminar esta nota?')){ov.remove();onDelete();}}},'Eliminar'));
+  bar2.append(el('button',{class:'btn sec',onclick:()=>ov.remove()},'Cancelar'));
+  box.append(bar2);ov.append(box);document.body.append(ov);
 }
 
 function iconoPunto(estr,mus){
@@ -3232,6 +3383,13 @@ async function exportCSV(){
     rows.forEach(r=>lines.push(cols.map(c=>csvCell(c.startsWith('_img')?'':r[c])).join(',')));
     files.push({name:STORE2TBL[s]+'.csv',data:new TextEncoder().encode('﻿'+lines.join('\r\n'))});
   }
+  { // nota: hermana de punto/línea, no entra en STORES
+    const rows=await all('nota');const cs=campos('nota').map(c=>c.nombre);
+    const extra=['id','_parent'];const cols=extra.concat(cs);
+    const lines=[cols.join(',')];
+    rows.forEach(r=>lines.push(cols.map(c=>csvCell(c.startsWith('_img')?'':r[c])).join(',')));
+    files.push({name:'NOTA_CAMPO.csv',data:new TextEncoder().encode('﻿'+lines.join('\r\n'))});
+  }
   descargar('captura_terreno_CSV.zip', zipStore(files));
   toast('CSV exportado');
 }
@@ -3277,10 +3435,23 @@ async function exportKMZ(){
       +'<Style><LineStyle><color>'+toKmlColor(LINEA_CLASE_COLOR[l.CLASE_LINEA])+'</color><width>3</width></LineStyle></Style>'
       +'<LineString><tessellate>1</tessellate><coordinates>'+coords+'</coordinates></LineString></Placemark>\n';
   }
-  const kml='<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Captura de terreno</name>\n'+overlays+lineasKml+pk+'</Document></kml>';
+  // notas de campo -> Placemark de punto, foto opcional embebida igual que _satelital
+  let notasKml=''; let nNot=0;
+  for(const nt of await all('nota')){
+    const lat=parseFloat(nt.LATITUD), lon=parseFloat(nt.LONGITUD); if(isNaN(lat)||isNaN(lon))continue;
+    nNot++;
+    let fotoImg='';
+    if(nt._img){ const fn='nota_'+nt.id+'.jpg'; const bytes=dataUrlBytes(nt._img);
+      if(bytes){files.push({name:fn,data:bytes}); fotoImg='<br><img src="'+fn+'" style="max-width:340px"/>';} }
+    const desc='<![CDATA['+'<b>'+esc(nt.CATEGORIA_NOTA||'')+'</b><br>'+esc(nt.TEXTO||'')
+      +(nt.GEOLOGO?'<br><i>'+esc(nt.GEOLOGO)+'</i>':'')+fotoImg+']]>';
+    notasKml+='<Placemark><name>📝 '+esc(nt.CATEGORIA_NOTA||'Nota')+'</name><description>'+desc+'</description>'
+      +'<Point><coordinates>'+lon+','+lat+',0</coordinates></Point></Placemark>\n';
+  }
+  const kml='<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Captura de terreno</name>\n'+overlays+lineasKml+notasKml+pk+'</Document></kml>';
   files.unshift({name:'doc.kml',data:new TextEncoder().encode(kml)});
   descargar('captura_terreno.kmz',zipStore(files));
-  toast('KMZ exportado ('+n+' puntos'+(nLin?', '+nLin+' líneas':'')+(files.length>1?', imágenes':'')+')');
+  toast('KMZ exportado ('+n+' puntos'+(nLin?', '+nLin+' líneas':'')+(nNot?', '+nNot+' notas':'')+(files.length>1?', imágenes':'')+')');
 }
 
 // -------- ZIP store-only (sin compresión) --------
@@ -3364,6 +3535,21 @@ async function construirGPKG(){
    st.free();
    db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,min_x,min_y,max_x,max_y,srs_id) VALUES ('LINEA_CONTROL','features','LINEA_CONTROL',?,?,?,?,4326)",nL?[env.x0,env.y0,env.x1,env.y1]:[null,null,null,null]);
    db.run("INSERT INTO gpkg_geometry_columns VALUES ('LINEA_CONTROL','geom','LINESTRING',4326,0,0)");
+  }
+  {// capa de notas de campo
+   const csN=campos('nota').filter(c=>c.nombre!=='ID_PROYECTO'&&c.nombre!=='ID_NOTA').map(c=>c.nombre);
+   const extras=[['IMAGEN',r=>dataUrlBytes(r._img)]];
+   const st=crear('NOTA_CAMPO',csN,extras,true);
+   const env={x0:1/0,y0:1/0,x1:-1/0,y1:-1/0}; let nN=0;
+   for(const nt of await all('nota')){
+     const lat=parseFloat(nt.LATITUD),lon=parseFloat(nt.LONGITUD);let g=null;
+     if(!isNaN(lat)&&!isNaN(lon)){g=gpkgGeom(wkbPoint(lon,lat));nN++;
+       env.x0=Math.min(env.x0,lon);env.x1=Math.max(env.x1,lon);env.y0=Math.min(env.y0,lat);env.y1=Math.max(env.y1,lat);}
+     st.run([g,txt(nt.id),txt(nt._parent)].concat(csN.map(c=>txt(nt[c])),extras.map(e=>e[1](nt))));
+   }
+   st.free();
+   db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,min_x,min_y,max_x,max_y,srs_id) VALUES ('NOTA_CAMPO','features','NOTA_CAMPO',?,?,?,?,4326)",nN?[env.x0,env.y0,env.x1,env.y1]:[null,null,null,null]);
+   db.run("INSERT INTO gpkg_geometry_columns VALUES ('NOTA_CAMPO','geom','POINT',4326,0,0)");
   }
   for(const s of STORES){  // resto de tablas, sin geometría
     if(s==='punto')continue;
