@@ -2066,7 +2066,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v38';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v39';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2195,6 +2195,7 @@ function coleccionActiva() {
 }
 
 // ============================ Backup / restauración (JSON) ============================
+const tamLegible = b => b < 1048576 ? (b/1024).toFixed(0)+' KB' : (b/1048576).toFixed(1)+' MB';
 async function buildBackupBlob(coleccion = 'terreno') {
   const backup = {
     app: 'captura-terreno',
@@ -2220,6 +2221,12 @@ async function buildBackupBlob(coleccion = 'terreno') {
   for (const store of HIJAS.map(h => h.store)) {
     backup[store] = (await all(store)).filter(r => idsPuntos.has(r._parent));
   }
+
+  // El foto-mapa es un ARBOL (_parent apunta a otro nodo del mismo store, no al punto),
+  // pero todos los nodos heredan _punto del nodo raiz, asi que basta filtrar por punto:
+  // no hay que recorrer el arbol. Antes este store no se respaldaba en absoluto y
+  // "Archivar dia" dejaba los foto-mapas fuera en silencio.
+  backup.fotomapa = (await all('fotomapa')).filter(r => idsPuntos.has(r._punto));
 
   const json = JSON.stringify(backup, null, 2);
   return new Blob([json], { type: 'application/json' });
@@ -2254,6 +2261,11 @@ async function importBackup(file, destinoColeccion = null) {
           foto: 'foto',
           esquema: 'esquema',
           geomorf: 'geomorf',
+          // el arbol se reconstituye solo: los ids viajan intactos, asi que _parent y
+          // _punto siguen apuntando a donde deben. Funciona incluso al importar un
+          // backup de Terreno dentro de Gabinete: el punto cambia de store pero
+          // conserva su id, que es lo que _punto referencia.
+          fotomapa: 'fotomapa',
         };
 
         let totalInsertadas = 0;
@@ -2323,7 +2335,9 @@ async function exportBackupUI(coleccion) {
     URL.revokeObjectURL(url);
 
     const statusDiv = document.getElementById(`backup-status-${coleccion}`);
-    statusDiv.innerHTML = `<span style="color:var(--verde);">✓ Descargado: ${filename}</span>`;
+    // el peso importa: los foto-mapas y las fotos viajan como dataURL (base64 infla ~33%)
+    // y en terreno conviene saberlo antes de quedarse sin espacio.
+    statusDiv.innerHTML = `<span style="color:var(--verde);">✓ Descargado: ${esc(filename)} (${tamLegible(blob.size)})</span>`;
   } catch (err) {
     const statusDiv = document.getElementById(`backup-status-${coleccion}`);
     statusDiv.innerHTML = `<span style="color:var(--rojo);">✗ Error: ${err.message}</span>`;
