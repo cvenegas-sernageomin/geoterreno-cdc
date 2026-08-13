@@ -2066,7 +2066,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v37';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v38';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2203,22 +2203,22 @@ async function buildBackupBlob(coleccion = 'terreno') {
     exportado: new Date().toISOString(),
   };
 
-  const storeList = [
-    'proyecto',
-    coleccion === 'gabinete' ? 'punto_gabinete' : 'punto',
-    coleccion === 'gabinete' ? 'linea_gabinete' : 'linea',
-    'nota',
-    'litologia',
-    'estructural',
-    'contacto',
-    'muestreo',
-    'foto',
-    'esquema',
-    'geomorf',
-  ];
+  const esGabinete = coleccion === 'gabinete';
+  const puntoStore = esGabinete ? 'punto_gabinete' : 'punto';
+  const lineaStore = esGabinete ? 'linea_gabinete' : 'linea';
 
-  for (const store of storeList) {
-    backup[store] = await all(store);
+  backup.proyecto = await all('proyecto');
+  backup[puntoStore] = await all(puntoStore);
+  backup[lineaStore] = await all(lineaStore);
+  backup.nota = await all('nota');   // las notas cuelgan del proyecto, no de la colección
+
+  // Las 7 tablas hijas son stores COMPARTIDOS por las dos colecciones (cuelgan del punto
+  // por _parent, no del store del punto). Sacarlas con all() metia las hijas de gabinete
+  // dentro del backup de terreno y viceversa; al restaurar quedaban huerfanas, con un
+  // _parent apuntando a un punto que no viajo en el archivo.
+  const idsPuntos = new Set(backup[puntoStore].map(p => p.id));
+  for (const store of HIJAS.map(h => h.store)) {
+    backup[store] = (await all(store)).filter(r => idsPuntos.has(r._parent));
   }
 
   const json = JSON.stringify(backup, null, 2);
@@ -2257,26 +2257,29 @@ async function importBackup(file, destinoColeccion = null) {
         };
 
         let totalInsertadas = 0;
-        let totalOmitidas = 0;
+        // Todos los stores usan keyPath:'id' y se inserta con put, asi que un registro
+        // repetido se SOBRESCRIBE sin lanzar: un catch aqui es siempre un error real, no
+        // un duplicado. Antes se contaban como "omitidas (duplicadas)" y el import
+        // reportaba exito aunque no hubiera entrado nada.
+        const errores = [];
 
         for (const [storeOrigen, storeDestino] of Object.entries(storeMap)) {
           if (!data[storeOrigen]) continue;
 
-          const records = data[storeOrigen];
-          for (const record of records) {
+          for (const record of data[storeOrigen]) {
             try {
               await put(storeDestino, record);
               totalInsertadas++;
             } catch (err) {
-              totalOmitidas++;
+              errores.push(storeDestino + '/' + (record && record.id) + ': ' + (err && err.message || err));
             }
           }
         }
 
         resolve({
-          ok: true,
+          ok: errores.length === 0,
           insertadas: totalInsertadas,
-          omitidas: totalOmitidas,
+          errores: errores,
           coleccion: coleccion,
         });
       } catch (err) {
@@ -2338,7 +2341,12 @@ async function importBackupUI(coleccion) {
   try {
     const result = await importBackup(file, coleccion);
     const statusDiv = document.getElementById(`backup-status-${coleccion}`);
-    statusDiv.innerHTML = `<span style="color:var(--verde);">✓ Importadas: ${result.insertadas} registros. Omitidas: ${result.omitidas} (duplicadas).</span>`;
+    const ok = `✓ Importados: ${result.insertadas} registros (los repetidos se sobrescriben).`;
+    statusDiv.innerHTML = result.ok
+      ? `<span style="color:var(--verde);">${ok}</span>`
+      : `<span style="color:var(--rojo);">⚠️ ${ok}<br>${result.errores.length} con error: ${esc(result.errores[0])}`
+        + (result.errores.length > 1 ? ` (y ${result.errores.length - 1} más — ver consola)` : '') + `</span>`;
+    if (!result.ok) console.warn('Errores al importar el respaldo:', result.errores);
     fileInput.value = '';
     updateFormReadonly();
   } catch (err) {
@@ -2606,7 +2614,10 @@ function formulario(store, reg, ctx){
       const ok=regla(v);
       const fld=inp.closest('.fld');
       if(modo==='ocultar'){ if(fld)fld.style.display=ok?'':'none'; }
-      else { inp.disabled=!ok; if(fld)fld.style.opacity=ok?'':'0.5'; }
+      // _condOff recuerda que este campo lo bloqueó una REGLA, no el modo lectura:
+      // updateFormReadonly() corre despues de cada render() y antes reponia
+      // disabled=false a todo, dejando el campo atenuado pero editable.
+      else { inp.disabled=!ok; inp._condOff=!ok; if(fld)fld.style.opacity=ok?'':'0.5'; }
       if(!ok){ if(inp.value)inp.value=''; inp.required=false; }
       else { const cd=cs.find(c=>c.nombre===cn); if(cd&&cd.obligatorio)inp.required=true; }
     }
@@ -4020,7 +4031,9 @@ function updateFormReadonly() {
       input.disabled = true;
       input.style.opacity = '0.6';
     } else {
-      input.disabled = false;
+      // al salir del modo lectura NO se habilita todo a ciegas: los campos que
+      // bloqueó una regla condicional (_condOff) siguen bloqueados.
+      input.disabled = !!input._condOff;
       input.style.opacity = '1';
     }
   });
