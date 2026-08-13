@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GeoTerreno CDC — Prueba de humo</title>
+<style>
+  :root{--verde:#2f6b4f;--rojo:#c0463a;--bd:#d5dbce;--muted:#5f6b62;--surface:#f8f9f4}
+  @media (prefers-color-scheme:dark){:root{--verde:#5cbd8c;--rojo:#e0796d;--bd:#33402f;--muted:#9aab9d;--surface:#1d251f}
+    body{background:#141a16;color:#e6ede3}}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:16px;max-width:880px}
+  h1{font-size:18px;margin:0 0 4px;color:var(--verde)}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.5}
+  #resumen{font-size:15px;font-weight:700;padding:10px 14px;border-radius:10px;margin:12px 0;border:1px solid var(--bd)}
+  .t{border:1px solid var(--bd);border-radius:10px;padding:9px 12px;margin-bottom:7px;background:var(--surface);font-size:13.5px}
+  .t b{display:block}
+  .ok b{color:var(--verde)} .fail b{color:var(--rojo)}
+  .det{color:var(--muted);font-size:12px;margin-top:3px;white-space:pre-wrap;font-family:ui-monospace,monospace}
+  button{font:inherit;font-weight:600;color:#fff;background:var(--verde);border:none;border-radius:9px;padding:9px 16px;cursor:pointer}
+  iframe{width:1px;height:1px;border:0;position:absolute;left:-9999px}
+</style>
+</head>
+<body>
+<h1>Prueba de humo — GeoTerreno CDC</h1>
+<div class="sub">Corre el ciclo completo (capturar → respaldar → borrar → restaurar → exportar) contra
+el <code>index.html</code> real, cargado en un iframe.
+<b>No toca tus datos:</b> todo lo que crea lleva el prefijo <code>smoke-</code> (los ids reales empiezan
+con <code>x</code>), solo borra lo suyo, y al final verifica que la cantidad de registros ajenos no cambió.</div>
+<button id="run">▶ Correr de nuevo</button>
+<div id="resumen"></div>
+<div id="out"></div>
+<iframe id="app" src="index.html"></iframe>
+
+<script>
+const P = 'smoke-';                       // prefijo de aislamiento
+// inLat/inLon son `const` dentro de la app y por eso NO son visibles desde aquí (ver
+// esperarApp). Se replican y la primera prueba los contrasta contra el modelo, para que
+// un cambio de nombre haga fallar el test en vez de dejarlo pasar en falso.
+const LAT = 'Coordenadas Geográficas Decimales_Lat';
+const LON = 'Coordenadas Geográficas Decimales_Long';
+const STORES_TODOS = ['proyecto','punto','punto_gabinete','linea','linea_gabinete','litologia',
+  'estructural','contacto','muestreo','foto','esquema','geomorf','fotomapa','nota'];
+
+const $out = document.getElementById('out'), $res = document.getElementById('resumen');
+let pasaron = 0, fallaron = 0;
+
+function ok(cond, msg){ if(!cond) throw new Error(msg); }
+function eq(a, b, msg){
+  ok(JSON.stringify(a) === JSON.stringify(b),
+     msg + ' — esperaba ' + JSON.stringify(b) + ', obtuve ' + JSON.stringify(a));
+}
+async function prueba(nombre, fn){
+  const div = document.createElement('div'); div.className = 't';
+  try { const det = await fn();
+    div.classList.add('ok'); pasaron++;
+    div.innerHTML = '<b>✓ ' + nombre + '</b>' + (det ? '<div class="det">' + det + '</div>' : '');
+  } catch(e){
+    div.classList.add('fail'); fallaron++;
+    div.innerHTML = '<b>✗ ' + nombre + '</b><div class="det">' + (e && e.message || e) + '</div>';
+  }
+  $out.append(div);
+}
+
+// La app declara casi todo con `const`/`let` de nivel superior, que viven en el registro
+// declarativo y NO son propiedades de window: desde el iframe padre solo se ven las
+// DECLARACIONES DE FUNCIÓN (all, put, formulario, exportCSV, …). Por eso la señal de
+// "app lista" no puede ser `w.db`, sino que all() resuelva: eso implica IndexedDB abierta.
+const esperarApp = () => new Promise((res, rej) => {
+  const t0 = Date.now();
+  (async function poll(){
+    const w = document.getElementById('app').contentWindow;
+    if (w && typeof w.all === 'function') {
+      try { await w.all('proyecto'); return res(w); } catch(e){ /* aún abriendo */ }
+    }
+    if (Date.now() - t0 > 20000) return rej(new Error('la app no arrancó en 20 s'));
+    setTimeout(poll, 100);
+  })();
+});
+
+// OJO con los realms: los File/Blob que consume la app se construyen SIEMPRE con el
+// constructor del iframe (new w.File(...)), no con el de esta página. JSZip corre dentro
+// del iframe y valida con `instanceof ArrayBuffer`; un ArrayBuffer nacido en el realm del
+// padre falla esa comprobación y JSZip responde "Can't read the data of the loaded zip
+// file", que parece un KMZ corrupto cuando en realidad es un artefacto de la prueba.
+const mio = r => String(r && r.id || '').startsWith(P);
+async function censo(w){                  // cuántos registros AJENOS hay por store
+  const c = {};
+  for (const s of STORES_TODOS) c[s] = (await w.all(s)).filter(r => !mio(r)).length;
+  return c;
+}
+async function borrarMios(w){
+  for (const s of STORES_TODOS) for (const r of await w.all(s)) if (mio(r)) await w.del(s, r.id);
+}
+async function sembrar(w){                // dataset con datos en AMBAS colecciones
+  await w.put('proyecto',       {id:P+'pr', ID_PROYECTO:P+'01', NOMBRE_PROYECTO:'Prueba de humo'});
+  await w.put('punto',          {id:P+'pt-T', _parent:P+'pr', ID_PUNTO_CONTROL:'PC-T', GEOLOGO:'smoke',
+                                 [LAT]:'-33.450000', [LON]:'-70.650000'});
+  await w.put('punto_gabinete', {id:P+'pt-G', _parent:P+'pr', ID_PUNTO_CONTROL:'PC-G',
+                                 [LAT]:'-33.500000', [LON]:'-70.700000'});
+  await w.put('linea',          {id:P+'ln-T', _parent:P+'pr', CLASE_LINEA:'Contacto', TIPO_LINEA:'Estratigráfico',
+                                 CERTEZA_LINEA:'Observado', geom:[[-33.45,-70.65],[-33.46,-70.66]]});
+  await w.put('linea_gabinete', {id:P+'ln-G', _parent:P+'pr', CLASE_LINEA:'Estructura tectónica', TIPO_LINEA:'Falla',
+                                 CERTEZA_LINEA:'Inferido', geom:[[-33.50,-70.70],[-33.51,-70.71]]});
+  await w.put('litologia',      {id:P+'li-T', _parent:P+'pt-T', TIPO_ROCA:'Volcánica', NOMBRE_ROCA:'Andesita',
+                                 UNIDAD_GEOLOGICA:'Fm. Abanico'});
+  await w.put('litologia',      {id:P+'li-G', _parent:P+'pt-G', TIPO_ROCA:'Intrusiva', NOMBRE_ROCA:'Granito'});
+  // foto-mapa: árbol de 3 niveles colgando del punto de TERRENO
+  await w.put('fotomapa', {id:P+'fm-1', _parent:null,     _punto:P+'pt-T', TITULO:'Afloramiento'});
+  await w.put('fotomapa', {id:P+'fm-2', _parent:P+'fm-1', _punto:P+'pt-T', TITULO:'Detalle',     x:1, y:2});
+  await w.put('fotomapa', {id:P+'fm-3', _parent:P+'fm-2', _punto:P+'pt-T', TITULO:'Sub-detalle', x:3, y:4});
+  await w.put('fotomapa', {id:P+'fm-G', _parent:null,     _punto:P+'pt-G', TITULO:'De gabinete'});
+}
+// captura lo que la app mandaría a descargar, en vez de bajarlo.
+// Funciona porque `descargar` es una declaración de función: reasignarla en window
+// cambia la ligadura que ve el propio código de la app.
+async function capturar(w, fn){
+  const orig = w.descargar; let cap = null;
+  w.descargar = (n, b) => { cap = {nombre:n, blob:b}; };
+  try { await fn(); } finally { w.descargar = orig; }
+  ok(cap, 'la exportación no llamó a descargar()');
+  return cap;
+}
+const soloMios = bk => {                  // el respaldo lleva TODOS los proyectos/notas: lo acotamos
+  const f = {}; for (const k in bk) f[k] = Array.isArray(bk[k]) ? bk[k].filter(mio) : bk[k];
+  return f;
+};
+async function leerVersiones(){           // APP_VER/CACHE son const: se leen del archivo
+  const q = '?smoke=' + Date.now();
+  const html = await (await fetch('index.html' + q)).text();
+  const sw   = await (await fetch('sw.js' + q)).text();
+  return {
+    appVer: (html.match(/APP_VER\s*=\s*'([^']+)'/) || [])[1],
+    cache:  (sw.match(/CACHE\s*=\s*'([^']+)'/) || [])[1]
+  };
+}
+
+async function correr(){
+  $out.innerHTML = ''; $res.textContent = 'Corriendo…'; $res.style.color = ''; $res.style.borderColor = '';
+  pasaron = fallaron = 0;
+  let w;
+  try { w = await esperarApp(); } catch(e){ $res.textContent = '✗ ' + e.message; $res.style.color = 'var(--rojo)'; return; }
+
+  await borrarMios(w);                    // por si quedó basura de una corrida anterior
+  const antes = await censo(w);
+
+  try {
+    await prueba('El modelo tiene los campos que esta prueba asume', async () => {
+      const cs = w.campos('punto').map(c => c.nombre);
+      ok(cs.includes(LAT) && cs.includes(LON), 'PUNTO_CONTROL ya no usa los campos de coordenadas esperados');
+      ok(w.campos('linea').some(c => c.nombre === 'CLASE_LINEA'), 'LINEA_CONTROL no tiene CLASE_LINEA');
+      ok(w.campos('punto_gabinete').length === cs.length, 'punto_gabinete no resuelve al mismo esquema que punto');
+      return cs.length + ' campos en PUNTO_CONTROL; gabinete comparte esquema';
+    });
+
+    await prueba('APP_VER y el cache del service worker están alineados', async () => {
+      const {appVer, cache} = await leerVersiones();
+      ok(appVer, 'no se pudo leer APP_VER de index.html');
+      ok(cache, 'no se pudo leer CACHE de sw.js');
+      eq(cache, 'geoterreno-cdc-' + appVer,
+         'desalineados: index.html dice ' + appVer + ' y sw.js dice ' + cache + ' (el usuario verá la versión vieja)');
+      return appVer + ' ↔ ' + cache;
+    });
+
+    await prueba('Ciclo completo: capturar → respaldar → borrar → restaurar', async () => {
+      await sembrar(w);
+      const bk = soloMios(JSON.parse(await (await w.buildBackupBlob('terreno')).text()));
+      await borrarMios(w);
+      eq((await w.all('punto')).filter(mio).length, 0, 'el borrado previo a restaurar no dejó limpio');
+
+      const r = await w.importBackup(new w.File([JSON.stringify(bk)], 'b.json', {type:'application/json'}), 'terreno');
+      ok(r.ok, 'importBackup reportó errores: ' + JSON.stringify(r.errores));
+
+      const pt = await w.get('punto', P+'pt-T');
+      ok(pt, 'el punto no volvió');
+      eq(pt.ID_PUNTO_CONTROL, 'PC-T', 'el punto volvió con otro ID');
+      eq(pt[LAT], '-33.450000', 'el punto perdió la latitud');
+      eq((await w.childrenOf('litologia', P+'pt-T')).length, 1, 'la litología no volvió colgada del punto');
+      const ln = await w.get('linea', P+'ln-T');
+      eq(ln && ln.geom, [[-33.45,-70.65],[-33.46,-70.66]], 'la línea perdió la geometría');
+      return 'restaurados ' + r.insertadas + ' registros; punto, litología, coordenadas y geometría intactos';
+    });
+
+    await prueba('El árbol de foto-mapas sobrevive al ciclo (regresión v39)', async () => {
+      eq((await w.fotomapasRaiz(P+'pt-T')).map(f=>f.TITULO), ['Afloramiento'], 'la raíz del foto-mapa no volvió');
+      eq((await w.fotomapaHijos(P+'fm-1')).map(f=>f.TITULO), ['Detalle'], 'el hijo no volvió');
+      eq((await w.fotomapaHijos(P+'fm-2')).map(f=>f.TITULO), ['Sub-detalle'], 'el nieto no volvió');
+      const ruta = (await w.rutaFotomapa(await w.get('fotomapa', P+'fm-3'))).map(n=>n.TITULO);
+      eq(ruta, ['Afloramiento','Detalle','Sub-detalle'], 'la miga de pan quedó rota');
+      return 'árbol de 3 niveles navegable: ' + ruta.join(' → ');
+    });
+
+    await prueba('El respaldo no mezcla Terreno con Gabinete (regresión v38-B)', async () => {
+      await borrarMios(w); await sembrar(w);
+      const bT = JSON.parse(await (await w.buildBackupBlob('terreno')).text());
+      const bG = JSON.parse(await (await w.buildBackupBlob('gabinete')).text());
+      eq((bT.litologia||[]).filter(mio).map(r=>r.id), [P+'li-T'], 'el backup de Terreno se llevó litología de Gabinete');
+      eq((bG.litologia||[]).filter(mio).map(r=>r.id), [P+'li-G'], 'el backup de Gabinete se llevó litología de Terreno');
+      eq((bT.fotomapa||[]).filter(mio).map(r=>r.id).sort(), [P+'fm-1',P+'fm-2',P+'fm-3'], 'foto-mapas cruzados en Terreno');
+      eq((bG.fotomapa||[]).filter(mio).map(r=>r.id), [P+'fm-G'], 'foto-mapas cruzados en Gabinete');
+      ok(!bT.punto_gabinete, 'el backup de Terreno trae la clave punto_gabinete');
+      eq(bT.formato, 1, 'cambió el número de formato: las versiones viejas rechazarán el archivo entero');
+      return 'cada colección se lleva solo lo suyo; formato 1 conservado';
+    });
+
+    await prueba('El CSV incluye ambas colecciones y las líneas (regresión v37-#3)', async () => {
+      const cap = await capturar(w, () => w.exportCSV());
+      const zip = await new w.JSZip().loadAsync(await cap.blob.arrayBuffer());
+      const nombres = Object.keys(zip.files);
+      ok(nombres.includes('LINEA_CONTROL.csv'), 'falta LINEA_CONTROL.csv');
+      const pc = (await zip.file('PUNTO_CONTROL.csv').async('text')).replace(/^﻿/,'').split('\r\n');
+      ok(pc[0].includes('COLECCION'), 'PUNTO_CONTROL.csv no tiene columna COLECCION');
+      ok(pc[0].includes('ID_PUNTO_CONTROL'), 'PUNTO_CONTROL.csv salió sin las columnas del modelo');
+      const mias = pc.filter(l => l.startsWith(P));
+      eq(mias.length, 2, 'no salieron los puntos de las dos colecciones');
+      ok(mias.some(l=>l.includes('Terreno')) && mias.some(l=>l.includes('Gabinete')), 'falta una de las colecciones');
+      const ln = (await zip.file('LINEA_CONTROL.csv').async('text')).split('\r\n').filter(l=>l.startsWith(P));
+      eq(ln.length, 2, 'no salieron las líneas de las dos colecciones');
+      return nombres.length + ' tablas; puntos y líneas de Terreno y Gabinete con columna COLECCION';
+    });
+
+    await prueba('El GeoPackage incluye ambas colecciones', async () => {
+      const r = await w.construirGPKG();          // esto además carga sql.js en el iframe
+      ok(typeof w.initSqlJs === 'function', 'construirGPKG no dejó sql.js disponible');
+      const SQL = await w.initSqlJs({locateFile: f => 'vendor/' + f});
+      const db = new SQL.Database(r.bytes);
+      const q = s => { const st = db.prepare(s); const o = []; while(st.step()) o.push(st.getAsObject()); st.free(); return o; };
+      try {
+        const capas = q("SELECT table_name FROM gpkg_geometry_columns").map(x=>x.table_name);
+        ok(capas.includes('PUNTO_CONTROL') && capas.includes('LINEA_CONTROL'), 'faltan capas espaciales');
+        eq(q("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%GABINETE%'"), [],
+           'quedaron tablas *_GABINETE duplicadas');
+        eq(q("SELECT COLECCION FROM PUNTO_CONTROL WHERE ID_REG LIKE '"+P+"%' ORDER BY COLECCION").map(x=>x.COLECCION),
+           ['Gabinete','Terreno'], 'el GPKG no trae las dos colecciones');
+        eq(q("SELECT type FROM pragma_table_info('PUNTO_CONTROL') WHERE name='COLECCION'"), [{type:'TEXT'}],
+           'COLECCION no quedó como TEXT');
+        eq(q("SELECT COUNT(*) n FROM PUNTO_CONTROL WHERE ID_REG LIKE '"+P+"%' AND geom IS NULL"), [{n:0}],
+           'hay puntos sin geometría');
+        return r.nP + ' puntos y ' + r.nL + ' líneas en capas espaciales, COLECCION TEXT';
+      } finally { db.close(); }
+    });
+
+    await prueba('El KMZ separa las colecciones en carpetas', async () => {
+      const cap = await capturar(w, () => w.exportKMZ());
+      const zip = await new w.JSZip().loadAsync(await cap.blob.arrayBuffer());
+      const d = new DOMParser().parseFromString(await zip.file('doc.kml').async('text'), 'text/xml');
+      ok(!d.querySelector('parsererror'), 'el KML generado no es XML válido');
+      const carpetas = [...d.querySelectorAll('Folder>name')].map(n=>n.textContent);
+      ok(carpetas.some(c=>/Puntos.*Terreno/.test(c)) && carpetas.some(c=>/Puntos.*Gabinete/.test(c)),
+         'faltan carpetas de puntos por colección');
+      const nombres = [...d.querySelectorAll('Placemark>name')].map(n=>n.textContent);
+      ok(nombres.every(n => n.trim()), 'hay Placemarks con <name> vacío');
+      ok(nombres.includes('PC-T') && nombres.includes('PC-G'), 'faltan puntos de alguna colección');
+      return carpetas.length + ' carpetas: ' + carpetas.join(' · ');
+    });
+
+    await prueba('Importar un KMZ deja registros que la app puede ver (regresión v37-#1+2)', async () => {
+      const kml = '<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>'
+        + '<Placemark><name>Desde KMZ</name><Point><coordinates>-70.10,-33.10,0</coordinates></Point></Placemark>'
+        + '<Placemark><name>Traza</name><LineString><coordinates>-70.1,-33.1,0 -70.2,-33.2,0</coordinates></LineString></Placemark>'
+        + '</Document></kml>';
+      const z = new w.JSZip(); z.file('doc.kml', kml);
+      const geoms = await w.parseKmzFile(new w.File([await z.generateAsync({type:'blob'})], 'p.kmz'));
+      eq(geoms.length, 2, 'el parseo no encontró las dos geometrías');
+      const r = await w.insertKmzGeometries(geoms, P+'pr');
+      eq([r.puntosInsertados, r.lineasInsertadas, r.omitidas], [1,1,0], 'no insertó lo esperado');
+
+      // tiene que ser visible por los MISMOS filtros que usan el mapa y las listas
+      const pt = (await w.childrenOf('punto', P+'pr')).find(p => p.ID_PUNTO_CONTROL === 'Desde KMZ');
+      ok(pt, 'el punto importado no cuelga del proyecto');
+      ok(!isNaN(parseFloat(pt[LAT])) && !isNaN(parseFloat(pt[LON])), 'el punto no tiene coordenadas legibles por el mapa');
+      const ln = (await w.childrenOf('linea', P+'pr')).find(l => l.id !== P+'ln-T');
+      ok(ln && ln.geom && ln.geom.length === 2, 'la línea importada no tiene geom dibujable');
+      eq(ln.geom[0], [-33.1,-70.1], 'la línea quedó con lon/lat invertidos');
+      await w.del('punto', pt.id); await w.del('linea', ln.id);   // no llevan prefijo: se limpian aquí
+      return 'punto y línea importados, visibles por childrenOf() y con geometría en [lat,lon]';
+    });
+
+    await prueba('Un KMZ mal formado da un error legible, no un TypeError', async () => {
+      const z = new w.JSZip(); z.file('doc.kml', '<kml><Placemark><name>rota</Document></kml>');
+      let err = null;
+      try { await w.parseKmzFile(new w.File([await z.generateAsync({type:'blob'})], 'malo.kmz')); }
+      catch(e){ err = e; }
+      ok(err, 'aceptó un KML corrupto sin chistar');
+      ok(!/TypeError/.test(err.constructor.name), 'falló con un error interno: ' + err.message);
+      ok(/mal formado/i.test(err.message), 'el mensaje no explica el problema: ' + err.message);
+      return err.message.slice(0, 64) + '…';
+    });
+
+    await prueba('El import avisa cuando algo falla de verdad (regresión v38-C)', async () => {
+      const bueno = {app:'captura-terreno', formato:1, punto:[{id:P+'imp', ID_PUNTO_CONTROL:'X'}]};
+      const r1 = await w.importBackup(new w.File([JSON.stringify(bueno)], 'b.json'), 'terreno');
+      ok(r1.ok && r1.insertadas === 1, 'un respaldo sano no debería dar problemas');
+      const r2 = await w.importBackup(new w.File([JSON.stringify(bueno)], 'b.json'), 'terreno');
+      ok(r2.ok && r2.insertadas === 1, 'reimportar debería sobrescribir, no contarse como omitido');
+      const malo = {app:'captura-terreno', formato:1, punto:[{ID_PUNTO_CONTROL:'sin-id'}]};
+      const r3 = await w.importBackup(new w.File([JSON.stringify(malo)], 'm.json'), 'terreno');
+      ok(!r3.ok && r3.errores.length === 1, 'un registro inválido pasó como éxito');
+      return 'sano ok · reimportado sobrescribe · inválido reporta el error real';
+    });
+
+    await prueba('Los campos condicionales sobreviven al modo lectura (regresión v38-A)', async () => {
+      const f = w.formulario('litologia', {});          // sin TIPO_ROCA → TIPO_DEPOSITO bloqueado
+      w.document.getElementById('app').append(f.node);
+      try {
+        const td = f.node.querySelector('[name="TIPO_DEPOSITO"]');
+        ok(td, 'no existe el campo TIPO_DEPOSITO');
+        ok(td.disabled, 'TIPO_DEPOSITO nace desbloqueado sin TIPO_ROCA');
+        w.updateFormReadonly();                          // corre al final de cada render()
+        ok(td.disabled, 'updateFormReadonly() lo desbloqueó: se le podría dar tipo de depósito a un granito');
+        const tr = f.node.querySelector('[name="TIPO_ROCA"]');
+        tr.value = 'Depósito'; tr.dispatchEvent(new w.Event('change', {bubbles:true}));
+        w.updateFormReadonly();
+        ok(!td.disabled, 'con TIPO_ROCA=Depósito debería habilitarse');
+        return 'bloqueado · sigue bloqueado tras updateFormReadonly() · habilita al elegir Depósito';
+      } finally { f.node.remove(); }
+    });
+
+    await prueba('Un valor fuera del dominio no se borra al reabrir (regresión v37-#4)', async () => {
+      const li = await w.get('litologia', P+'li-T');
+      ok(li && li.UNIDAD_GEOLOGICA === 'Fm. Abanico', 'no se sembró el valor de dominio abierto');
+      eq(w.formulario('litologia', li).getData().UNIDAD_GEOLOGICA, 'Fm. Abanico',
+         'el dominio abierto perdió el valor guardado');
+      // dominio CERRADO cuya lista cambió (p. ej. "Discordancia", tipo retirado del modelo)
+      eq(w.formulario('linea', {TIPO_LINEA:'Discordancia'}).getData().TIPO_LINEA, 'Discordancia',
+         'un valor retirado del dominio se borra al reabrir el registro');
+      return 'sobrevive en dominio abierto (Fm. Abanico) y en dominio cerrado que cambió (Discordancia)';
+    });
+
+    await prueba('El service worker no cachea los tiles del satelital (regresión v38-D)', async () => {
+      const {cache} = await leerVersiones();
+      const claves = (await caches.keys()).filter(k => k.startsWith('geoterreno-cdc-'));
+      ok(claves.length, 'el service worker no dejó ningún caché (¿no se registró?)');
+      eq(claves, [cache], 'quedaron cachés de versiones viejas sin purgar');
+      const urls = (await (await caches.open(cache)).keys()).map(r => r.url);
+      eq(urls.filter(u => new URL(u).origin !== location.origin), [],
+         'entraron peticiones cross-origin (tiles) al caché del service worker');
+      return urls.length + ' entradas, todas del mismo origen';
+    });
+
+  } finally {
+    await borrarMios(w);
+    await prueba('No quedó basura ni se tocaron datos ajenos', async () => {
+      for (const s of STORES_TODOS) eq((await w.all(s)).filter(mio).length, 0, 'quedaron registros smoke- en ' + s);
+      const despues = await censo(w);
+      eq(despues, antes, 'cambió la cantidad de registros ajenos');
+      const total = Object.values(despues).reduce((a,b)=>a+b, 0);
+      return total ? 'tus ' + total + ' registros siguen intactos' : 'no había datos previos; nada que preservar';
+    });
+  }
+
+  const total = pasaron + fallaron;
+  $res.textContent = fallaron ? '✗ ' + fallaron + ' de ' + total + ' fallaron' : '✓ ' + pasaron + '/' + total + ' pasaron';
+  $res.style.color = fallaron ? 'var(--rojo)' : 'var(--verde)';
+  $res.style.borderColor = fallaron ? 'var(--rojo)' : 'var(--verde)';
+}
+
+document.getElementById('run').addEventListener('click', correr);
+window.addEventListener('load', correr);
+</script>
+</body>
+</html>
