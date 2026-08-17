@@ -203,6 +203,12 @@ const MODELO = {
           "nota": null
         },
         {
+          "nombre": "TIPO_VOLCANICA",
+          "obligatorio": true,
+          "dominio": "TIPO_VOLCANICA",
+          "nota": "solo aplica si TIPO_ROCA = Volcánica; acota la lista de NOMBRE_ROCA a lavas o a piroclásticas"
+        },
+        {
           "nombre": "TIPO_DEPOSITO",
           "obligatorio": true,
           "dominio": "TIPO_DEPOSITO",
@@ -1034,10 +1040,30 @@ const MODELO = {
       "padre": "TIPO_ROCA",
       "mapa": {
         "Intrusiva": [
+          "Anortosita",
+          "Anortosita cuarcífera",
+          "Cuarzolita",
+          "Diorita",
+          "Diorita cuarcífera",
+          "Gabro (sensu lato)",
+          "Gabro cuarcífero",
           "Granito",
+          "Granito de feldespato alcalino",
+          "Granitoide cuarcífero",
           "Granodiorita",
+          "Monzodiorita",
+          "Monzodiorita cuarcífera",
+          "Monzogabro",
+          "Monzogabro cuarcífero",
+          "Monzogranito",
+          "Monzonita",
+          "Monzonita cuarcífera",
           "Sienita",
-          "Peridotita"
+          "Sienita cuarcífera",
+          "Sienita cuarcífera de feldespato alcalino",
+          "Sienita de feldespato alcalino",
+          "Sienogranito",
+          "Tonalita"
         ],
         "Volcánica": [
           "Basalto",
@@ -1791,6 +1817,14 @@ const MODELO = {
       "fuente": "diagrama_v3 / estandar CDC (PROPUESTO)",
       "confirmar": true
     },
+    "TIPO_VOLCANICA": {
+      "tipo": "simple",
+      "valores": [
+        "Lava",
+        "Piroclástica"
+      ],
+      "fuente": "acota NOMBRE_ROCA para TIPO_ROCA = Volcánica (ver CONDICIONALES.TIPO_VOLCANICA en index.html)"
+    },
     "UNIDAD_GEOLOGICA": {
       "tipo": "abierta",
       "valores": [],
@@ -2067,7 +2101,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v40';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v41';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2522,18 +2556,28 @@ function hideField(store,n){
   return false;
 }
 
+// Nombres de roca volcánica por origen — única fuente de verdad para: (1) acotar NOMBRE_ROCA
+// según TIPO_VOLCANICA (ver filtrarNombreRocaVolcanica más abajo) y (2) decidir si GRANULOMETRIA
+// aplica (solo piroclásticas tienen tamaño de grano; una lava no).
+const ROCAS_VOLCANICAS = {
+  'Lava': ['Basalto', 'Andesita basáltica', 'Andesita (intermedia/silícea)', 'Dacita', 'Riolita', 'Taquilita', 'Obsidiana'],
+  'Piroclástica': ['Toba', 'Ignimbrita', 'Tefra', 'Brecha piroclástica', 'Aglomerado volcánico', 'Lapillita'],
+};
+
 // Campos condicionales: se muestran/habilitan solo si se cumple la regla; si no, se limpian.
 //  modo 'bloquear' = se deshabilita y atenúa · modo 'ocultar' = se esconde por completo.
 const CONDICIONALES = {
   // Una litología es roca O depósito: TIPO_DEPOSITO solo con TIPO_ROCA = "Depósito".
   TIPO_DEPOSITO: {modo:'bloquear', regla: v => v['TIPO_ROCA']==='Depósito'},
+  // Lava/Piroclástica solo aplica a rocas volcánicas (acota NOMBRE_ROCA, ver filtrarNombreRocaVolcanica).
+  TIPO_VOLCANICA: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
   // Granulometría solo para: (1) todos los depósitos, (2) rocas sedimentarias detríticas (Arenisca, Lutita, Conglomerado, Brecha), (3) volcánicas piroclásticas.
   GRANULOMETRIA: {modo:'ocultar', regla: v => {
     const tipo = v['TIPO_ROCA'];
     const nombre = v['NOMBRE_ROCA'];
     if (tipo === 'Depósito') return true;
     if (tipo === 'Sedimentaria') return ['Arenisca', 'Lutita', 'Conglomerado', 'Brecha'].includes(nombre);
-    if (tipo === 'Volcánica') return ['Toba', 'Ignimbrita', 'Tefra', 'Brecha piroclástica', 'Aglomerado volcánico', 'Lapillita'].includes(nombre);
+    if (tipo === 'Volcánica') return ROCAS_VOLCANICAS['Piroclástica'].includes(nombre);
     return false;
   }},
   // Tipo de falla solo cuando la estructura medida es una falla (formulario de punto).
@@ -2649,6 +2693,28 @@ function formulario(store, reg, ctx){
       }
     });
   }
+  // NOMBRE_ROCA sigue colgando de TIPO_ROCA en el motor genérico (cero riesgo de regresión
+  // para Intrusiva/Sedimentaria/Metamórfica/Depósito) — TIPO_VOLCANICA no es un padre de
+  // cascada, solo ESTRECHA la lista ya poblada cuando TIPO_ROCA=Volcánica y ya se eligió
+  // Lava/Piroclástica. Sin elegir, queda la lista completa de volcánicas (fallback razonable
+  // y compatible con registros guardados antes de que existiera este campo).
+  function filtrarNombreRocaVolcanica(){
+    const iTV=inputs['TIPO_VOLCANICA'], iNR=inputs['NOMBRE_ROCA'];
+    if(!iTV||!iNR)return;
+    const subset = iTV.value ? ROCAS_VOLCANICAS[iTV.value] : null;
+    if(!subset)return;
+    const actual=iNR.value;
+    iNR.innerHTML='';iNR.append(el('option',{value:''},'— seleccionar —'));
+    subset.forEach(v=>iNR.append(el('option',{value:v},v)));
+    const nuevo = subset.includes(actual) ? actual : '';
+    iNR.value = nuevo;
+    // solo repoblar GRANULOMETRIA si NOMBRE_ROCA de verdad cambió (si no, este método se
+    // llama de nuevo en cada edición de cualquier otro campo del formulario y borraría
+    // silenciosamente una granulometría ya elegida, sin que nada relevante haya cambiado).
+    if(nuevo!==actual) repoblarHijosDe('NOMBRE_ROCA', nuevo);
+  }
+  aplicarCondicionales();
+  filtrarNombreRocaVolcanica();
   aplicarCondicionales();
 
   // cascadas: al cambiar el padre, repoblar hijos (y nietos)
@@ -2656,6 +2722,9 @@ function formulario(store, reg, ctx){
     const changed=e.target.name; if(!changed)return;
     repoblarHijosDe(changed, e.target.value);
     aplicarCondicionales();
+    // TIPO_VOLCANICA no es un padre de cascada genérico: solo recorta NOMBRE_ROCA cuando
+    // el cambio viene de TIPO_ROCA o del propio TIPO_VOLCANICA (no en cada tecleo de otro campo).
+    if(changed==='TIPO_ROCA'||changed==='TIPO_VOLCANICA'){ filtrarNombreRocaVolcanica(); aplicarCondicionales(); }
     // dominio abierto "agregar nuevo"
     if(e.target.tagName==='SELECT' && e.target.value==='__add__'){
       const campo=cs.find(c=>c.nombre===e.target.name);
@@ -2677,6 +2746,79 @@ const ESRI_URL='https://server.arcgisonline.com/ArcGIS/rest/services/World_Image
 const ICONO=L.icon({iconUrl:'vendor/images/marker-icon.png',iconRetinaUrl:'vendor/images/marker-icon-2x.png',shadowUrl:'vendor/images/marker-shadow.png',iconSize:[25,41],iconAnchor:[12,41],popupAnchor:[1,-34],shadowSize:[41,41]});
 let mapa=null, marcador=null, gtLayer=null, savetiles=null;
 const inLat='Coordenadas Geográficas Decimales_Lat', inLon='Coordenadas Geográficas Decimales_Long';
+
+// ============================ Conversión UTM (WGS84, Transverse Mercator de Snyder) ============================
+// Chile es siempre hemisferio sur (husos 17S-19S). Sin dependencias externas (offline-first).
+const UTM_A=6378137.0, UTM_E2=0.00669438, UTM_K0=0.9996;
+const husoDeLon = lon => Math.floor((lon+180)/6)+1;
+function latLonAUtm(lat,lon){
+  const zona=husoDeLon(lon);
+  const latR=lat*Math.PI/180, lonR=lon*Math.PI/180;
+  const lonOrigenR=((zona-1)*6-180+3)*Math.PI/180;
+  const ep2=UTM_E2/(1-UTM_E2);
+  const N=UTM_A/Math.sqrt(1-UTM_E2*Math.sin(latR)**2);
+  const T=Math.tan(latR)**2, C=ep2*Math.cos(latR)**2, A=Math.cos(latR)*(lonR-lonOrigenR);
+  const M=UTM_A*((1-UTM_E2/4-3*UTM_E2**2/64-5*UTM_E2**3/256)*latR
+    -(3*UTM_E2/8+3*UTM_E2**2/32+45*UTM_E2**3/1024)*Math.sin(2*latR)
+    +(15*UTM_E2**2/256+45*UTM_E2**3/1024)*Math.sin(4*latR)
+    -(35*UTM_E2**3/3072)*Math.sin(6*latR));
+  let este=UTM_K0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*ep2)*A**5/120)+500000;
+  let norte=UTM_K0*(M+N*Math.tan(latR)*(A*A/2+(5-T+9*C+4*C*C)*A**4/24+(61-58*T+T*T+600*C-330*ep2)*A**6/720));
+  if(lat<0)norte+=10000000;
+  return {este,norte,zona};
+}
+function utmALatLon(este,norte,zona){   // hemisferio sur fijo (dominio: Chile)
+  const e1=(1-Math.sqrt(1-UTM_E2))/(1+Math.sqrt(1-UTM_E2));
+  const x=este-500000, y=norte-10000000;
+  const ep2=UTM_E2/(1-UTM_E2);
+  const M=y/UTM_K0;
+  const mu=M/(UTM_A*(1-UTM_E2/4-3*UTM_E2**2/64-5*UTM_E2**3/256));
+  const phi1=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1*e1/16-55*e1**4/32)*Math.sin(4*mu)+(151*e1**3/96)*Math.sin(6*mu);
+  const N1=UTM_A/Math.sqrt(1-UTM_E2*Math.sin(phi1)**2);
+  const T1=Math.tan(phi1)**2, C1=ep2*Math.cos(phi1)**2;
+  const R1=UTM_A*(1-UTM_E2)/Math.pow(1-UTM_E2*Math.sin(phi1)**2,1.5);
+  const D=x/(N1*UTM_K0);
+  let lat=phi1-(N1*Math.tan(phi1)/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*ep2)*D**4/24
+    +(61+90*T1+298*C1+45*T1*T1-252*ep2-3*C1*C1)*D**6/720);
+  let lon=(D-(1+2*T1+C1)*D**3/6+(5-2*C1+28*T1-3*C1*C1+8*ep2+24*T1*T1)*D**5/120)/Math.cos(phi1);
+  const lonOrigen=(zona-1)*6-180+3;
+  return {lat:lat*180/Math.PI, lon:lonOrigen+lon*180/Math.PI};
+}
+// Entrada manual alternativa a lat/long decimales: mismo par de coordenadas, otra representación.
+// No son campos propios del modelo — se convierten al vuelo hacia/desde Coordenadas Geográficas
+// Decimales_Lat/_Long, que siguen siendo la única fuente de verdad (se guardan, se exportan, etc.).
+function bloqueUTM(f){
+  const iLat=()=>f.node.querySelector('[name="'+inLat+'"]'), iLon=()=>f.node.querySelector('[name="'+inLon+'"]');
+  const este=el('input',{type:'number',step:'any',inputmode:'decimal',placeholder:'Este (m)'});
+  const norte=el('input',{type:'number',step:'any',inputmode:'decimal',placeholder:'Norte (m)'});
+  const huso=el('select');
+  ['17S','18S','19S'].forEach(h=>huso.append(el('option',{value:h.slice(0,-1)},h)));
+  huso.value='19';
+  const desdeUTM=()=>{
+    const e=parseFloat(este.value), n=parseFloat(norte.value), z=parseInt(huso.value,10);
+    if(isNaN(e)||isNaN(n))return;
+    const {lat,lon}=utmALatLon(e,n,z);
+    const la=iLat(), lo=iLon();
+    if(la){la.value=lat.toFixed(6);la.dispatchEvent(new Event('change',{bubbles:true}));}
+    if(lo){lo.value=lon.toFixed(6);lo.dispatchEvent(new Event('change',{bubbles:true}));}
+  };
+  const desdeLatLon=()=>{
+    const la=parseFloat(iLat()&&iLat().value), lo=parseFloat(iLon()&&iLon().value);
+    if(isNaN(la)||isNaN(lo))return;
+    const u=latLonAUtm(la,lo);
+    este.value=Math.round(u.este); norte.value=Math.round(u.norte); huso.value=u.zona;
+  };
+  este.addEventListener('change',desdeUTM);
+  norte.addEventListener('change',desdeUTM);
+  huso.addEventListener('change',desdeUTM);
+  desdeLatLon();   // si ya hay lat/lon (punto existente o recién tomado por GPS), precarga la UTM equivalente
+  f.node.addEventListener('change',e=>{if(e.target.name===inLat||e.target.name===inLon)desdeLatLon();});
+  const wrap=el('div',{class:'row'});
+  wrap.append(el('div',{class:'fld'},el('label',{},'UTM Este (m)'),este));
+  wrap.append(el('div',{class:'fld'},el('label',{},'UTM Norte (m)'),norte));
+  wrap.append(el('div',{class:'fld'},el('label',{},'Huso'),huso));
+  return wrap;
+}
 
 // capas base (satelital + relieve/topo con curvas de nivel) + control de tiles offline.
 // Todas con CORS habilitado (verificado 2026-07-11) para poder guardar tiles offline.
@@ -2740,7 +2882,9 @@ function initMapPunto(reg, f){
   savetiles=capaSatelital(mapa);
   marcador=L.marker([lat,lon],{draggable:true,icon:ICONO}).addTo(mapa);
   const iLat=()=>f.node.querySelector('[name="'+inLat+'"]'), iLon=()=>f.node.querySelector('[name="'+inLon+'"]');
-  const sync=()=>{const ll=marcador.getLatLng();if(iLat())iLat().value=ll.lat.toFixed(6);if(iLon())iLon().value=ll.lng.toFixed(6);
+  const sync=()=>{const ll=marcador.getLatLng();
+    if(iLat()){iLat().value=ll.lat.toFixed(6);iLat().dispatchEvent(new Event('change',{bubbles:true}));}
+    if(iLon()){iLon().value=ll.lng.toFixed(6);iLon().dispatchEvent(new Event('change',{bubbles:true}));}
     const cl=document.getElementById('coordlbl');if(cl)cl.textContent='📍 '+ll.lat.toFixed(6)+', '+ll.lng.toFixed(6);};
   marcador.on('dragend',sync);
   mapa.on('click',e=>{marcador.setLatLng(e.latlng);sync();});   // tocar el mapa reubica el pin
@@ -3106,8 +3250,10 @@ async function renderPunto(app){
   // --- formulario del punto (colapsable, abierto por defecto) ---
   const puntoLleno=!!(curPunto['Coordenadas Geográficas Decimales_Lat']||curPunto.GEOLOGO);
   const cp=tarjetaColapsable('📍 Punto de control (estación y ubicación)',{clave:'punto',lleno:puntoLleno});
-  cp.body.append(el('div',{class:'btnbar'},el('button',{class:'btn blue mini',onclick:()=>tomarGPS(f)},'📡 Tomar GPS')));
-  const f=formulario('punto',curPunto);cp.body.append(f.node);
+  cp.body.append(el('div',{class:'btnbar'},el('button',{class:'btn blue mini',onclick:e=>tomarGPS(f,e.currentTarget)},'📡 Tomar GPS')));
+  const f=formulario('punto',curPunto);
+  cp.body.append(bloqueUTM(f));
+  cp.body.append(f.node);
   app.append(cp.card);
 
   // --- mapa satelital (colapsable; el mapa se inicia al abrir la sección) ---
@@ -3642,19 +3788,47 @@ async function duplicarPunto(srcId){
 }
 
 // -------- GPS --------
-function tomarGPS(f){
+// getCurrentPosition() entrega el PRIMER fix disponible: en Android suele ser una estimación
+// de red/último-conocido (decenas de metros) que llega antes de que el chip GPS afine la señal
+// — de ahí que el error mostrado fuera de 2 dígitos aunque una app de GPS dedicada, que espera
+// más tiempo, dé un valor mucho mejor para el mismo punto. Se cambia a watchPosition(): sigue
+// escuchando fixes y se queda con el de MENOR accuracy hasta que baja de un umbral bueno o se
+// cumple un tiempo máximo de espera, en vez de quedarse con el primero que llegue.
+// PRECISION_GPS es un <select> de dominio (Poco confiable/confiable/muy confiable), no texto
+// libre: escribirle "±58 m" directamente no calzaba con ninguna opción y lo dejaba en blanco
+// pese a ser obligatorio. Se traduce la accuracy en metros a la categoría correspondiente.
+function precisionGpsCategoria(accM){
+  if(accM<=5) return 'muy confiable';
+  if(accM<=15) return 'confiable';
+  return 'Poco confiable';
+}
+function tomarGPS(f,btn){
   if(!navigator.geolocation){toast('Sin geolocalización');return;}
-  toast('Obteniendo GPS…');
-  navigator.geolocation.getCurrentPosition(p=>{
-    const set=(name,val)=>{const i=f.node.querySelector('[name="'+name+'"]');if(i)i.value=val;};
-    set('Coordenadas Geográficas Decimales_Lat',p.coords.latitude.toFixed(6));
-    set('Coordenadas Geográficas Decimales_Long',p.coords.longitude.toFixed(6));
-    if(p.coords.altitude!=null)set('COTA',Math.round(p.coords.altitude));
-    set('PRECISION_GPS','±'+Math.round(p.coords.accuracy)+' m');
+  const set=(name,val)=>{const i=f.node.querySelector('[name="'+name+'"]');if(i){i.value=val;i.dispatchEvent(new Event('change',{bubbles:true}));}};
+  const UMBRAL_BUENO=8, ESPERA_MAX=20000;
+  let mejor=null, watchId=null, listo=false;
+  const textoOrig=btn?btn.textContent:null;
+  const terminar=()=>{
+    if(listo)return; listo=true;
+    if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
+    if(btn){btn.disabled=false;btn.textContent=textoOrig;}
+    if(!mejor){toast('No se pudo obtener GPS');return;}
+    set('Coordenadas Geográficas Decimales_Lat',mejor.coords.latitude.toFixed(6));
+    set('Coordenadas Geográficas Decimales_Long',mejor.coords.longitude.toFixed(6));
+    if(mejor.coords.altitude!=null)set('COTA',Math.round(mejor.coords.altitude));
+    set('PRECISION_GPS',precisionGpsCategoria(mejor.coords.accuracy));
     const now=new Date();
     set('FECHA',now.toISOString().slice(0,10));set('HORA',now.toTimeString().slice(0,5));
-    toast('GPS ✓ ±'+Math.round(p.coords.accuracy)+' m');
-  },e=>toast('GPS error: '+e.message),{enableHighAccuracy:true,timeout:15000});
+    toast('GPS ✓ ±'+Math.round(mejor.coords.accuracy)+' m');
+  };
+  if(btn){btn.disabled=true;btn.textContent='📡 Buscando…';}
+  toast('Obteniendo GPS — esperando mejor señal…');
+  watchId=navigator.geolocation.watchPosition(p=>{
+    if(!mejor||p.coords.accuracy<mejor.coords.accuracy)mejor=p;
+    if(btn)btn.textContent='📡 ±'+Math.round(p.coords.accuracy)+' m…';
+    if(p.coords.accuracy<=UMBRAL_BUENO)terminar();
+  },e=>{if(!mejor)toast('GPS: '+e.message);},{enableHighAccuracy:true,maximumAge:0,timeout:ESPERA_MAX});
+  setTimeout(terminar,ESPERA_MAX);
 }
 
 // ============================ Exportación ============================
