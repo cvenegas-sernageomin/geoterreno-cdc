@@ -996,7 +996,8 @@ const MODELO = {
         "Fondo quebrada",
         "Planicie",
         "Corte camino",
-        "acantilado"
+        "acantilado",
+        "Filo / Divisoria de aguas"
       ],
       "fuente": "Lista de Dominios.xlsx"
     },
@@ -2066,7 +2067,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v39';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v40';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3225,7 +3226,7 @@ function bloqueFoto(reg,litos){
   wrap.append(f.node);
   const thumbs=el('div',{class:'thumbs'});
   if(reg._img)thumbs.append(el('img',{src:reg._img}));
-  const inp=el('input',{type:'file',accept:'image/*',capture:'environment',style:'display:none'});
+  const inp=el('input',{type:'file',accept:'image/*',style:'display:none'});
   inp.addEventListener('change',async e=>{
     const file=e.target.files[0];if(!file)return;
     const img=await comprimir(file,1280,.72);reg._img=img;
@@ -3290,7 +3291,7 @@ async function editorFotomapa(node){
   card.append(el('div',{class:'fld'},el('label',{},'Título'),t));
 
   if(!node._base){
-    const inp=el('input',{type:'file',accept:'image/*',capture:'environment',style:'display:none'});
+    const inp=el('input',{type:'file',accept:'image/*',style:'display:none'});
     inp.addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;
       const im=await cargarImagen(f,1600,.82);node._base=im.dataUrl;node._w=im.w;node._h=im.h;await put('fotomapa',node);editorFotomapa(node);});
     card.append(el('div',{class:'btnbar'},el('button',{class:'btn blue',onclick:()=>inp.click()},'📷 Cargar foto de este nivel'),inp));
@@ -3318,7 +3319,7 @@ async function initFotomapaMap(node){
   for(const hijo of await fotomapaHijos(node.id)) addFotoPin(node,hijo);
   fmap.on('click',async e=>{
     const x=e.latlng.lng, y=e.latlng.lat; if(x<0||y<0||x>w||y>h)return;
-    const inp=el('input',{type:'file',accept:'image/*',capture:'environment'});
+    const inp=el('input',{type:'file',accept:'image/*'});
     inp.onchange=async ev=>{const f=ev.target.files[0];if(!f)return;
       const im=await cargarImagen(f,1500,.82), th=await cargarImagen(f,110,.7);
       const hijo={id:uid(),_parent:node.id,_punto:node._punto,_base:im.dataUrl,_w:im.w,_h:im.h,_thumb:th.dataUrl,x,y,TITULO:''};
@@ -3586,7 +3587,7 @@ function formNota(nota,onSave,onDelete){
   // foto opcional: campo runtime nota._img (dataURL con prefijo data:), mismo patrón que bloqueFoto()
   const thumbs=el('div',{class:'thumbs'});
   if(nota._img)thumbs.append(el('img',{src:nota._img}));
-  const inp=el('input',{type:'file',accept:'image/*',capture:'environment',style:'display:none'});
+  const inp=el('input',{type:'file',accept:'image/*',style:'display:none'});
   inp.addEventListener('change',async e=>{
     const file=e.target.files[0]; if(!file)return;
     nota._img=await comprimir(file,1280,.72);
