@@ -1051,6 +1051,10 @@ const MODELO = {
           "Granito de feldespato alcalino",
           "Granitoide cuarcífero",
           "Granodiorita",
+          "Intrusivo hipabisal máfico",
+          "Intrusivo hipabisal intermedio",
+          "Intrusivo hipabisal félsico",
+          "Intrusivo hipabisal indiferenciado",
           "Monzodiorita",
           "Monzodiorita cuarcífera",
           "Monzogabro",
@@ -1081,11 +1085,16 @@ const MODELO = {
           "Lapillita"
         ],
         "Sedimentaria": [
+          "Arcillolita",
           "Arenisca",
-          "Lutita",
+          "Brecha sedimentaria",
           "Caliza",
           "Conglomerado",
-          "Brecha"
+          "Conglomerado megaclástico",
+          "Fangolita",
+          "Limolita",
+          "Lutita",
+          "Sedimentita siliciclástica indiferenciada"
         ],
         "Metamórfica": [
           "Pizarra",
@@ -1201,7 +1210,162 @@ const MODELO = {
           "limolita muy fina (0,008–0,004 mm)",
           "arcillolita (<0,004 mm)"
         ],
-        "Brecha": [
+        "Brecha sedimentaria": [
+          "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
+          "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
+          "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
+          "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
+          "limolita gruesa (0,0625–0,031 mm)",
+          "limolita media (0,031–0,016 mm)",
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
+        ],
+        "Conglomerado megaclástico": [
+          "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
+          "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
+          "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
+          "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
+          "limolita gruesa (0,0625–0,031 mm)",
+          "limolita media (0,031–0,016 mm)",
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
+        ],
+        "Arcillolita": [
+          "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
+          "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
+          "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
+          "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
+          "limolita gruesa (0,0625–0,031 mm)",
+          "limolita media (0,031–0,016 mm)",
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
+        ],
+        "Fangolita": [
+          "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
+          "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
+          "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
+          "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
+          "limolita gruesa (0,0625–0,031 mm)",
+          "limolita media (0,031–0,016 mm)",
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
+        ],
+        "Limolita": [
+          "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
+          "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
+          "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
+          "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
+          "limolita gruesa (0,0625–0,031 mm)",
+          "limolita media (0,031–0,016 mm)",
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
+        ],
+        "Sedimentita siliciclástica indiferenciada": [
           "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
           "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
           "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
@@ -2069,7 +2233,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v44';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v46';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2576,13 +2740,17 @@ const CONDICIONALES = {
   TIPO_DEPOSITO: {modo:'bloquear', regla: v => v['TIPO_ROCA']==='Depósito'},
   // Lava/Piroclástica/Tefra solo aplica a rocas volcánicas (acota NOMBRE_ROCA, ver filtrarNombreRocaVolcanica).
   TIPO_VOLCANICA: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
-  // Granulometría solo para: (1) todos los depósitos, (2) rocas sedimentarias detríticas (Arenisca, Lutita, Conglomerado, Brecha).
+  // Granulometría solo para: (1) todos los depósitos, (2) rocas sedimentarias siliciclásticas
+  // (Arcillolita, Arenisca, Brecha sedimentaria, Conglomerado, Conglomerado megaclástico, Fangolita,
+  // Limolita, Lutita, Sedimentita siliciclástica indiferenciada); Caliza queda fuera (no detrítica).
   // Ya no aplica a volcánicas: los nombres oficiales de Piroclástica/Tefra ya llevan el tamaño de grano incorporado.
   GRANULOMETRIA: {modo:'ocultar', regla: v => {
     const tipo = v['TIPO_ROCA'];
     const nombre = v['NOMBRE_ROCA'];
     if (tipo === 'Depósito') return true;
-    if (tipo === 'Sedimentaria') return ['Arenisca', 'Lutita', 'Conglomerado', 'Brecha'].includes(nombre);
+    if (tipo === 'Sedimentaria') return ['Arcillolita', 'Arenisca', 'Brecha sedimentaria', 'Conglomerado',
+      'Conglomerado megaclástico', 'Fangolita', 'Limolita', 'Lutita',
+      'Sedimentita siliciclástica indiferenciada'].includes(nombre);
     return false;
   }},
   // Tipo de falla solo cuando la estructura medida es una falla (formulario de punto).
