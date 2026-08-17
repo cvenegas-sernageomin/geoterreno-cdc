@@ -1,5 +1,5 @@
 // Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v46';
+const CACHE='geoterreno-cdc-v47';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
@@ -18,12 +18,15 @@ self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;
   if(new URL(req.url).origin!==self.location.origin) return;
   const esDoc = req.mode==='navigate' || req.destination==='document' || req.url.endsWith('/') || req.url.endsWith('index.html');
   if(esDoc){   // network-first para el HTML: siempre la última versión estando en línea
-    e.respondWith(fetch(req).then(resp=>{const cp=resp.clone();caches.open(CACHE).then(c=>c.put(req,cp));return resp;})
+    // solo se cachea si resp.ok: un 404 (ej. deploy a medio subir) quedaba cacheado para
+    // siempre y la app seguía rota offline hasta la próxima versión de CACHE.
+    e.respondWith(fetch(req).then(resp=>{if(resp.ok){const cp=resp.clone();caches.open(CACHE).then(c=>c.put(req,cp));}return resp;})
       .catch(()=>caches.match(req).then(r=>r||caches.match('./index.html'))));
     return;
   }
   // cache-first para assets. Sin fallback a index.html: devolver el HTML cuando falla una
   // imagen o un .wasm no arregla nada y disfraza el error real de un fallo de red.
   e.respondWith(caches.match(req).then(r=>r||fetch(req).then(resp=>{
-    const cp=resp.clone();caches.open(CACHE).then(c=>c.put(req,cp));return resp;
+    // mismo criterio que la rama de documento: no cachear respuestas con error.
+    if(resp.ok){const cp=resp.clone();caches.open(CACHE).then(c=>c.put(req,cp));}return resp;
   })));});

@@ -2233,7 +2233,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v46';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v47';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2353,6 +2353,13 @@ function toggleColeccion(nuevoValor) {
     radio.checked = true;
     localStorage.setItem('captura-coleccion-activa', nuevoValor);
     actualizarUIColeccion();
+    // sin este redibujo, cambiar de colección dejaba viendo los puntos de la otra (ej.
+    // Gabinete mostrando los de Terreno). db aún no existe en el arranque (esta función
+    // también se llama ahí, antes de abrir la base de datos): en ese caso no hay nada que redibujar.
+    if (db) {
+      if (vista.n === 'punto') nav(curProyecto ? {n:'proyecto', id:curProyecto.id} : {n:'home'});
+      else render();
+    }
   }
 }
 
@@ -2515,7 +2522,9 @@ async function exportBackupUI(coleccion) {
     a.href = url;
     a.download = filename;
     a.click();
-    URL.revokeObjectURL(url);
+    // revocar de inmediato corta la descarga en respaldos grandes (fotos como dataURL,
+    // decenas de MB): se demora igual que descargar() para dejarle tiempo al navegador.
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
 
     const statusDiv = document.getElementById(`backup-status-${coleccion}`);
     // el peso importa: los foto-mapas y las fotos viajan como dataURL (base64 infla ~33%)
@@ -2555,7 +2564,10 @@ async function importBackupUI(coleccion) {
           : '') + `</span>`;
     if (!result.ok) console.warn('Errores al importar el respaldo:', result.errores);
     fileInput.value = '';
-    updateFormReadonly();
+    // render() ya llama updateFormReadonly() al final; sin este redibujo los contadores en
+    // pantalla quedaban viejos y parecía que el respaldo había llegado incompleto.
+    // statusDiv vive en #backup-modal, fuera de #app, así que sobrevive al re-dibujo.
+    await render();
   } catch (err) {
     const statusDiv = document.getElementById(`backup-status-${coleccion}`);
     statusDiv.innerHTML = `<span style="color:var(--rojo);">✗ Error: ${err.message}</span>`;
@@ -2850,7 +2862,14 @@ function formulario(store, reg, ctx){
       // updateFormReadonly() corre despues de cada render() y antes reponia
       // disabled=false a todo, dejando el campo atenuado pero editable.
       else { inp.disabled=!ok; inp._condOff=!ok; if(fld)fld.style.opacity=ok?'':'0.5'; }
-      if(!ok){ if(inp.value)inp.value=''; inp.required=false; }
+      // Solo se limpia en la TRANSICIÓN válido→inválido, es decir cuando ESTE cambio es el que
+      // invalidó el campo. En la construcción (_condOk undefined) y mientras siga inválido no se
+      // toca: así un valor histórico que dejó de cumplir la regla (ej. 'Brecha', tras el renombre
+      // a 'Brecha sedimentaria' en v46) sobrevive en disco y en los exports aunque el usuario
+      // edite cualquier otro campo de la ficha — el auto-guardado de bloqueHijo() persiste todo
+      // lo que devuelva getData(), así que limpiar de más aquí es borrar del disco sin aviso.
+      const eraOk=inp._condOk; inp._condOk=ok;
+      if(!ok){ if(inp.value && eraOk===true)inp.value=''; inp.required=false; }
       else { const cd=cs.find(c=>c.nombre===cn); if(cd&&cd.obligatorio)inp.required=true; }
     }
   }
@@ -2871,7 +2890,7 @@ function formulario(store, reg, ctx){
   // cascada, solo ESTRECHA la lista ya poblada cuando TIPO_ROCA=Volcánica y ya se eligió
   // Lava/Piroclástica. Sin elegir, queda la lista completa de volcánicas (fallback razonable
   // y compatible con registros guardados antes de que existiera este campo).
-  function filtrarNombreRocaVolcanica(){
+  function filtrarNombreRocaVolcanica(esBuild){
     const iTV=inputs['TIPO_VOLCANICA'], iNR=inputs['NOMBRE_ROCA'];
     if(!iTV||!iNR)return;
     const subset = iTV.value ? ROCAS_VOLCANICAS[iTV.value] : null;
@@ -2879,7 +2898,13 @@ function formulario(store, reg, ctx){
     const actual=iNR.value;
     iNR.innerHTML='';iNR.append(el('option',{value:''},'— seleccionar —'));
     subset.forEach(v=>iNR.append(el('option',{value:v},v)));
-    const nuevo = subset.includes(actual) ? actual : '';
+    // valores históricos que ya no están en la lista oficial (ej. 'Ignimbrita', sacada en v43)
+    // no se pierden al construir el formulario: se preservan como opción extra. Si el cambio
+    // lo hizo el usuario a mano (esBuild=false), sí se limpia: no tiene sentido dejarlo elegido.
+    let nuevo;
+    if(subset.includes(actual)) nuevo=actual;
+    else if(esBuild){ preservarValor(iNR, actual); nuevo=actual; }
+    else nuevo='';
     iNR.value = nuevo;
     // solo repoblar GRANULOMETRIA si NOMBRE_ROCA de verdad cambió (si no, este método se
     // llama de nuevo en cada edición de cualquier otro campo del formulario y borraría
@@ -2887,7 +2912,7 @@ function formulario(store, reg, ctx){
     if(nuevo!==actual) repoblarHijosDe('NOMBRE_ROCA', nuevo);
   }
   aplicarCondicionales();
-  filtrarNombreRocaVolcanica();
+  filtrarNombreRocaVolcanica(true);
   aplicarCondicionales();
 
   // cascadas: al cambiar el padre, repoblar hijos (y nietos)
@@ -2897,7 +2922,7 @@ function formulario(store, reg, ctx){
     aplicarCondicionales();
     // TIPO_VOLCANICA no es un padre de cascada genérico: solo recorta NOMBRE_ROCA cuando
     // el cambio viene de TIPO_ROCA o del propio TIPO_VOLCANICA (no en cada tecleo de otro campo).
-    if(changed==='TIPO_ROCA'||changed==='TIPO_VOLCANICA'){ filtrarNombreRocaVolcanica(); aplicarCondicionales(); }
+    if(changed==='TIPO_ROCA'||changed==='TIPO_VOLCANICA'){ filtrarNombreRocaVolcanica(false); aplicarCondicionales(); }
     // dominio abierto "agregar nuevo"
     if(e.target.tagName==='SELECT' && e.target.value==='__add__'){
       const campo=cs.find(c=>c.nombre===e.target.name);
@@ -3377,7 +3402,7 @@ async function renderProyecto(app){
       el('div',{class:'t'},el('b',{},pt.ID_PUNTO_CONTROL||('Punto '+(i+1))),
         el('small',{},(pt['Coordenadas Geográficas Decimales_Lat']||pt.LAT||'—')+', '+(pt['Coordenadas Geográficas Decimales_Long']||pt.LONG||'—')+' · '+(pt.FECHA||'')) ),
       el('span',{class:'pill'},(pt._nlito||0)+' lito'),
-      el('button',{class:'btn sec mini',title:'Duplicar (sin coordenadas)',onclick:async(e)=>{e.stopPropagation();const np=await duplicarPunto(pt.id);toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉')));
+      el('button',{class:'btn sec mini',title:'Duplicar (sin coordenadas)',onclick:async(e)=>{e.stopPropagation();const np=await duplicarPunto(pt.id);if(!np){toast('No se pudo duplicar el punto');return;}toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉')));
   });
   app.append(card);
   $('#fab').append(el('button',{class:'btn',onclick:()=>nav0Punto()},'+ Nuevo punto'),
@@ -3507,7 +3532,7 @@ async function renderPunto(app){
 
   $('#fab').append(
     el('button',{class:'btn',onclick:async()=>{await guardarPunto();toast('Punto guardado');nav({n:'proyecto',id:curProyecto.id});}},'✓ Guardar punto'),
-    el('button',{class:'btn sec',onclick:async()=>{await guardarPunto();const np=await duplicarPunto(curPunto.id);toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉ Duplicar'),
+    el('button',{class:'btn sec',onclick:async()=>{await guardarPunto();const np=await duplicarPunto(curPunto.id);if(!np){toast('No se pudo duplicar el punto');return;}toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉ Duplicar'),
     el('button',{class:'btn sec',onclick:()=>guardarPunto().then(()=>nav({n:'proyecto',id:curProyecto.id}))},'Volver'),
     nuevo?null:el('button',{class:'btn del',onclick:async()=>{if(confirm('¿Eliminar este punto y sus datos asociados?')){await borrarPunto(curPunto.id);nav({n:'proyecto',id:curProyecto.id});}}},'🗑'));
 }
@@ -3940,7 +3965,7 @@ function compositaFotomapa(node){return new Promise(async res=>{
     res(cv.toDataURL('image/jpeg',.85));};
   img.onerror=()=>res(node._base); img.src=node._base;});}
 
-// Duplica un punto con sus datos DESCRIPTIVOS (litología, estructurales, contactos, muestreo),
+// Duplica un punto con sus datos DESCRIPTIVOS (litología, estructurales, contactos, muestreo, geomorfología),
 // pero deja en blanco las coordenadas y NO copia fotos/esquemas/imagen satelital (son propios del sitio).
 async function duplicarPunto(srcId){
   const src=await get(storeActivo(),srcId); if(!src)return null;
@@ -3952,7 +3977,7 @@ async function duplicarPunto(srcId){
   // litologías (remapear ids para reenlazar estructurales)
   const mapLito={};
   for(const li of await childrenOf('litologia',srcId)){const n=Object.assign({},li,{id:uid(),_parent:np.id});mapLito[li.id]=n.id;await put('litologia',n);}
-  for(const store of ['estructural','contacto','muestreo']){
+  for(const store of ['estructural','contacto','muestreo','geomorf']){
     for(const it of await childrenOf(store,srcId)){const n=Object.assign({},it,{id:uid(),_parent:np.id});
       if(n.ID_LITOLOGIA&&mapLito[n.ID_LITOLOGIA])n.ID_LITOLOGIA=mapLito[n.ID_LITOLOGIA];
       await put(store,n);}
@@ -3984,6 +4009,10 @@ function tomarGPS(f,btn){
   const terminar=()=>{
     if(listo)return; listo=true;
     if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
+    // si el usuario ya navegó fuera de esta ficha, f.node quedó desmontado: escribir ahí no
+    // guarda nada (el auto-guardado depende del evento 'change' sobre el DOM montado) y el
+    // toast de éxito mentiría — las coordenadas se habrían perdido igual.
+    if(!f.node.isConnected)return;
     if(btn){btn.disabled=false;btn.textContent=textoOrig;}
     if(!mejor){toast('No se pudo obtener GPS');return;}
     set('Coordenadas Geográficas Decimales_Lat',mejor.coords.latitude.toFixed(6));
