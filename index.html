@@ -2069,7 +2069,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v43';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v44';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2278,10 +2278,24 @@ async function importBackup(file, destinoColeccion = null) {
         // reportaba exito aunque no hubiera entrado nada.
         const errores = [];
 
+        // Los registros con imagen (foto/esquema/nota via _img, fotomapa via _base) son
+        // los mas pesados del backup y los primeros en fallar si el dispositivo se queda
+        // sin espacio. put() sin throw no basta como garantia: se cuenta cuantos de esos
+        // registros del JSON traian la imagen, para poder avisar si "exito" en realidad
+        // dejo fotos afuera.
+        const CAMPO_IMG = {foto:'_img', esquema:'_img', nota:'_img', fotomapa:'_base'};
+        let fotosTotal = 0, fotosConImagen = 0;
+
         for (const [storeOrigen, storeDestino] of Object.entries(storeMap)) {
           if (!data[storeOrigen]) continue;
 
+          const campoImg = CAMPO_IMG[storeOrigen];
+
           for (const record of data[storeOrigen]) {
+            if (campoImg) {
+              fotosTotal++;
+              if (record && typeof record[campoImg] === 'string' && record[campoImg].length > 100) fotosConImagen++;
+            }
             try {
               await put(storeDestino, record);
               totalInsertadas++;
@@ -2296,6 +2310,8 @@ async function importBackup(file, destinoColeccion = null) {
           insertadas: totalInsertadas,
           errores: errores,
           coleccion: coleccion,
+          fotosTotal: fotosTotal,
+          fotosConImagen: fotosConImagen,
         });
       } catch (err) {
         reject(err);
@@ -2359,10 +2375,20 @@ async function importBackupUI(coleccion) {
     const result = await importBackup(file, coleccion);
     const statusDiv = document.getElementById(`backup-status-${coleccion}`);
     const ok = `✓ Importados: ${result.insertadas} registros (los repetidos se sobrescriben).`;
-    statusDiv.innerHTML = result.ok
-      ? `<span style="color:var(--verde);">${ok}</span>`
-      : `<span style="color:var(--rojo);">⚠️ ${ok}<br>${result.errores.length} con error: ${esc(result.errores[0])}`
-        + (result.errores.length > 1 ? ` (y ${result.errores.length - 1} más — ver consola)` : '') + `</span>`;
+    // fotosTotal cuenta fotos/esquemas/notas/foto-mapas del JSON; si alguno no traia
+    // imagen (o llego vacio) se avisa aparte, aunque el import global haya sido "exito".
+    const fotosOk = result.fotosTotal === 0 || result.fotosConImagen === result.fotosTotal;
+    const fotosMsg = result.fotosTotal > 0
+      ? (fotosOk
+          ? `<br>📷 ${result.fotosConImagen}/${result.fotosTotal} imágenes restauradas correctamente.`
+          : `<br>⚠️ Solo ${result.fotosConImagen} de ${result.fotosTotal} imágenes se restauraron con datos — revisa esos registros.`)
+      : '';
+    statusDiv.innerHTML = (result.ok && fotosOk)
+      ? `<span style="color:var(--verde);">${ok}${fotosMsg}</span>`
+      : `<span style="color:var(--rojo);">⚠️ ${ok}${fotosMsg}` + (result.errores.length
+          ? `<br>${result.errores.length} con error: ${esc(result.errores[0])}`
+            + (result.errores.length > 1 ? ` (y ${result.errores.length - 1} más — ver consola)` : '')
+          : '') + `</span>`;
     if (!result.ok) console.warn('Errores al importar el respaldo:', result.errores);
     fileInput.value = '';
     updateFormReadonly();
