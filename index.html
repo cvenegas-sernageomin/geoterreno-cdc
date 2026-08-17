@@ -206,7 +206,7 @@ const MODELO = {
           "nombre": "TIPO_VOLCANICA",
           "obligatorio": true,
           "dominio": "TIPO_VOLCANICA",
-          "nota": "solo aplica si TIPO_ROCA = Volcánica; acota la lista de NOMBRE_ROCA a lavas o a piroclásticas"
+          "nota": "solo aplica si TIPO_ROCA = Volcánica; acota la lista de NOMBRE_ROCA a lavas, piroclásticas o tefras"
         },
         {
           "nombre": "TIPO_DEPOSITO",
@@ -1387,44 +1387,8 @@ const MODELO = {
           "limo muy fino (0,008–0,004 mm)",
           "arcilla (<0,004 mm)"
         ],
-        "Toba": [
-          "Bloques y bombas (>64 mm)",
-          "Lapilli (2–64 mm)",
-          "Ceniza gruesa (0,0625–2 mm)",
-          "Ceniza fina (<0,0625 mm)"
-        ],
-        "Ignimbrita": [
-          "Bloques y bombas (>64 mm)",
-          "Lapilli (2–64 mm)",
-          "Ceniza gruesa (0,0625–2 mm)",
-          "Ceniza fina (<0,0625 mm)"
-        ],
-        "Tefra": [
-          "Bloques y bombas (>64 mm)",
-          "Lapilli (2–64 mm)",
-          "Ceniza gruesa (0,0625–2 mm)",
-          "Ceniza fina (<0,0625 mm)"
-        ],
-        "Brecha piroclástica": [
-          "Bloques y bombas (>64 mm)",
-          "Lapilli (2–64 mm)",
-          "Ceniza gruesa (0,0625–2 mm)",
-          "Ceniza fina (<0,0625 mm)"
-        ],
-        "Aglomerado volcánico": [
-          "Bloques y bombas (>64 mm)",
-          "Lapilli (2–64 mm)",
-          "Ceniza gruesa (0,0625–2 mm)",
-          "Ceniza fina (<0,0625 mm)"
-        ],
-        "Lapillita": [
-          "Bloques y bombas (>64 mm)",
-          "Lapilli (2–64 mm)",
-          "Ceniza gruesa (0,0625–2 mm)",
-          "Ceniza fina (<0,0625 mm)"
-        ]
       },
-      "fuente": "Udden-Wentworth extendido, escala 29 categorías macrolito–arcilla (siliciclásticos y sedimento no litificado) + Fisher/Schmid (piroclásticos)",
+      "fuente": "Udden-Wentworth extendido, escala 29 categorías macrolito–arcilla (siliciclásticos y sedimento no litificado). Ya no aplica a rocas volcánicas: los términos oficiales CDC de NOMBRE_ROCA para Piroclástica/Tefra (ver ROCAS_VOLCANICAS en index.html) ya llevan el tamaño de grano incorporado en el nombre (p. ej. 'Toba de ceniza', 'Tefra de bloques y lapilli').",
       "confirmar": false
     },
     "TEXTURA": {
@@ -1824,9 +1788,10 @@ const MODELO = {
       "tipo": "simple",
       "valores": [
         "Lava",
-        "Piroclástica"
+        "Piroclástica",
+        "Tefra"
       ],
-      "fuente": "acota NOMBRE_ROCA para TIPO_ROCA = Volcánica (ver CONDICIONALES.TIPO_VOLCANICA en index.html)"
+      "fuente": "acota NOMBRE_ROCA para TIPO_ROCA = Volcánica (ver CONDICIONALES.TIPO_VOLCANICA y ROCAS_VOLCANICAS en index.html)"
     },
     "UNIDAD_GEOLOGICA": {
       "tipo": "abierta",
@@ -2104,7 +2069,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v42';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v43';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2559,12 +2524,23 @@ function hideField(store,n){
   return false;
 }
 
-// Nombres de roca volcánica por origen — única fuente de verdad para: (1) acotar NOMBRE_ROCA
-// según TIPO_VOLCANICA (ver filtrarNombreRocaVolcanica más abajo) y (2) decidir si GRANULOMETRIA
-// aplica (solo piroclásticas tienen tamaño de grano; una lava no).
+// Nombres de roca volcánica por origen — única fuente de verdad para acotar NOMBRE_ROCA según
+// TIPO_VOLCANICA (ver filtrarNombreRocaVolcanica más abajo). Piroclástica y Tefra son los
+// términos oficiales del Comité de Estándares CDC 2016 (csv_litologia: GB_RXVOLC_PIROCLASTICA
+// y GB_TEFRA) — ya incluyen el tamaño de grano en el nombre (p. ej. "Toba de ceniza", "Tefra
+// de bloques y lapilli"), por eso GRANULOMETRIA ya no aplica a rocas volcánicas (ver abajo).
 const ROCAS_VOLCANICAS = {
   'Lava': ['Basalto', 'Andesita basáltica', 'Andesita (intermedia/silícea)', 'Dacita', 'Riolita', 'Taquilita', 'Obsidiana'],
-  'Piroclástica': ['Toba', 'Ignimbrita', 'Tefra', 'Brecha piroclástica', 'Aglomerado volcánico', 'Lapillita'],
+  'Piroclástica': ['Aglomerado', 'Aglomerado tobáceo de bombas y ceniza', 'Aglomerado tobáceo de bombas y lapilli',
+    'Brecha piroclástica', 'Brecha tobácea de bloques y ceniza', 'Brecha tobácea de bloques y lapilli',
+    'Toba aglomerática de ceniza y bombas', 'Toba aglomerática de lapilli y bombas',
+    'Toba brechosa de ceniza y bloques', 'Toba brechosa de lapilli y bloques',
+    'Toba de ceniza', 'Toba de ceniza y lapilli', 'Toba de lapilli', 'Toba de lapilli y ceniza',
+    'Roca piroclástica indiferenciada'],
+  'Tefra': ['Ceniza', 'Lapilli', 'Tefra de bloques', 'Tefra de bloques y ceniza', 'Tefra de bloques y lapilli',
+    'Tefra de bombas', 'Tefra de bombas y ceniza', 'Tefra de bombas y lapilli', 'Tefra de ceniza y bloques',
+    'Tefra de ceniza y bombas', 'Tefra de ceniza y lapilli', 'Tefra de lapilli y bloques',
+    'Tefra de lapilli y bombas', 'Tefra de lapilli y ceniza', 'Tefra indiferenciada'],
 };
 
 // Campos condicionales: se muestran/habilitan solo si se cumple la regla; si no, se limpian.
@@ -2572,15 +2548,15 @@ const ROCAS_VOLCANICAS = {
 const CONDICIONALES = {
   // Una litología es roca O depósito: TIPO_DEPOSITO solo con TIPO_ROCA = "Depósito".
   TIPO_DEPOSITO: {modo:'bloquear', regla: v => v['TIPO_ROCA']==='Depósito'},
-  // Lava/Piroclástica solo aplica a rocas volcánicas (acota NOMBRE_ROCA, ver filtrarNombreRocaVolcanica).
+  // Lava/Piroclástica/Tefra solo aplica a rocas volcánicas (acota NOMBRE_ROCA, ver filtrarNombreRocaVolcanica).
   TIPO_VOLCANICA: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
-  // Granulometría solo para: (1) todos los depósitos, (2) rocas sedimentarias detríticas (Arenisca, Lutita, Conglomerado, Brecha), (3) volcánicas piroclásticas.
+  // Granulometría solo para: (1) todos los depósitos, (2) rocas sedimentarias detríticas (Arenisca, Lutita, Conglomerado, Brecha).
+  // Ya no aplica a volcánicas: los nombres oficiales de Piroclástica/Tefra ya llevan el tamaño de grano incorporado.
   GRANULOMETRIA: {modo:'ocultar', regla: v => {
     const tipo = v['TIPO_ROCA'];
     const nombre = v['NOMBRE_ROCA'];
     if (tipo === 'Depósito') return true;
     if (tipo === 'Sedimentaria') return ['Arenisca', 'Lutita', 'Conglomerado', 'Brecha'].includes(nombre);
-    if (tipo === 'Volcánica') return ROCAS_VOLCANICAS['Piroclástica'].includes(nombre);
     return false;
   }},
   // Tipo de falla solo cuando la estructura medida es una falla (formulario de punto).
