@@ -3914,9 +3914,14 @@ async function muestrasDelProyecto(proyectoId){
 // f=Fosiles, q=Geoquimica. Muestra de mano u otro proposito (Minerales pesados, Ar/Ar) sin
 // mapeo -> sin sufijo, la sigla queda igual.
 const SUFIJO_ANALISIS=[['Petrografía','t'],['Geocronología U-Pb','d'],['Rayos X','x'],['Fósiles','f'],['Geoquímica','q']];
-function siglaParaMemos(idMuestra,props){
-  const suf=SUFIJO_ANALISIS.filter(([p])=>props.includes(p)).map(([,l])=>l).join('');
-  return (idMuestra||'').trim()+suf;
+// Una muestra con varios propositos de analisis va a laboratorios/hojas distintas -- el
+// Generador de Memos espera UNA fila (sigla+sufijo propia) por cada destino, no un sufijo
+// concatenado. Sin proposito mapeado (o ninguno) -> una sola fila, sigla sin sufijo.
+function filasSufijadas(idMuestra,props){
+  const base=(idMuestra||'').trim();
+  const match=SUFIJO_ANALISIS.filter(([p])=>props.includes(p));
+  if(!match.length) return [{sigla:base,tipoAnal:props.join('; ')}];
+  return match.map(([p,l])=>({sigla:base+l,tipoAnal:p}));
 }
 // Exporta las muestras del proyecto en el TSV que lee el Generador de Memos de Laboratorio
 // (repo aparte): encabezados que calzan por palabra clave con su parser (CAMPOS en
@@ -3929,12 +3934,14 @@ function exportarMuestrasParaMemos(filas,proyecto){
     const lat=parseFloat(f.pt[inLat]), lon=parseFloat(f.pt[inLon]);
     let este='',norte='';
     if(!isNaN(lat)&&!isNaN(lon)){const u=latLonAUtm(lat,lon); este=Math.round(u.este); norte=Math.round(u.norte);}
-    lines.push([t(siglaParaMemos(f.m.ID_MUESTRA,f.props)),t(f.props.join('; ')),t(f.litoTxt),t(f.unidad),
-      t(f.m.DESCRIPCION_MUESTRA),t(f.pt.GEOLOGO),t(este),t(norte),t(f.m.TIPO_MUESTRA),t(f.pt.FECHA)].join('\t'));
+    for(const r of filasSufijadas(f.m.ID_MUESTRA,f.props)){
+      lines.push([t(r.sigla),t(r.tipoAnal),t(f.litoTxt),t(f.unidad),
+        t(f.m.DESCRIPCION_MUESTRA),t(f.pt.GEOLOGO),t(este),t(norte),t(f.m.TIPO_MUESTRA),t(f.pt.FECHA)].join('\t'));
+    }
   }
   const nombre='Muestras_'+(proyecto.NOMBRE_PROYECTO||'proyecto').replace(/[\\/:*?"<>|]+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.tsv';
   descargar(nombre,new Blob(['﻿'+lines.join('\r\n')],{type:'text/tab-separated-values'}));
-  toast('TSV exportado para Generador de Memos ('+filas.length+' muestras)');
+  toast('TSV exportado para Generador de Memos ('+(lines.length-1)+' filas)');
 }
 // Saltos en el correlativo = la senal directa de una muestra perdida. El proyecto ya guarda su
 // convencion en _naming.smp ({prefix,pad,next}), asi que se sabe que numeros DEBERIAN existir.
