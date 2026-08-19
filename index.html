@@ -4830,7 +4830,13 @@ function umbralSector(proyecto){
 // Cada oracion se arma juntando SOLO las clausulas que existen y cerrando una vez con punto.
 // Concatenar fragmentos que pueden venir vacios y limpiar despues con regex producia ",." al
 // final (ej. punto sin EXPOSICION_AFLORAMIENTO: "...en un sector de ladera,.").
-function prosaPunto(pt,litos,estr,toponimo,anterior,umbral){
+// datos = {litos, estr, cont, geomorf, mues} -- las 5 fichas hijas que hasta v57 quedaban
+// SOLO en las tablas del PDF. Como v57 esconde esas tablas apenas hay PROSA_CAMPO, una prosa
+// que no las mencionara las hacia desaparecer de la libreta impresa sin aviso (geomorfologia,
+// contactos y muestreo no se narraban en absoluto; estructurales solo salia el conteo, sin los
+// valores). Cada categoria con datos aporta su propia frase; sin datos, no aporta nada.
+function prosaPunto(pt,datos,toponimo,anterior,umbral){
+  const {litos,estr,cont,geomorf,mues}=datos;
   const frases=[];
   const minuscula=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
   const lista=a=>a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+' y '+a[a.length-1];
@@ -4851,6 +4857,14 @@ function prosaPunto(pt,litos,estr,toponimo,anterior,umbral){
   if(pt.EXPOSICION_AFLORAMIENTO) ubic.push('con exposición de afloramiento '+minuscula(pt.EXPOSICION_AFLORAMIENTO));
   frases.push(ubic.join(', ')+'.');
 
+  // --- geomorfologia (TBL_GEOMORFOLOGIA -- rasgos puntuales, distinto de CONTEXTO_GEOMORFOLOGICO
+  // de arriba, que es el entorno general del punto) ---
+  if(geomorf.length){
+    const rasgos=geomorf.map(g=>minuscula(g.GEOFORMA||g.CATEGORIA_GEOMORF)).filter(Boolean);
+    if(rasgos.length) frases.push('Se reconoce'+(rasgos.length>1?'n':'')+' '+lista(rasgos)+' como rasgo'
+      +(rasgos.length>1?'s':'')+' geomorfológico'+(rasgos.length>1?'s':'')+'.');
+  }
+
   // --- litologia: nombres distintos + unidades distintas (no solo la de la primera ficha) ---
   const nombres=[...new Set(litos.map(l=>minuscula(l.NOMBRE_ROCA||l.TIPO_ROCA)).filter(Boolean))];
   if(nombres.length){
@@ -4858,8 +4872,37 @@ function prosaPunto(pt,litos,estr,toponimo,anterior,umbral){
     frases.push('Se reconoce'+(nombres.length>1?'n':'')+' '+lista(nombres)
       +(unidades.length?', asignable'+(nombres.length>1?'s':'')+' a la'+(unidades.length>1?'s unidades ':' unidad ')+lista(unidades):'')+'.');
   }
-  if(estr.length) frases.push('Se registra'+(estr.length===1?'':'n')+' '+estr.length
-    +' dato'+(estr.length===1?'':'s')+' estructural'+(estr.length===1?'':'es')+'.');
+
+  // --- contactos ---
+  if(cont.length){
+    const desc=cont.map(c=>{
+      let s=minuscula(c.TIPO_CONTACTO||'contacto');
+      if(c.UNIDAD_TECHO&&c.UNIDAD_BASE) s+=' entre '+c.UNIDAD_TECHO+' y '+c.UNIDAD_BASE;
+      return s;
+    });
+    frases.push('Se observa'+(desc.length>1?'n':'')+' '+lista(desc)+'.');
+  }
+
+  // --- datos estructurales: tipo + rumbo/manteo de CADA uno, no solo el conteo ---
+  if(estr.length){
+    const desc=estr.map(e=>{
+      let s=minuscula(e.TIPO_ESTRUCTURA||'estructura');
+      const az=parseFloat(e.AZIMUT), mz=parseFloat(e.MANTEO_BUZAMIENTO);
+      if(!isNaN(az)&&!isNaN(mz)) s+=' '+Math.round(az)+'/'+Math.round(mz);
+      if(e.TIPO_FALLA) s+=' ('+minuscula(e.TIPO_FALLA)+')';
+      return s;
+    });
+    frases.push('Se mide'+(desc.length>1?'n':'')+' '+desc.length+' dato'+(desc.length>1?'s':'')
+      +' estructural'+(desc.length>1?'es':'')+': '+lista(desc)+'.');
+  }
+
+  // --- muestreo: cuantas y con que sigla, no solo que existen ---
+  if(mues.length){
+    const siglas=mues.map(m=>m.ID_MUESTRA).filter(Boolean);
+    frases.push('Se colecta'+(mues.length>1?'n':'')+' '+mues.length+' muestra'+(mues.length>1?'s':'')
+      +(siglas.length?' ('+lista(siglas)+')':'')+'.');
+  }
+
   return frases.join(' ').replace(/\s{2,}/g,' ').trim();
 }
 // Generador por lotes: recorre los puntos del proyecto (colección activa) en orden
@@ -4888,11 +4931,15 @@ async function generarProsaProyecto(){
   try{
     for(const pt of puntos){
       const lat=parseFloat(pt[inLat]),lon=parseFloat(pt[inLon]);
-      const litos=await childrenOf('litologia',pt.id), estr=await childrenOf('estructural',pt.id);
+      const datos={
+        litos:await childrenOf('litologia',pt.id), estr:await childrenOf('estructural',pt.id),
+        cont:await childrenOf('contacto',pt.id), geomorf:await childrenOf('geomorf',pt.id),
+        mues:await childrenOf('muestreo',pt.id),
+      };
       const lejosDelAnterior=!anterior||L.latLng(lat,lon).distanceTo(
         L.latLng(parseFloat(anterior.pt[inLat]),parseFloat(anterior.pt[inLon])))>umbral;
       const toponimo=lejosDelAnterior?await toponimoCercano(lat,lon,3000):(anterior&&anterior.toponimo);
-      pt.PROSA_CAMPO=prosaPunto(pt,litos,estr,toponimo,anterior,umbral);
+      pt.PROSA_CAMPO=prosaPunto(pt,datos,toponimo,anterior,umbral);
       await put(store,pt);
       anterior={pt,toponimo}; n++;
     }
@@ -4943,6 +4990,7 @@ async function paginaLibreta(pr,pt,coleccion){
   const litos=await childrenOf('litologia',pt.id);
   const estr=await childrenOf('estructural',pt.id);
   const cont=await childrenOf('contacto',pt.id);
+  const geomorf=await childrenOf('geomorf',pt.id);
   const mues=await childrenOf('muestreo',pt.id);
   const fotos=await childrenOf('foto',pt.id);
   const esqs=await childrenOf('esquema',pt.id);
@@ -4966,6 +5014,9 @@ async function paginaLibreta(pr,pt,coleccion){
   const seccionDatos = tieneProsa
     ? '<div class="prosa">'+esc(pt.PROSA_CAMPO)+'</div>'
     : '<div class="sec"><h2>Litología ('+litos.length+')</h2>'+tablaRegs('litologia',litos)+'</div>'
+      // Geomorfología nunca se mostraba aquí (hueco previo, no lo introdujo la prosa): la
+      // agrego para que el respaldo tabulado quede tan completo como el que reemplaza la prosa.
+      +(geomorf.length?'<div class="sec"><h2>Geomorfología</h2>'+tablaRegs('geomorf',geomorf)+'</div>':'')
       +(estr.length?'<div class="sec"><h2>Datos estructurales</h2>'+tablaRegs('estructural',estr)+'</div>':'')
       +(cont.length?'<div class="sec"><h2>Contactos</h2>'+tablaRegs('contacto',cont)+'</div>':'')
       +(mues.length?'<div class="sec"><h2>Muestreo</h2>'+tablaRegs('muestreo',mues)+'</div>':'');
