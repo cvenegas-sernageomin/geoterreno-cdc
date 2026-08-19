@@ -2263,7 +2263,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v53';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v54';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2854,7 +2854,8 @@ function formulario(store, reg, ctx){
     // FK ID_LITOLOGIA -> select de litologias del punto (en estructural/foto)
     if(n==='ID_LITOLOGIA' && ctx && ctx.litologias){
       inp=el('select');inp.name=n;inp.append(el('option',{value:''},'— (opcional) litología —'));
-      ctx.litologias.forEach((L,i)=>inp.append(el('option',{value:L.id},'Lito '+(i+1)+': '+(L.NOMBRE_ROCA||L.TIPO_ROCA||L.id.slice(0,5)))));
+      ctx.litologias.forEach((L,i)=>inp.append(el('option',{value:L.id},
+        'Lito '+(i+1)+': '+(L.NOMBRE_ROCA||L.TIPO_ROCA||L.id.slice(0,5))+(L.UNIDAD_GEOLOGICA?' — '+L.UNIDAD_GEOLOGICA:''))));
       if(reg[n])inp.value=reg[n];
     }
     // FK PUNTOS_APOYO -> multi-selección de puntos de control del proyecto activo
@@ -2875,6 +2876,18 @@ function formulario(store, reg, ctx){
     if(sensor && w==='number' && !PLANO_CAMPOS[store]) fld.append(sensorInput(inp,sensor));
     else fld.append(inp);
     if(campo.nota) fld.append(el('div',{class:'nota'},campo.nota));
+    // Debajo del selector de litología, la unidad geológica de la opción elegida: se lee del
+    // mismo campo UNIDAD_GEOLOGICA de la ficha de litología (no se copia, sigue las correcciones
+    // que se le hagan ahí después -- mismo criterio que litoTxt/unidad en vista Muestras).
+    if(n==='ID_LITOLOGIA' && ctx && ctx.litologias){
+      const notaUnidad=el('div',{class:'nota'});
+      const refrescarUnidad=()=>{
+        const L=ctx.litologias.find(x=>x.id===inp.value);
+        notaUnidad.textContent=L?('Unidad geológica: '+(L.UNIDAD_GEOLOGICA||'—')):'';
+      };
+      inp.addEventListener('change',refrescarUnidad); refrescarUnidad();
+      fld.append(notaUnidad);
+    }
     rowWrap.append(fld);
   });
   cont.append(rowWrap);
@@ -3358,7 +3371,7 @@ $('#btnBack').addEventListener('click',()=>{
 let curProyecto=null, curPunto=null;
 
 async function render(){
-  dibujando=false; agregandoPunto=false;   // corta modos de dibujo/agregar al navegar
+  dibujando=false; agregandoPunto=false; midiendo=false;   // corta modos de dibujo/agregar/medir al navegar
   if(vista.n!=='mapa') pararGPSLive();     // no seguir consumiendo GPS fuera de la vista mapa
   const app=$('#app'); app.innerHTML=''; $('#fab').innerHTML=''; $('#fab').className='fab';
   if(vista.n==='home') await renderHome(app);
@@ -3864,6 +3877,7 @@ async function renderMapa(app){
     el('button',{class:'btn mini',onclick:iniciarAgregarPunto},'📍+ Punto'),
     el('button',{class:'btn blue mini',onclick:iniciarDibujoLinea},'✏️ Línea'),
     el('button',{class:'btn orange mini',onclick:iniciarAgregarNota},'📝+ Nota'),
+    el('button',{class:'btn sec mini',onclick:iniciarMedir},'📏 Medir'),
     el('button',{class:'btn sec mini',onclick:legendaSimbologia},'ⓘ'),
     el('span',{class:'muted',style:'flex:1;align-self:center;font-size:11px'},conC.length+'/'+puntos.length+' pts'),
     el('button',{class:'btn sec mini',onclick:e=>toggleGPSLive(e.target)},'📡 GPS'),
@@ -3893,6 +3907,34 @@ async function muestrasDelProyecto(proyectoId){
     }
   }
   return filas;
+}
+// Sufijo de sigla (minusculas, convencion del laboratorio) que ademas es lo que espera el
+// Generador de Memos de Laboratorio (proyecto aparte): su detectTipo() lee la ULTIMA letra
+// tras el ultimo digito de la sigla. t=Petrografia, d=Geocronologia U-Pb, x=Rayos X,
+// f=Fosiles, q=Geoquimica. Muestra de mano u otro proposito (Minerales pesados, Ar/Ar) sin
+// mapeo -> sin sufijo, la sigla queda igual.
+const SUFIJO_ANALISIS=[['Petrografía','t'],['Geocronología U-Pb','d'],['Rayos X','x'],['Fósiles','f'],['Geoquímica','q']];
+function siglaParaMemos(idMuestra,props){
+  const suf=SUFIJO_ANALISIS.filter(([p])=>props.includes(p)).map(([,l])=>l).join('');
+  return (idMuestra||'').trim()+suf;
+}
+// Exporta las muestras del proyecto en el TSV que lee el Generador de Memos de Laboratorio
+// (repo aparte): encabezados que calzan por palabra clave con su parser (CAMPOS en
+// src/app.jsx). Puente de datos, no integracion de codigo -- cero dependencia entre repos.
+function exportarMuestrasParaMemos(filas,proyecto){
+  const cols=['Sigla','Tipo de Análisis','Litología','Unidad Geológica','Observaciones','Geólogo','Este (UTM)','Norte (UTM)','Tipo de Muestra','Fecha'];
+  const t=v=>String(v==null?'':v).replace(/[\t\r\n]+/g,' ').trim();
+  const lines=[cols.join('\t')];
+  for(const f of filas){
+    const lat=parseFloat(f.pt[inLat]), lon=parseFloat(f.pt[inLon]);
+    let este='',norte='';
+    if(!isNaN(lat)&&!isNaN(lon)){const u=latLonAUtm(lat,lon); este=Math.round(u.este); norte=Math.round(u.norte);}
+    lines.push([t(siglaParaMemos(f.m.ID_MUESTRA,f.props)),t(f.props.join('; ')),t(f.litoTxt),t(f.unidad),
+      t(f.m.DESCRIPCION_MUESTRA),t(f.pt.GEOLOGO),t(este),t(norte),t(f.m.TIPO_MUESTRA),t(f.pt.FECHA)].join('\t'));
+  }
+  const nombre='Muestras_'+(proyecto.NOMBRE_PROYECTO||'proyecto').replace(/[\\/:*?"<>|]+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.tsv';
+  descargar(nombre,new Blob(['﻿'+lines.join('\r\n')],{type:'text/tab-separated-values'}));
+  toast('TSV exportado para Generador de Memos ('+filas.length+' muestras)');
 }
 // Saltos en el correlativo = la senal directa de una muestra perdida. El proyecto ya guarda su
 // convencion en _naming.smp ({prefix,pad,next}), asi que se sabe que numeros DEBERIAN existir.
@@ -3947,6 +3989,8 @@ async function renderMuestras(app){
     res.append(el('div',{class:'nota',style:'margin-top:8px'},'Sin autonumeración de muestras activa: no hay correlativo con el cual detectar saltos. Se activa en «Convención de nombres».'));
   }
   if(conAviso)res.append(el('div',{style:'margin-top:6px;color:var(--naranja);font-weight:700'},'⚠️ '+conAviso+' muestra'+(conAviso===1?'':'s')+' con datos incompletos (ver abajo).'));
+  if(filas.length)res.append(el('div',{style:'margin-top:10px'},
+    el('button',{class:'btn sec',onclick:()=>exportarMuestrasParaMemos(filas,curProyecto)},'⬇ Exportar para Generador de Memos')));
   app.append(res);
   if(!filas.length){
     $('#fab').append(el('button',{class:'btn sec',onclick:()=>nav({n:'proyecto',id:curProyecto.id})},'‹ Puntos de control'));
@@ -4072,11 +4116,12 @@ async function initMapaVista(puntos){
       coordsPendientes=[ev.latlng.lat, ev.latlng.lng];
       curPunto=null; vista={n:'punto',id:'__new__'}; render();
       return; }
-    if(!dibujando)return;
+    if(!dibujando && !midiendo)return;
+    const colVert=midiendo?'#ff8f00':'#12a4ff';
     _verts.push([ev.latlng.lat,ev.latlng.lng]);
-    if(_tmpLine)_tmpLine.setLatLngs(_verts); else _tmpLine=L.polyline(_verts,{color:'#12a4ff',weight:3,dashArray:'5,5'}).addTo(mapaVista);
-    _tmpMk.push(L.circleMarker(ev.latlng,{radius:4,color:'#12a4ff',fillColor:'#12a4ff',fillOpacity:1,weight:1}).addTo(mapaVista));
-    bannerDibujo(); });
+    if(_tmpLine)_tmpLine.setLatLngs(_verts); else _tmpLine=L.polyline(_verts,{color:colVert,weight:3,dashArray:midiendo?'2,8':'5,5'}).addTo(mapaVista);
+    _tmpMk.push(L.circleMarker(ev.latlng,{radius:4,color:colVert,fillColor:colVert,fillOpacity:1,weight:1}).addTo(mapaVista));
+    if(midiendo)bannerMedir(); else bannerDibujo(); });
   if(pts.length)mapaVista.fitBounds(pts,{padding:[46,46],maxZoom:17}); else mapaVista.setView([-33.45,-70.65],5);
   L.control.scale({position:'bottomleft',metric:true,imperial:false,maxWidth:120}).addTo(mapaVista);
   controlEscala(mapaVista);
@@ -4137,6 +4182,7 @@ function iconoNota(cat){
 let dibujando=false,_verts=[],_tmpLine=null,_tmpMk=[],_puntosMapa=[];
 let agregandoPunto=false, coordsPendientes=null;
 let agregandoNota=false;
+let midiendo=false;   // modo medir distancia: reusa _verts/_tmpLine/_tmpMk de dibujando (nunca activos a la vez)
 // ---- GPS en vivo (vista mapa): watchPosition con recentrado continuo, para navegar en auto ----
 let gpsWatchId=null, gpsDot=null, gpsAcc=null;
 function toggleGPSLive(btn){
@@ -4194,14 +4240,33 @@ function iniciarAgregarNota(){
     cont.append(b); }
   toast('Toca el mapa para ubicar la nota');
 }
-function iniciarDibujoLinea(){ if(!mapaVista)return; dibujando=true; limpiarTemp(); mapaVista.getContainer().style.cursor='crosshair'; bannerDibujo(); toast('Modo dibujo: toca el mapa'); }
-function cancelarDibujo(){ dibujando=false; limpiarTemp(); const b=document.getElementById('drawbanner');if(b)b.remove(); if(mapaVista)mapaVista.getContainer().style.cursor=''; }
+function iniciarDibujoLinea(){ if(!mapaVista)return; dibujando=true; midiendo=false; limpiarTemp(); mapaVista.getContainer().style.cursor='crosshair'; bannerDibujo(); toast('Modo dibujo: toca el mapa'); }
+function cancelarDibujo(){ dibujando=false; midiendo=false; limpiarTemp(); const b=document.getElementById('drawbanner');if(b)b.remove(); if(mapaVista)mapaVista.getContainer().style.cursor=''; }
 function terminarDibujo(){
   if(_verts.length<2){toast('Traza al menos 2 puntos');return;}
   const l={id:uid(),_parent:curProyecto.id,geom:_verts.slice(),CLASE_LINEA:'Contacto',CERTEZA_LINEA:'Observado',NOTA:''};
   const b=document.getElementById('drawbanner');if(b)b.remove();
   dibujando=false; limpiarTemp(); if(mapaVista)mapaVista.getContainer().style.cursor='';
   formLinea(l, async()=>{await put(storeLineaActivo(),l);initMapaVista(_puntosMapa);toast('Línea guardada');}, null);
+}
+// ---- Medir distancia: mismo mecanismo de vertices/linea temporal que dibujando, pero no
+// persiste nada -- solo muestra la distancia acumulada (haversine via L.latLng.distanceTo). ----
+function distanciaTotal(verts){
+  let d=0; for(let i=1;i<verts.length;i++) d+=L.latLng(verts[i-1]).distanceTo(L.latLng(verts[i]));
+  return d;
+}
+function fmtDistancia(m){ return m>=1000 ? (m/1000).toFixed(2)+' km' : Math.round(m)+' m'; }
+function iniciarMedir(){ if(!mapaVista)return; cancelarDibujo(); midiendo=true; limpiarTemp(); mapaVista.getContainer().style.cursor='crosshair'; bannerMedir(); toast('Modo medir: toca 2 o más puntos'); }
+function cancelarMedir(){ midiendo=false; limpiarTemp(); const b=document.getElementById('drawbanner');if(b)b.remove(); if(mapaVista)mapaVista.getContainer().style.cursor=''; }
+function bannerMedir(){
+  const cont=document.querySelector('.mapcard'); if(!cont)return;
+  let b=document.getElementById('drawbanner'); if(b)b.remove();
+  const d=distanciaTotal(_verts);
+  b=el('div',{id:'drawbanner',class:'drawbanner'},
+    el('span',{},'📏 '+_verts.length+' punto'+(_verts.length===1?'':'s')+(_verts.length>1?' · '+fmtDistancia(d):'')),
+    el('button',{class:'btn sec mini',onclick:()=>{const v=_verts;if(v.length){v.pop();if(_tmpMk.length)mapaVista.removeLayer(_tmpMk.pop());if(_tmpLine)_tmpLine.setLatLngs(v);}bannerMedir();}},'↶'),
+    el('button',{class:'btn del mini',onclick:cancelarMedir},'✕ Cerrar'));
+  cont.append(b);
 }
 function formLinea(linea,onSave,onDelete){
   const ov=el('div',{class:'fmov',onclick:e=>{if(e.target===ov)ov.remove();}});
