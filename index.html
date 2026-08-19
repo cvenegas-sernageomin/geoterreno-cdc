@@ -2281,7 +2281,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v57';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v58';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -4825,8 +4825,6 @@ function umbralSector(proyecto){
   const den=parseFloat(m[1].replace(/\./g,''));
   return den ? den/200 : 500;
 }
-// Arma el párrafo de un punto. PLACEHOLDER: frases genéricas hasta tener el material de
-// referencia; la firma (datos + topónimo + punto anterior) ya queda lista para ese ajuste.
 // Cada oracion se arma juntando SOLO las clausulas que existen y cerrando una vez con punto.
 // Concatenar fragmentos que pueden venir vacios y limpiar despues con regex producia ",." al
 // final (ej. punto sin EXPOSICION_AFLORAMIENTO: "...en un sector de ladera,.").
@@ -4835,6 +4833,29 @@ function umbralSector(proyecto){
 // que no las mencionara las hacia desaparecer de la libreta impresa sin aviso (geomorfologia,
 // contactos y muestreo no se narraban en absoluto; estructurales solo salia el conteo, sin los
 // valores). Cada categoria con datos aporta su propia frase; sin datos, no aporta nada.
+// Vocabulario y tiempos verbales tomados de entrenamiento_modelo_informes_geologicos.md (corpus
+// de 7 Cartas Geológicas SGB oficiales): presente para descripciones ("se reconoce", "se
+// localiza"), pasado para acciones de terreno ("se observó", "se midió", "se recolectó" -- la
+// guía de estilo del corpus cita "se observó"/"se determinó"/"se obtuvo" como el patrón).
+const EXPO_FRASE={
+  'Tapado (1)':'con afloramiento cubierto',
+  'Parcial (2)':'con exposición de afloramiento parcial',
+  'Excelente (3)':'con afloramiento de buena exposición',
+};
+// Verbos de relación de contacto (patrón "Relaciones" del corpus: grada a / intruye a /
+// discordancia angular / etc.), TECHO->BASE porque son los dos únicos lados que registra la
+// ficha (la unidad físicamente arriba vs. abajo en el afloramiento).
+// Cada funcion devuelve la clausula completa (sujeto+verbo+objeto) en minuscula inicial;
+// prosaPunto la capitaliza al armar la oracion. "Nítido" no tiene verbo relacional propio
+// en el corpus, así que queda como observación ("se observó un contacto nítido entre...").
+const CONTACTO_VERBO={
+  'Gradual':(t,b)=>t+' grada a '+b,
+  'Nítido':(t,b)=>'se observó un contacto nítido entre '+t+' y '+b,
+  'Intrusivo':(t,b)=>t+' intruye a '+b,
+  'Tectónico':(t,b)=>t+' se encuentra en contacto tectónico con '+b,
+  'Discordante angular':(t,b)=>t+' se dispone en discordancia angular sobre '+b,
+  'Discordante erosiva':(t,b)=>t+' se dispone en discordancia erosiva sobre '+b,
+};
 function prosaPunto(pt,datos,toponimo,anterior,umbral){
   const {litos,estr,cont,geomorf,mues}=datos;
   const frases=[];
@@ -4852,9 +4873,10 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     if(mismoSector) ubic.push('A '+Math.round(dist)+' m al '+rumboCardinal(bearingDeg(latA,lonA,lat,lon))
       +' del punto anterior'+(anterior.pt.ID_PUNTO_CONTROL?' ('+anterior.pt.ID_PUNTO_CONTROL+')':''));
   }
-  if(!mismoSector) ubic.push(toponimo?('El punto se ubica al '+toponimo.rumbo+' de '+toponimo.texto):'El punto se ubica');
+  if(!mismoSector) ubic.push(toponimo?('El punto se localiza al '+toponimo.rumbo+' de '+toponimo.texto):'El punto se localiza');
   if(pt.CONTEXTO_GEOMORFOLOGICO) ubic.push('en un sector de '+minuscula(pt.CONTEXTO_GEOMORFOLOGICO));
-  if(pt.EXPOSICION_AFLORAMIENTO) ubic.push('con exposición de afloramiento '+minuscula(pt.EXPOSICION_AFLORAMIENTO));
+  if(pt.EXPOSICION_AFLORAMIENTO) ubic.push(EXPO_FRASE[pt.EXPOSICION_AFLORAMIENTO]
+    ||('con exposición de afloramiento '+minuscula(pt.EXPOSICION_AFLORAMIENTO.replace(/\s*\(\d\)\s*$/,''))));
   frases.push(ubic.join(', ')+'.');
 
   // --- geomorfologia (TBL_GEOMORFOLOGIA -- rasgos puntuales, distinto de CONTEXTO_GEOMORFOLOGICO
@@ -4873,33 +4895,35 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
       +(unidades.length?', asignable'+(nombres.length>1?'s':'')+' a la'+(unidades.length>1?'s unidades ':' unidad ')+lista(unidades):'')+'.');
   }
 
-  // --- contactos ---
+  // --- contactos: verbo de relación segun TIPO_CONTACTO (grada a/intruye a/discordancia...);
+  // cada contacto es su propia oración porque el verbo ya trae sujeto+objeto, no una lista ---
   if(cont.length){
-    const desc=cont.map(c=>{
-      let s=minuscula(c.TIPO_CONTACTO||'contacto');
-      if(c.UNIDAD_TECHO&&c.UNIDAD_BASE) s+=' entre '+c.UNIDAD_TECHO+' y '+c.UNIDAD_BASE;
-      return s;
-    });
-    frases.push('Se observa'+(desc.length>1?'n':'')+' '+lista(desc)+'.');
+    const capitalizar=s=>s.charAt(0).toUpperCase()+s.slice(1);
+    for(const c of cont){
+      const techo=c.UNIDAD_TECHO||'la unidad superior', base=c.UNIDAD_BASE||'la unidad inferior';
+      const verbo=CONTACTO_VERBO[c.TIPO_CONTACTO];
+      const clausula=verbo?verbo(techo,base):('se observó un contacto'+(c.TIPO_CONTACTO?' '+minuscula(c.TIPO_CONTACTO):'')+' entre '+techo+' y '+base);
+      frases.push(capitalizar(clausula)+'.');
+    }
   }
 
   // --- datos estructurales: tipo + rumbo/manteo de CADA uno, no solo el conteo ---
   if(estr.length){
     const desc=estr.map(e=>{
-      let s=minuscula(e.TIPO_ESTRUCTURA||'estructura');
+      let s=minuscula((e.TIPO_ESTRUCTURA||'estructura').replace(/^Estructura\s+/i,''));
       const az=parseFloat(e.AZIMUT), mz=parseFloat(e.MANTEO_BUZAMIENTO);
-      if(!isNaN(az)&&!isNaN(mz)) s+=' '+Math.round(az)+'/'+Math.round(mz);
+      if(!isNaN(az)&&!isNaN(mz)) s+=' N'+Math.round(az)+'/'+Math.round(mz);
       if(e.TIPO_FALLA) s+=' ('+minuscula(e.TIPO_FALLA)+')';
       return s;
     });
-    frases.push('Se mide'+(desc.length>1?'n':'')+' '+desc.length+' dato'+(desc.length>1?'s':'')
+    frases.push((desc.length>1?'Se midieron ':'Se midió ')+desc.length+' dato'+(desc.length>1?'s':'')
       +' estructural'+(desc.length>1?'es':'')+': '+lista(desc)+'.');
   }
 
   // --- muestreo: cuantas y con que sigla, no solo que existen ---
   if(mues.length){
     const siglas=mues.map(m=>m.ID_MUESTRA).filter(Boolean);
-    frases.push('Se colecta'+(mues.length>1?'n':'')+' '+mues.length+' muestra'+(mues.length>1?'s':'')
+    frases.push((mues.length>1?'Se recolectaron ':'Se recolectó ')+mues.length+' muestra'+(mues.length>1?'s':'')
       +(siglas.length?' ('+lista(siglas)+')':'')+'.');
   }
 
