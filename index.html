@@ -2263,7 +2263,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v52';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v53';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3990,9 +3990,9 @@ async function renderMuestras(app){
       }},
         el('div',{class:'t'},
           el('b',{},sig||'(sin sigla)'),
+          f.props.length?el('span',{style:'color:var(--muted);font-weight:400;font-size:12px'},'  '+f.props.join(' · ')):null,
           el('small',{},det+' — '+(f.pt.ID_PUNTO_CONTROL||'punto sin ID')+(f.pt.FECHA?' · '+f.pt.FECHA:''))),
         el('span',{class:'pill'},f.props.length?f.props.length+' anál.':'—'));
-      if(f.props.length)it.append(el('div',{style:'flex-basis:100%;color:var(--muted);font-size:11px'},f.props.join(' · ')));
       if(av.length)it.append(el('div',{style:'flex-basis:100%;color:var(--rojo);font-size:11px;font-weight:700'},'⚠️ '+av.join(' · ')));
       cont.append(it);
     });
