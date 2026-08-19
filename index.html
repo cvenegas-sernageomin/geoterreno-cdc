@@ -111,6 +111,8 @@
   select:disabled{background:var(--surface2);color:var(--muted)}
   .mapbox{height:320px;width:100%;border:1px solid var(--bd);border-radius:12px;z-index:0;overflow:hidden}
   .leaflet-control-savetiles a{font-size:15px;line-height:26px}
+  .leaflet-control-escala{background:var(--surface);color:var(--txt);border:1px solid var(--bd);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;box-shadow:var(--shadow);white-space:nowrap}
+  .leaflet-control-scale-line{background:rgba(255,255,255,.75);color:#111}
   #satthumb img{width:120px;height:90px}
   .medbar{flex:0 0 100%;width:100%;background:var(--surface2);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin-bottom:9px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .mapfull{height:66vh;min-height:340px;width:100%;border-radius:10px;overflow:hidden;z-index:0}
@@ -2261,7 +2263,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v50';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v51';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3075,6 +3077,35 @@ function capaSatelital(map){
     return st;
   }
   return null;
+}
+// ---- Escala del mapa como fracción representativa (1:N), estilo carta topográfica ----
+// El zoom de Leaflet no tiene una "escala" fija: son metros/pixel, que dependen de la latitud
+// (proyección Web Mercator) y del DPI de la pantalla que la esté mostrando. Se asume 96 dpi
+// (estándar web) para poder dar un número tipo "1:10.000" — por eso queda como aproximación,
+// igual que en Google Earth o el visor de ArcGIS Online.
+function escalaBonita(x){
+  const exp=Math.floor(Math.log10(x)), base=Math.pow(10,exp), m=x/base;
+  const nice = m<1.5?1 : m<3.5?2 : m<7.5?5 : 10;
+  return nice*base;
+}
+function fmtEscala(n){
+  return '1:'+Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+}
+function controlEscala(map){
+  const Ctrl=L.Control.extend({
+    options:{position:'bottomleft'},
+    onAdd(){ this._div=L.DomUtil.create('div','leaflet-control-escala'); this._actualizar(); return this._div; },
+    _actualizar(){
+      const z=map.getZoom(), lat=map.getCenter().lat;
+      const metrosPorPixel=156543.03392*Math.cos(lat*Math.PI/180)/Math.pow(2,z);
+      const escala=escalaBonita(metrosPorPixel*96/0.0254);   // 96dpi asumidos
+      this._div.textContent='Esc. aprox. '+fmtEscala(escala);
+    }
+  });
+  const ctrl=new Ctrl();
+  ctrl.addTo(map);
+  map.on('zoomend moveend',()=>ctrl._actualizar());
+  return ctrl;
 }
 // selector de zoom máximo antes de descargar (estilo StraboSpot; el plugin lee options.zoomlevels al guardar)
 function descargarTilesConZoom(){
@@ -4046,6 +4077,8 @@ async function initMapaVista(puntos){
     _tmpMk.push(L.circleMarker(ev.latlng,{radius:4,color:'#12a4ff',fillColor:'#12a4ff',fillOpacity:1,weight:1}).addTo(mapaVista));
     bannerDibujo(); });
   if(pts.length)mapaVista.fitBounds(pts,{padding:[46,46],maxZoom:17}); else mapaVista.setView([-33.45,-70.65],5);
+  L.control.scale({position:'bottomleft',metric:true,imperial:false,maxWidth:120}).addTo(mapaVista);
+  controlEscala(mapaVista);
   setTimeout(()=>mapaVista.invalidateSize(),160);
 }
 // ---- iconos / simbología (SVG orientada por azimut; norte = arriba) ----
