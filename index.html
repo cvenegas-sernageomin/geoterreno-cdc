@@ -2281,7 +2281,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v56';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v57';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -4958,6 +4958,17 @@ async function paginaLibreta(pr,pt,coleccion){
       +'<img style="max-width:100%;border:1px solid #999" src="'+comp+'">'
       +(gal?'<div class="imgs">'+gal+'</div>':'')+'</div>';
   }
+  // Con prosa redactada, la libreta se lee como tal: el parrafo REEMPLAZA las tablas de
+  // Litologia/Datos estructurales/Contactos/Muestreo (los valores exactos siguen intactos en
+  // la app y en los demas exports -- CSV/GPKG/GDB -- esto es solo la version impresa). Sin
+  // prosa (punto no procesado aun), se mantiene la tabla como respaldo.
+  const tieneProsa = !!(pt.PROSA_CAMPO && pt.PROSA_CAMPO.trim());
+  const seccionDatos = tieneProsa
+    ? '<div class="prosa">'+esc(pt.PROSA_CAMPO)+'</div>'
+    : '<div class="sec"><h2>Litología ('+litos.length+')</h2>'+tablaRegs('litologia',litos)+'</div>'
+      +(estr.length?'<div class="sec"><h2>Datos estructurales</h2>'+tablaRegs('estructural',estr)+'</div>':'')
+      +(cont.length?'<div class="sec"><h2>Contactos</h2>'+tablaRegs('contacto',cont)+'</div>':'')
+      +(mues.length?'<div class="sec"><h2>Muestreo</h2>'+tablaRegs('muestreo',mues)+'</div>':'');
   return '<div class="pg"><h1>Libreta de terreno — '+esc(pt.ID_PUNTO_CONTROL||pt.id)+'</h1>'
     +'<div class="meta"><div><span class="lbl">Proyecto:</span> '+esc(pr.NOMBRE_PROYECTO||'')+'</div>'
     +'<div><span class="lbl">Geólogo:</span> '+esc(pt.GEOLOGO||'')+'</div>'
@@ -4966,11 +4977,7 @@ async function paginaLibreta(pr,pt,coleccion){
     +'<div><span class="lbl">Localidad:</span> '+esc(pt.NOMBRE_LOCALIDAD||'')+'</div>'
     +'<div><span class="lbl">Geomorfología:</span> '+esc(pt.CONTEXTO_GEOMORFOLOGICO||'')+'</div>'
     +(coleccion?'<div><span class="lbl">Colección:</span> '+esc(coleccion)+'</div>':'')+'</div>'
-    +(pt.PROSA_CAMPO?'<div class="prosa">'+esc(pt.PROSA_CAMPO)+'</div>':'')
-    +'<div class="sec"><h2>Litología ('+litos.length+')</h2>'+tablaRegs('litologia',litos)+'</div>'
-    +(estr.length?'<div class="sec"><h2>Datos estructurales</h2>'+tablaRegs('estructural',estr)+'</div>':'')
-    +(cont.length?'<div class="sec"><h2>Contactos</h2>'+tablaRegs('contacto',cont)+'</div>':'')
-    +(mues.length?'<div class="sec"><h2>Muestreo</h2>'+tablaRegs('muestreo',mues)+'</div>':'')
+    +seccionDatos
     +(imgs?'<div class="sec"><h2>Fotografías y esquemas</h2><div class="imgs">'+imgs+'</div></div>':'')
     +fmHtml
     +'</div>';
