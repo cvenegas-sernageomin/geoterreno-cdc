@@ -404,6 +404,12 @@ const MODELO = {
           "obligatorio": false,
           "dominio": null,
           "nota": "Observación general del punto (texto libre)."
+        },
+        {
+          "nombre": "PROSA_CAMPO",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Descripción narrativa del punto para la libreta (Gabinete): se genera un borrador automático (toponimia IGM + lectura geomorfológica) y se edita a mano antes de exportar a PDF."
         }
       ],
       "geometria": "POINT",
@@ -435,6 +441,12 @@ const MODELO = {
           "obligatorio": true,
           "dominio": null,
           "nota": null
+        },
+        {
+          "nombre": "ESCALA_TRABAJO",
+          "obligatorio": false,
+          "dominio": "ESCALA_TRABAJO",
+          "nota": "Escala de mapeo del proyecto (ej. 1:50.000): define el umbral de 'mismo sector' al generar la prosa de terreno en Gabinete (denominador de la escala ÷ 200)."
         }
       ],
       "geometria": null,
@@ -1993,6 +2005,12 @@ const MODELO = {
       "fuente": "leyenda del proyecto (se llena por proyecto)",
       "editable": true
     },
+    "ESCALA_TRABAJO": {
+      "tipo": "abierta",
+      "valores": ["1:25.000", "1:50.000", "1:100.000", "1:250.000"],
+      "fuente": "escalas de mapeo geológico habituales; define el umbral de sector de la prosa de terreno",
+      "editable": true
+    },
     "CATEGORIA_GEOMORF": {
       "tipo": "simple",
       "valores": [
@@ -2263,7 +2281,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v54';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v56';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2328,6 +2346,27 @@ function tablasExport(){const g={};
 // Registros de un store etiquetados con su coleccion (para la columna COLECCION de los exports)
 async function conColeccion(store){const c=COLECCION_DE[store];
   return (await all(store)).map(r=>c?Object.assign({},r,{COLECCION:c}):r);}
+
+// ---- Filtro por proyecto para "exportar este proyecto" (vs. exportar todos los proyectos) ----
+// ids de puntos del proyecto (ambas colecciones) -- mismo patron que buildBackupBlob, pero
+// por proyecto en vez de por coleccion.
+async function idsPuntosProyecto(proyectoId){
+  const ids=new Set();
+  for(const store of ['punto','punto_gabinete'])
+    (await childrenOf(store,proyectoId)).forEach(p=>ids.add(p.id));
+  return ids;
+}
+// True si el registro r del store pertenece al proyecto: PUNTO_CONTROL/LINEA_CONTROL/NOTA_CAMPO
+// cuelgan de TBL_PROYECTO directo (_parent=proyectoId); las 7 HIJAS y fotomapa cuelgan del
+// punto (_parent o _punto en idsPuntos); 'proyecto' es su propio id.
+function esDeProyecto(store,r,proyectoId,idsPuntos){
+  if(store==='proyecto') return r.id===proyectoId;
+  if(store==='punto'||store==='punto_gabinete'||store==='linea'||store==='linea_gabinete'||store==='nota')
+    return r._parent===proyectoId;
+  if(store==='fotomapa') return idsPuntos.has(r._punto);
+  return idsPuntos.has(r._parent);
+}
+function nombreArchivoProyecto(proyecto){return (proyecto&&proyecto.NOMBRE_PROYECTO||'proyecto').replace(/[\\/:*?"<>|]+/g,'_');}
 
 // ============================ IndexedDB ============================
 const DB='captura-terreno', VER=6;   // v6: nuevo store 'nota' (Notas de campo)
@@ -2740,7 +2779,7 @@ function tipoWidget(campo){
   if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|RUMBO|ORIENTACION|TREND|PLUNGE/.test(n)) return 'number';
   if(n==='FECHA') return 'date';
   if(n==='HORA') return 'time';
-  if(/DESCRIPCION|OBSERVACION|COMENTARIO|RELACION_LITOLOGIA|DISTRIBUCION|TEXTO/.test(n)) return 'textarea';
+  if(/DESCRIPCION|OBSERVACION|COMENTARIO|RELACION_LITOLOGIA|DISTRIBUCION|TEXTO|PROSA/.test(n)) return 'textarea';
   return 'text';
 }
 const esPK = (store,n)=> n===pkDe(store);
@@ -3371,7 +3410,9 @@ $('#btnBack').addEventListener('click',()=>{
 let curProyecto=null, curPunto=null;
 
 async function render(){
-  dibujando=false; agregandoPunto=false; midiendo=false;   // corta modos de dibujo/agregar/medir al navegar
+  // corta TODOS los modos del mapa al navegar: agregandoNota se quedaba armado y, al volver
+  // a la vista mapa, el primer toque abria la ficha de nota sin que nadie la pidiera.
+  dibujando=false; agregandoPunto=false; agregandoNota=false; midiendo=false;
   if(vista.n!=='mapa') pararGPSLive();     // no seguir consumiendo GPS fuera de la vista mapa
   const app=$('#app'); app.innerHTML=''; $('#fab').innerHTML=''; $('#fab').className='fab';
   if(vista.n==='home') await renderHome(app);
@@ -3398,7 +3439,7 @@ async function renderHome(app){
   });
   app.append(card);
   $('#fab').append(el('button',{class:'btn',onclick:()=>editorProyecto()},'+ Nuevo proyecto'),
-    el('button',{class:'btn sec',onclick:exportMenu},'⇩ Exportar'));
+    el('button',{class:'btn sec',onclick:()=>exportMenu()},'⇩ Exportar'));
 }
 
 function editorProyecto(p){
@@ -3462,10 +3503,16 @@ async function renderProyecto(app){
   const puntos=(await childrenOf(storeActivo(),curProyecto.id));
   curProyecto._npuntos=puntos.length;put('proyecto',curProyecto);
   const head=el('div',{class:'card'});
-  head.append(el('h2',{},'Proyecto'),
-    el('div',{class:'btnbar'},
+  const barra=el('div',{class:'btnbar'},
       el('button',{class:'btn sec mini',onclick:()=>editorProyecto(curProyecto)},'✎ Editar proyecto'),
-      el('button',{class:'btn sec mini',onclick:()=>editorNaming(curProyecto)},'🔤 Convención de nombres')));
+      el('button',{class:'btn sec mini',onclick:()=>editorNaming(curProyecto)},'🔤 Convención de nombres'),
+      el('button',{class:'btn sec mini',onclick:()=>exportMenu(curProyecto.id)},'⇩ Exportar este proyecto'),
+      // Prosa de terreno: se redacta en la oficina (necesita internet para la toponimia IGM),
+      // pero opera sobre la COLECCION ACTIVA. Estaba restringido a Gabinete, que es la
+      // coleccion de planificacion: los puntos que de verdad van a la libreta se capturan en
+      // Terreno, asi que en la practica no habia forma de generarles la prosa.
+      el('button',{class:'btn sec mini',onclick:()=>generarProsaProyecto()},'🏔️ Generar prosa de terreno'));
+  head.append(el('h2',{},'Proyecto'),barra);
   app.append(head);
   // ---- Puntos de control: lista + modo selección para mover a otro proyecto ----
   let modoSel=false;
@@ -3916,12 +3963,17 @@ async function muestrasDelProyecto(proyectoId){
 const SUFIJO_ANALISIS=[['Petrografía','t'],['Geocronología U-Pb','d'],['Rayos X','x'],['Fósiles','f'],['Geoquímica','q']];
 // Una muestra con varios propositos de analisis va a laboratorios/hojas distintas -- el
 // Generador de Memos espera UNA fila (sigla+sufijo propia) por cada destino, no un sufijo
-// concatenado. Sin proposito mapeado (o ninguno) -> una sola fila, sigla sin sufijo.
+// concatenado. Se emite una fila POR CADA proposito, tenga sufijo o no: filtrar por los
+// mapeados descartaba en silencio los que no lo estan (Minerales pesados, Ar/Ar, 14C), asi
+// que una muestra "Petrografia; Minerales pesados" viajaba al laboratorio solo como corte
+// transparente y el otro analisis desaparecia del TSV sin aviso. Sin sufijo el Generador la
+// marca como "sin tipo detectado" y obliga a revisarla -- que es justo lo que corresponde.
+// Sin ningun proposito: una sola fila con la sigla tal cual.
+const SUFIJO_DE=Object.fromEntries(SUFIJO_ANALISIS);
 function filasSufijadas(idMuestra,props){
   const base=(idMuestra||'').trim();
-  const match=SUFIJO_ANALISIS.filter(([p])=>props.includes(p));
-  if(!match.length) return [{sigla:base,tipoAnal:props.join('; ')}];
-  return match.map(([p,l])=>({sigla:base+l,tipoAnal:p}));
+  if(!props.length) return [{sigla:base,tipoAnal:''}];
+  return props.map(p=>({sigla:base+(SUFIJO_DE[p]||''),tipoAnal:p}));
 }
 // Exporta las muestras del proyecto en el TSV que lee el Generador de Memos de Laboratorio
 // (repo aparte): encabezados que calzan por palabra clave con su parser (CAMPOS en
@@ -4225,8 +4277,18 @@ function bannerDibujo(){
     el('button',{class:'btn del mini',onclick:cancelarDibujo},'✕'));
   cont.append(b);
 }
+// Los cuatro modos del mapa (agregar punto / agregar nota / dibujar linea / medir) comparten
+// el mismo handler de click y se evaluan en orden, asi que son mutuamente excluyentes: entrar
+// a uno tiene que apagar los otros tres. Antes solo se apagaban dibujando/midiendo, y con
+// "📍+ Punto" armado el primer toque en modo Medir creaba un punto nuevo en vez de medir.
+function salirModosMapa(){
+  dibujando=false; midiendo=false; agregandoPunto=false; agregandoNota=false;
+  limpiarTemp();
+  const b=document.getElementById('drawbanner'); if(b)b.remove();
+  if(mapaVista)mapaVista.getContainer().style.cursor='';
+}
 function iniciarAgregarPunto(){
-  if(!mapaVista)return; cancelarDibujo(); agregandoPunto=true;
+  if(!mapaVista)return; salirModosMapa(); agregandoPunto=true;
   mapaVista.getContainer().style.cursor='crosshair';
   const cont=document.querySelector('.mapcard'); if(cont){
     let b=document.getElementById('drawbanner'); if(b)b.remove();
@@ -4237,7 +4299,7 @@ function iniciarAgregarPunto(){
   toast('Toca el mapa para ubicar el punto');
 }
 function iniciarAgregarNota(){
-  if(!mapaVista)return; cancelarDibujo(); agregandoNota=true;
+  if(!mapaVista)return; salirModosMapa(); agregandoNota=true;
   mapaVista.getContainer().style.cursor='crosshair';
   const cont=document.querySelector('.mapcard'); if(cont){
     let b=document.getElementById('drawbanner'); if(b)b.remove();
@@ -4247,8 +4309,8 @@ function iniciarAgregarNota(){
     cont.append(b); }
   toast('Toca el mapa para ubicar la nota');
 }
-function iniciarDibujoLinea(){ if(!mapaVista)return; dibujando=true; midiendo=false; limpiarTemp(); mapaVista.getContainer().style.cursor='crosshair'; bannerDibujo(); toast('Modo dibujo: toca el mapa'); }
-function cancelarDibujo(){ dibujando=false; midiendo=false; limpiarTemp(); const b=document.getElementById('drawbanner');if(b)b.remove(); if(mapaVista)mapaVista.getContainer().style.cursor=''; }
+function iniciarDibujoLinea(){ if(!mapaVista)return; salirModosMapa(); dibujando=true; mapaVista.getContainer().style.cursor='crosshair'; bannerDibujo(); toast('Modo dibujo: toca el mapa'); }
+function cancelarDibujo(){ salirModosMapa(); }
 function terminarDibujo(){
   if(_verts.length<2){toast('Traza al menos 2 puntos');return;}
   const l={id:uid(),_parent:curProyecto.id,geom:_verts.slice(),CLASE_LINEA:'Contacto',CERTEZA_LINEA:'Observado',NOTA:''};
@@ -4263,8 +4325,8 @@ function distanciaTotal(verts){
   return d;
 }
 function fmtDistancia(m){ return m>=1000 ? (m/1000).toFixed(2)+' km' : Math.round(m)+' m'; }
-function iniciarMedir(){ if(!mapaVista)return; cancelarDibujo(); midiendo=true; limpiarTemp(); mapaVista.getContainer().style.cursor='crosshair'; bannerMedir(); toast('Modo medir: toca 2 o más puntos'); }
-function cancelarMedir(){ midiendo=false; limpiarTemp(); const b=document.getElementById('drawbanner');if(b)b.remove(); if(mapaVista)mapaVista.getContainer().style.cursor=''; }
+function iniciarMedir(){ if(!mapaVista)return; salirModosMapa(); midiendo=true; mapaVista.getContainer().style.cursor='crosshair'; bannerMedir(); toast('Modo medir: toca 2 o más puntos'); }
+function cancelarMedir(){ salirModosMapa(); }
 function bannerMedir(){
   const cont=document.querySelector('.mapcard'); if(!cont)return;
   let b=document.getElementById('drawbanner'); if(b)b.remove();
@@ -4401,29 +4463,33 @@ function tomarGPS(f,btn){
 }
 
 // ============================ Exportación ============================
-async function exportMenu(){
+async function exportMenu(proyectoId){
   const app=$('#app');app.innerHTML='';$('#fab').innerHTML='';$('#btnBack').style.display='';
-  $('#ttl').textContent='Exportar datos';$('#ctx').textContent='';
+  const pr = proyectoId ? await get('proyecto',proyectoId) : null;
+  $('#ttl').textContent='Exportar datos';$('#ctx').textContent=pr?('Solo: '+(pr.NOMBRE_PROYECTO||pr.id)):'';
   const card=el('div',{class:'card'});
   card.append(el('h2',{},'Salidas'));
-  card.append(el('div',{class:'muted',html:'Genera los archivos con todos los datos capturados en este dispositivo.'}));
+  card.append(el('div',{class:'muted',html: pr
+    ? 'Genera los archivos con los datos del proyecto <b>'+esc(pr.NOMBRE_PROYECTO||'')+'</b> solamente.'
+    : 'Genera los archivos con todos los datos capturados en este dispositivo.'}));
   card.append(el('div',{class:'btnbar',style:'margin-top:12px;flex-direction:column;align-items:stretch'},
-    el('button',{class:'btn',onclick:exportCSV},'⇩ CSV (ZIP con las 8 tablas)'),
-    el('button',{class:'btn blue',onclick:exportKMZ},'🌎 KMZ (puntos para Google Earth)'),
-    el('button',{class:'btn blue',onclick:exportGPKG},'🗺️ GeoPackage (.gpkg — QGIS / ArcGIS)'),
-    el('button',{class:'btn blue',onclick:exportGDB},'🗄️ GDB — File Geodatabase de Esri (ZIP)'),
-    el('button',{class:'btn orange',onclick:exportPDF},'📄 PDF — Libreta de terreno')));
+    el('button',{class:'btn',onclick:()=>exportCSV(proyectoId)},'⇩ CSV (ZIP con las 8 tablas)'),
+    el('button',{class:'btn blue',onclick:()=>exportKMZ(proyectoId)},'🌎 KMZ (puntos para Google Earth)'),
+    el('button',{class:'btn blue',onclick:()=>exportGPKG(proyectoId)},'🗺️ GeoPackage (.gpkg — QGIS / ArcGIS)'),
+    el('button',{class:'btn blue',onclick:()=>exportGDB(proyectoId)},'🗄️ GDB — File Geodatabase de Esri (ZIP)'),
+    el('button',{class:'btn orange',onclick:()=>exportPDF(proyectoId)},'📄 PDF — Libreta de terreno')));
   card.append(el('div',{class:'muted',style:'margin-top:8px;font-size:12px',html:
     'GDB: la primera vez requiere conexión (descarga el conversor GDAL, ~40 MB); después queda disponible offline.'}));
   app.append(card);
-  $('#fab').append(el('button',{class:'btn sec',onclick:()=>nav({n:'home'})},'‹ Volver'));
+  $('#fab').append(el('button',{class:'btn sec',onclick:()=>nav(pr?{n:'proyecto',id:pr.id}:{n:'home'})},'‹ Volver'));
 }
 
 function descargar(nombre,blob){const a=el('a');a.href=URL.createObjectURL(blob);a.download=nombre;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
 function csvCell(v){v=v==null?'':String(v);return /[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 
-async function exportCSV(){
+async function exportCSV(proyectoId){
   const files=[];
+  const idsPuntos = proyectoId ? await idsPuntosProyecto(proyectoId) : null;
   // Un CSV por tabla del modelo. Terreno y Gabinete comparten tabla y se distinguen por
   // la columna COLECCION; antes salian como dos archivos y el de gabinete iba sin columnas.
   // 'linea' entra por tablasExport(): estaba fuera de STORES y no se exportaba nunca.
@@ -4432,23 +4498,29 @@ async function exportCSV(){
     const conCol=stores.some(s=>COLECCION_DE[s]);
     const cols=['id','_parent'].concat(conCol?['COLECCION']:[],cs);
     const lines=[cols.join(',')];
-    for(const s of stores)
-      (await conColeccion(s)).forEach(r=>lines.push(cols.map(c=>csvCell(c.startsWith('_img')?'':r[c])).join(',')));
+    for(const s of stores){
+      let regs=await conColeccion(s);
+      if(proyectoId) regs=regs.filter(r=>esDeProyecto(s,r,proyectoId,idsPuntos));
+      regs.forEach(r=>lines.push(cols.map(c=>csvCell(c.startsWith('_img')?'':r[c])).join(',')));
+    }
     files.push({name:tbl+'.csv',data:new TextEncoder().encode('﻿'+lines.join('\r\n'))});
   }
-  descargar('captura_terreno_CSV.zip', zipStore(files));
+  const nombre=proyectoId?'captura_terreno_CSV_'+nombreArchivoProyecto(await get('proyecto',proyectoId))+'.zip':'captura_terreno_CSV.zip';
+  descargar(nombre, zipStore(files));
   toast('CSV exportado ('+files.length+' tablas)');
 }
 
-async function exportKMZ(){
-  const proyectos=await all('proyecto');
+async function exportKMZ(proyectoId){
+  const proyectos=proyectoId?[await get('proyecto',proyectoId)]:await all('proyecto');
   const latF=p=>p['Coordenadas Geográficas Decimales_Lat']||p.LAT;
   const lonF=p=>p['Coordenadas Geográficas Decimales_Long']||p.LONG;
   const files=[]; let overlays='', n=0;
   // Puntos de las dos colecciones; cada una va en su propia carpeta de Google Earth.
   const placemarksPunto=async(store)=>{
     let s='';
-    for(const p of await all(store)){
+    let pts=await all(store);
+    if(proyectoId)pts=pts.filter(p=>p._parent===proyectoId);
+    for(const p of pts){
       const lat=parseFloat(latF(p)),lon=parseFloat(lonF(p));if(isNaN(lat)||isNaN(lon))continue;
       n++;
       const litos=await childrenOf('litologia',p.id);
@@ -4486,7 +4558,9 @@ async function exportKMZ(){
     || (l.NOTA||'Línea sin clasificar');
   const placemarksLinea=async(store)=>{
     let s='';
-    for(const l of await all(store)){
+    let lins=await all(store);
+    if(proyectoId)lins=lins.filter(l=>l._parent===proyectoId);
+    for(const l of lins){
       if(!l.geom||l.geom.length<2)continue; nLin++;
       const coords=l.geom.map(c=>c[1]+','+c[0]+',0').join(' ');
       s+='<Placemark><name>'+esc(rotuloLinea(l))+'</name><description>'+esc(l.NOTA||'')+'</description>'
@@ -4500,7 +4574,9 @@ async function exportKMZ(){
            +carpeta('✏️ Líneas · Gabinete', await placemarksLinea('linea_gabinete'));
   // notas de campo -> Placemark de punto, foto opcional embebida igual que _satelital
   let notasKml=''; let nNot=0;
-  for(const nt of await all('nota')){
+  let notas=await all('nota');
+  if(proyectoId)notas=notas.filter(nt=>nt._parent===proyectoId);
+  for(const nt of notas){
     const lat=parseFloat(nt.LATITUD), lon=parseFloat(nt.LONGITUD); if(isNaN(lat)||isNaN(lon))continue;
     nNot++;
     let fotoImg='';
@@ -4513,7 +4589,8 @@ async function exportKMZ(){
   }
   const kml='<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Captura de terreno</name>\n'+overlays+lineasKml+notasKml+pk+'</Document></kml>';
   files.unshift({name:'doc.kml',data:new TextEncoder().encode(kml)});
-  descargar('captura_terreno.kmz',zipStore(files));
+  const nombre=proyectoId?'captura_terreno_'+nombreArchivoProyecto(proyectos[0])+'.kmz':'captura_terreno.kmz';
+  descargar(nombre,zipStore(files));
   toast('KMZ exportado ('+n+' puntos'+(nLin?', '+nLin+' líneas':'')+(nNot?', '+nNot+' notas':'')+(files.length>1?', imágenes':'')+')');
 }
 
@@ -4549,7 +4626,8 @@ function gpkgGeom(wkb){const g=new Uint8Array(8+wkb.length);g[0]=0x47;g[1]=0x50;
   new DataView(g.buffer).setInt32(4,4326,true);g.set(wkb,8);return g;}
 const WKT4326='GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AUTHORITY["EPSG","4326"]]';
 
-async function construirGPKG(){
+async function construirGPKG(proyectoId){
+  const idsPuntos = proyectoId ? await idsPuntosProyecto(proyectoId) : null;
   if(!window.initSqlJs)await cargarLib('vendor/sql-wasm.js');
   const SQL=await initSqlJs({locateFile:f=>'vendor/'+f});
   const db=new SQL.Database();
@@ -4578,13 +4656,15 @@ async function construirGPKG(){
                  ['IMAGEN_SATELITAL',r=>r._satelital?b64ToBytes(r._satelital):null]];
    const st=crear('PUNTO_CONTROL',cs,extras,true);
    const env={x0:1/0,y0:1/0,x1:-1/0,y1:-1/0};
-   for(const store of ['punto','punto_gabinete'])
-   for(const r of await conColeccion(store)){
+   for(const store of ['punto','punto_gabinete']){
+   let regs=await conColeccion(store);
+   if(proyectoId)regs=regs.filter(r=>r._parent===proyectoId);
+   for(const r of regs){
      const lat=parseFloat(latF(r)),lon=parseFloat(lonF(r));let g=null;
      if(!isNaN(lat)&&!isNaN(lon)){g=gpkgGeom(wkbPoint(lon,lat));nP++;
        env.x0=Math.min(env.x0,lon);env.x1=Math.max(env.x1,lon);env.y0=Math.min(env.y0,lat);env.y1=Math.max(env.y1,lat);}
      st.run([g,txt(r.id),txt(r._parent)].concat(cs.map(c=>txt(r[c])),extras.map(e=>e[1](r))));
-   }
+   }}
    st.free();
    db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,min_x,min_y,max_x,max_y,srs_id) VALUES ('PUNTO_CONTROL','features','PUNTO_CONTROL',?,?,?,?,4326)",nP?[env.x0,env.y0,env.x1,env.y1]:[null,null,null,null]);
    db.run("INSERT INTO gpkg_geometry_columns VALUES ('PUNTO_CONTROL','geom','POINT',4326,0,0)");
@@ -4595,7 +4675,7 @@ async function construirGPKG(){
    const st=crear('LINEA_CONTROL',csL,extrasL,true);
    const env={x0:1/0,y0:1/0,x1:-1/0,y1:-1/0};
    for(const store of ['linea','linea_gabinete'])
-   for(const l of await conColeccion(store)){
+   for(const l of (await conColeccion(store)).filter(l=>!proyectoId||l._parent===proyectoId)){
      if(!l.geom||l.geom.length<2)continue;nL++;
      l.geom.forEach(c=>{env.x0=Math.min(env.x0,c[1]);env.x1=Math.max(env.x1,c[1]);env.y0=Math.min(env.y0,c[0]);env.y1=Math.max(env.y1,c[0]);});
      st.run([gpkgGeom(wkbLine(l.geom)),txt(l.id),txt(l._parent)].concat(csL.map(n=>txt(l[n])),extrasL.map(e=>e[1](l))));
@@ -4609,7 +4689,7 @@ async function construirGPKG(){
    const extras=[['IMAGEN',r=>dataUrlBytes(r._img)]];
    const st=crear('NOTA_CAMPO',csN,extras,true);
    const env={x0:1/0,y0:1/0,x1:-1/0,y1:-1/0}; let nN=0;
-   for(const nt of await all('nota')){
+   for(const nt of (await all('nota')).filter(nt=>!proyectoId||nt._parent===proyectoId)){
      const lat=parseFloat(nt.LATITUD),lon=parseFloat(nt.LONGITUD);let g=null;
      if(!isNaN(lat)&&!isNaN(lon)){g=gpkgGeom(wkbPoint(lon,lat));nN++;
        env.x0=Math.min(env.x0,lon);env.x1=Math.max(env.x1,lon);env.y0=Math.min(env.y0,lat);env.y1=Math.max(env.y1,lat);}
@@ -4624,7 +4704,9 @@ async function construirGPKG(){
     const tbl=STORE2TBL[s];const cs=campos(s).map(c=>c.nombre);
     const extras=(s==='foto'||s==='esquema')?[['IMAGEN',r=>dataUrlBytes(r._img)]]:[];
     const st=crear(tbl,cs,extras,false);
-    for(const r of await all(s))st.run([txt(r.id),txt(r._parent)].concat(cs.map(c=>txt(r[c])),extras.map(e=>e[1](r))));
+    let regsS=await all(s);
+    if(proyectoId)regsS=regsS.filter(r=>esDeProyecto(s,r,proyectoId,idsPuntos));
+    for(const r of regsS)st.run([txt(r.id),txt(r._parent)].concat(cs.map(c=>txt(r[c])),extras.map(e=>e[1](r))));
     st.free();
     db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,srs_id) VALUES (?,?,?,0)",[tbl,'attributes',tbl]);
   }
@@ -4632,22 +4714,23 @@ async function construirGPKG(){
   return {bytes,nP,nL};
 }
 
-async function exportGPKG(){
+async function exportGPKG(proyectoId){
   try{
     toast('Generando GeoPackage…');
-    const r=await construirGPKG();
-    descargar('captura_terreno.gpkg',new Blob([r.bytes],{type:'application/geopackage+sqlite3'}));
+    const r=await construirGPKG(proyectoId);
+    const nombre=proyectoId?'captura_terreno_'+nombreArchivoProyecto(await get('proyecto',proyectoId))+'.gpkg':'captura_terreno.gpkg';
+    descargar(nombre,new Blob([r.bytes],{type:'application/geopackage+sqlite3'}));
     toast('GeoPackage exportado ('+r.nP+' puntos, '+r.nL+' líneas, 8 tablas)');
   }catch(e){console.error(e);toast('Error al generar GeoPackage: '+e.message);}
 }
 
-async function exportGDB(){
+async function exportGDB(proyectoId){
   try{
     toast('Preparando conversor GDB…');
     if(!window.initGdalJs)await cargarLib('vendor/gdal3.js');
     if(!window._Gdal)window._Gdal=await initGdalJs({path:'vendor',useWorker:false});
     const Gdal=window._Gdal;
-    const r=await construirGPKG();
+    const r=await construirGPKG(proyectoId);
     const stem='ct_'+Date.now().toString(36);   // nombre único: aísla esta corrida de restos de intentos previos en /output
     const res=await Gdal.open(new File([r.bytes],stem+'.gpkg'));
     const ds=res.datasets[0];
@@ -4663,14 +4746,168 @@ async function exportGDB(){
       catch(_){/* entradas de directorio */}
     }
     await Gdal.close(ds);
-    descargar('captura_terreno_GDB.zip',zipStore(files));
+    const nombreZip=proyectoId?'captura_terreno_GDB_'+nombreArchivoProyecto(await get('proyecto',proyectoId))+'.zip':'captura_terreno_GDB.zip';
+    descargar(nombreZip,zipStore(files));
     toast('GDB exportada ('+r.nP+' puntos, '+r.nL+' líneas) — descomprima el ZIP; la carpeta .gdb se abre en ArcGIS/QGIS');
   }catch(e){console.error(e);toast('Error al generar GDB: '+e.message);}
 }
 
+// ============================ Prosa de terreno (Gabinete) ============================
+// Borrador narrativo por punto para que el PDF final se lea como una libreta real, no una
+// planilla. Motor de reglas (no LLM): combina toponimia IGM + lectura geomorfologica +
+// litologia/estructuras del punto, y encadena puntos cercanos ("mismo sector") en vez de
+// repetir el topónimo en cada uno. TEXTO PLACEHOLDER: las frases reales quedan pendientes
+// del material de referencia (estándares de publicación SERNAGEOMIN) que se integrará acá
+// sin tocar el resto del andamiaje (toponimia, umbral, guardado, PDF).
+
+// Servicio real de toponimia IGM (Feature Server "Hosted", CORS abierto -- verificado). Chile
+// dividido en franjas de ~3° de latitud por seccion; los limites vienen de los extents reales
+// de cada capa, no son un grid perfecto, por eso se consulta tambien la seccion vecina cuando
+// el punto cae cerca de un borde.
+// Rangos VERIFICADOS uno por uno contra el extent real de cada capa (2026-08-19). No es un
+// grid regular: B abarca 4°, la ultima (L) llega hasta -56.54 y NO existe seccion 'M' (pedirla
+// devuelve 404 con HTTP 200 y cuerpo {"error":...}, por eso una version anterior de esta tabla
+// la daba por buena y todo el extremo sur -Tierra del Fuego, Cabo de Hornos- se quedaba sin
+// toponimo aunque L si tiene datos ahi.
+const SECCIONES_IGM=[
+  ['A',-17.5,-21.0],['B',-21.0,-25.0],['C',-25.0,-28.0],['D',-28.0,-31.0],
+  ['E',-31.0,-34.0],['F',-34.0,-37.0],['G',-37.0,-40.0],['H',-40.0,-43.0],
+  ['I',-43.0,-46.0],['J',-46.0,-49.0],['K',-49.0,-52.0],['L',-52.0,-56.6],
+];
+function seccionesIgmCercanas(lat,margenGrados){
+  return SECCIONES_IGM.filter(([,n,s])=>lat<=n+margenGrados && lat>=s-margenGrados).map(([l])=>l);
+}
+// Corrige texto UTF-8 mal doble-codificado que aparece en algunos registros del origen IGM
+// (ej. "SebastiÃ¡n" -> "Sebastián"); no toca texto que ya viene limpio.
+function fixMojibake(s){
+  // \u0080-\u00bf escrito con escapes A PROPOSITO: antes iba el caracter de control
+  // crudo dentro de la clase, invisible al leer el archivo y facil de romper sin notarlo.
+  if(!s || !/\u00c3[\u0080-\u00bf]/.test(s)) return s;
+  try{ return decodeURIComponent(escape(s)); }catch(e){ return s; }
+}
+function rumboCardinal(deg){
+  const dirs=['N','NE','E','SE','S','SO','O','NO'];
+  return dirs[Math.round((((deg%360)+360)%360)/45)%8];
+}
+function bearingDeg(lat1,lon1,lat2,lon2){
+  const r=Math.PI/180, y=Math.sin((lon2-lon1)*r)*Math.cos(lat2*r),
+    x=Math.cos(lat1*r)*Math.sin(lat2*r)-Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos((lon2-lon1)*r);
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+// Topónimo IGM más cercano dentro de radioM (default 3 km). Falla en silencio (sin conexión,
+// servicio caído, nada dentro del radio) devolviendo null -- nunca bloquea la generación.
+async function toponimoCercano(lat,lon,radioM){
+  radioM=radioM||3000;
+  const secciones=seccionesIgmCercanas(lat,radioM/111000);
+  let mejor=null;
+  for(const s of secciones){
+    try{
+      const url='https://gis.inv.igm.cl/host/rest/services/Hosted/'+s+'/FeatureServer/0/query?'
+        +'f=json&outSR=4326&outFields=texto&returnGeometry=true&geometryType=esriGeometryPoint'
+        +'&inSR=4326&distance='+radioM+'&units=esriSRUnit_Meter&spatialRel=esriSpatialRelIntersects'
+        +'&geometry='+encodeURIComponent(JSON.stringify({x:lon,y:lat}));
+      const r=await fetch(url); if(!r.ok)continue;
+      const j=await r.json(); if(!j.features)continue;
+      for(const f of j.features){
+        const texto=fixMojibake(f.attributes.texto); if(!texto)continue;
+        const d=L.latLng(lat,lon).distanceTo(L.latLng(f.geometry.y,f.geometry.x));
+        if(!mejor||d<mejor.distanciaM) mejor={texto,distanciaM:d,rumbo:rumboCardinal(bearingDeg(lat,lon,f.geometry.y,f.geometry.x))};
+      }
+    }catch(e){ /* sin conexion o servicio caido: se ignora, no bloquea */ }
+  }
+  return mejor;
+}
+// Umbral de "mismo sector" segun la escala de trabajo del proyecto: denominador ÷ 200
+// (mapear a la mitad de la escala nominal). Sin escala definida, 500 m por defecto.
+function umbralSector(proyecto){
+  const m=(proyecto.ESCALA_TRABAJO||'').match(/1\s*:\s*([\d.]+)/);
+  if(!m) return 500;
+  const den=parseFloat(m[1].replace(/\./g,''));
+  return den ? den/200 : 500;
+}
+// Arma el párrafo de un punto. PLACEHOLDER: frases genéricas hasta tener el material de
+// referencia; la firma (datos + topónimo + punto anterior) ya queda lista para ese ajuste.
+// Cada oracion se arma juntando SOLO las clausulas que existen y cerrando una vez con punto.
+// Concatenar fragmentos que pueden venir vacios y limpiar despues con regex producia ",." al
+// final (ej. punto sin EXPOSICION_AFLORAMIENTO: "...en un sector de ladera,.").
+function prosaPunto(pt,litos,estr,toponimo,anterior,umbral){
+  const frases=[];
+  const minuscula=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
+  const lista=a=>a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+' y '+a[a.length-1];
+
+  // --- ubicacion (encadena con el punto anterior si estan en el mismo sector) ---
+  const ubic=[];
+  let mismoSector=false;
+  if(anterior){
+    const latA=parseFloat(anterior.pt[inLat]),lonA=parseFloat(anterior.pt[inLon]);
+    const lat=parseFloat(pt[inLat]),lon=parseFloat(pt[inLon]);
+    const dist=L.latLng(lat,lon).distanceTo(L.latLng(latA,lonA));
+    mismoSector=dist<=umbral;
+    if(mismoSector) ubic.push('A '+Math.round(dist)+' m al '+rumboCardinal(bearingDeg(latA,lonA,lat,lon))
+      +' del punto anterior'+(anterior.pt.ID_PUNTO_CONTROL?' ('+anterior.pt.ID_PUNTO_CONTROL+')':''));
+  }
+  if(!mismoSector) ubic.push(toponimo?('El punto se ubica al '+toponimo.rumbo+' de '+toponimo.texto):'El punto se ubica');
+  if(pt.CONTEXTO_GEOMORFOLOGICO) ubic.push('en un sector de '+minuscula(pt.CONTEXTO_GEOMORFOLOGICO));
+  if(pt.EXPOSICION_AFLORAMIENTO) ubic.push('con exposición de afloramiento '+minuscula(pt.EXPOSICION_AFLORAMIENTO));
+  frases.push(ubic.join(', ')+'.');
+
+  // --- litologia: nombres distintos + unidades distintas (no solo la de la primera ficha) ---
+  const nombres=[...new Set(litos.map(l=>minuscula(l.NOMBRE_ROCA||l.TIPO_ROCA)).filter(Boolean))];
+  if(nombres.length){
+    const unidades=[...new Set(litos.map(l=>l.UNIDAD_GEOLOGICA).filter(Boolean))];
+    frases.push('Se reconoce'+(nombres.length>1?'n':'')+' '+lista(nombres)
+      +(unidades.length?', asignable'+(nombres.length>1?'s':'')+' a la'+(unidades.length>1?'s unidades ':' unidad ')+lista(unidades):'')+'.');
+  }
+  if(estr.length) frases.push('Se registra'+(estr.length===1?'':'n')+' '+estr.length
+    +' dato'+(estr.length===1?'':'s')+' estructural'+(estr.length===1?'':'es')+'.');
+  return frases.join(' ').replace(/\s{2,}/g,' ').trim();
+}
+// Generador por lotes: recorre los puntos del proyecto (colección activa) en orden
+// cronológico, encadenando "mismo sector" según el punto anterior, y guarda el borrador en
+// PROSA_CAMPO de cada uno (editable después a mano en su ficha).
+async function generarProsaProyecto(){
+  if(!curProyecto)return;
+  // El bloqueo "Llevar a terreno" existe justamente para que Gabinete no se edite sin querer:
+  // este generador reescribe PROSA_CAMPO de TODOS los puntos de una, asi que tiene que
+  // respetarlo igual que los campos del formulario (updateFormReadonly solo desactiva
+  // input/select/textarea, nunca vio los botones).
+  if(storeActivo()===RM_GAB_STORE && gabineteBloqueado()){
+    toast('Gabinete está bloqueado — desbloquéalo para generar la prosa');return;
+  }
+  if(navigator.onLine===false){toast('Sin conexión: se necesita internet para consultar toponimia IGM');return;}
+  const store=storeActivo(), esGab=coleccionActiva()==='gabinete';
+  const puntos=(await childrenOf(store,curProyecto.id))
+    .filter(p=>!isNaN(parseFloat(p[inLat]))&&!isNaN(parseFloat(p[inLon])))
+    .sort((a,b)=>((a.FECHA||'')+'T'+(a.HORA||'')).localeCompare((b.FECHA||'')+'T'+(b.HORA||'')));
+  if(!puntos.length){toast('No hay puntos con coordenadas en '+(esGab?'Gabinete':'Terreno'));return;}
+  const conTexto=puntos.filter(p=>p.PROSA_CAMPO&&p.PROSA_CAMPO.trim());
+  if(conTexto.length && !confirm(conTexto.length+' punto'+(conTexto.length===1?' ya tiene':'s ya tienen')+' prosa escrita. ¿Sobrescribir con un borrador nuevo?'))return;
+  const umbral=umbralSector(curProyecto);
+  toast('Generando prosa de '+puntos.length+' punto'+(puntos.length===1?'':'s')+'… consultando toponimia IGM');
+  let anterior=null,n=0;
+  try{
+    for(const pt of puntos){
+      const lat=parseFloat(pt[inLat]),lon=parseFloat(pt[inLon]);
+      const litos=await childrenOf('litologia',pt.id), estr=await childrenOf('estructural',pt.id);
+      const lejosDelAnterior=!anterior||L.latLng(lat,lon).distanceTo(
+        L.latLng(parseFloat(anterior.pt[inLat]),parseFloat(anterior.pt[inLon])))>umbral;
+      const toponimo=lejosDelAnterior?await toponimoCercano(lat,lon,3000):(anterior&&anterior.toponimo);
+      pt.PROSA_CAMPO=prosaPunto(pt,litos,estr,toponimo,anterior,umbral);
+      await put(store,pt);
+      anterior={pt,toponimo}; n++;
+    }
+  }catch(e){
+    // sin esto, un fallo a mitad dejaba unos puntos con prosa y otros no, en silencio.
+    console.error('Prosa de terreno:',e);
+    toast('Se interrumpió tras '+n+' de '+puntos.length+' puntos: '+(e&&e.message||e));
+    await render(); return;
+  }
+  toast('Prosa generada en '+n+' punto'+(n===1?'':'s')+' (umbral de sector: '+Math.round(umbral)+' m)');
+}
+
 // -------- PDF libreta de terreno (print) --------
-async function exportPDF(){
-  const proyectos=await all('proyecto');
+async function exportPDF(proyectoId){
+  const proyectos=proyectoId?[await get('proyecto',proyectoId)]:await all('proyecto');
   let paginas='';
   for(const pr of proyectos){
     for(const store of ['punto','punto_gabinete'])
@@ -4685,6 +4922,7 @@ async function exportPDF(){
     +'.sec{margin-top:3mm}.sec h2{font-size:10.5pt;background:#eef5f1;color:#1f6f4f;padding:1.5mm 2mm;margin:0 0 1mm;border-left:3px solid #1f6f4f}'
     +'table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:1mm}td,th{border:1px solid #bbb;padding:1.5mm;text-align:left;vertical-align:top}th{background:#f4f5f7}'
     +'.imgs{display:flex;flex-wrap:wrap;gap:2mm}.imgs figure{margin:0;width:46%}.imgs img{width:100%;border:1px solid #999}.imgs figcaption{font-size:8pt;color:#555}'
+    +'.prosa{margin:3mm 0;padding:2mm 2.5mm;background:#fbfaf5;border-left:3px solid #c9a227;font-size:9.5pt;line-height:1.4;font-style:italic;white-space:pre-line}'
     +'.lbl{color:#666;font-weight:bold}</style></head><body>'+paginas+'</body></html>';
   let ifr=$('#pdf-iframe');if(ifr)ifr.remove();
   ifr=el('iframe',{id:'pdf-iframe',style:'position:fixed;left:-9999px;top:-9999px;width:210mm;height:297mm;border:none'});
@@ -4728,6 +4966,7 @@ async function paginaLibreta(pr,pt,coleccion){
     +'<div><span class="lbl">Localidad:</span> '+esc(pt.NOMBRE_LOCALIDAD||'')+'</div>'
     +'<div><span class="lbl">Geomorfología:</span> '+esc(pt.CONTEXTO_GEOMORFOLOGICO||'')+'</div>'
     +(coleccion?'<div><span class="lbl">Colección:</span> '+esc(coleccion)+'</div>':'')+'</div>'
+    +(pt.PROSA_CAMPO?'<div class="prosa">'+esc(pt.PROSA_CAMPO)+'</div>':'')
     +'<div class="sec"><h2>Litología ('+litos.length+')</h2>'+tablaRegs('litologia',litos)+'</div>'
     +(estr.length?'<div class="sec"><h2>Datos estructurales</h2>'+tablaRegs('estructural',estr)+'</div>':'')
     +(cont.length?'<div class="sec"><h2>Contactos</h2>'+tablaRegs('contacto',cont)+'</div>':'')
