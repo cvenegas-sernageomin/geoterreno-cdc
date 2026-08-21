@@ -2967,7 +2967,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v73';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v74';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3669,13 +3669,6 @@ const SEDIMENTARIA_CLASTICA = ['Arcillolita', 'Arenisca', 'Brecha sedimentaria',
 // (piroclástico)") junto con cuerpos macizos/columnares — la clase sola no alcanza para
 // decidir, y el campo es opcional (2026-08-21, a pedido explícito del usuario).
 const CLASE_AFL_NO_ESTRATIFICADA = new Set(['Intrusivo', 'Metamórfico', 'Roca de falla (tectonita)']);
-// Medida estructural PLANAR (azimut/manteo) vs LINEAL (trend/plunge): no depende de
-// TIPO_ESTRUCTURA (la categoría, mezcla ambas) sino del rasgo puntual TIPO_MEDIDA_ESTRUCTURAL.
-// Regla por palabra clave en vez de una lista de las 63 opciones a mano: cualquier "Lineación"/
-// "(línea)"/"Eje ..."/"Estría ..."/"Marca de base"/"Escalón" es lineal, el resto (foliación,
-// plano, superficie, estratificación, bandeamiento, clivaje, fractura, diaclasa, set de vetas/
-// diaclasas) es planar — revisado término por término contra las 63 opciones reales del modelo.
-const esMedidaLineal = v => /línea|lineaci|eje |estría|marca de base|escalón/i.test(v || '');
 const CONDICIONALES = {
   // Una litología es roca O depósito: TIPO_DEPOSITO solo con TIPO_ROCA = "Depósito".
   TIPO_DEPOSITO: {modo:'bloquear', regla: v => v['TIPO_ROCA']==='Depósito'},
@@ -3735,14 +3728,14 @@ const CONDICIONALES = {
   GRADO_CONSOLIDACION: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Depósito'},
   // Tipo de falla solo cuando la estructura medida es una falla (formulario de punto).
   TIPO_FALLA: {modo:'ocultar', regla: v => v['TIPO_ESTRUCTURA']==='Estructura falla'},
-  // Actitud PLANAR (azimut/manteo) vs LINEAL (trend/plunge) — ver esMedidaLineal arriba. Sin
-  // medida elegida todavía se deja azimut/manteo habilitado (el par más común) y trend/plunge
-  // bloqueado, en vez de bloquear ambos o ninguno: es el estado que menos sorprende a quien
-  // recién abrió la ficha (mayoría de las medidas del corpus son planos, no líneas).
-  AZIMUT:              {modo:'bloquear', regla: v => !esMedidaLineal(v['TIPO_MEDIDA_ESTRUCTURAL'])},
-  MANTEO_BUZAMIENTO:   {modo:'bloquear', regla: v => !esMedidaLineal(v['TIPO_MEDIDA_ESTRUCTURAL'])},
-  TREND:               {modo:'bloquear', regla: v => esMedidaLineal(v['TIPO_MEDIDA_ESTRUCTURAL'])},
-  PLUNGE:               {modo:'bloquear', regla: v => esMedidaLineal(v['TIPO_MEDIDA_ESTRUCTURAL'])},
+  // NO agregar aquí una regla que haga excluyentes AZIMUT/MANTEO_BUZAMIENTO (plano) y
+  // TREND/PLUNGE (línea) según TIPO_MEDIDA_ESTRUCTURAL: se intentó en v73 y hubo que revertirlo
+  // el mismo día. Este esquema guarda A PROPÓSITO el plano Y la lineación que va sobre él en un
+  // solo registro — es la medición estructural clásica (plano de falla + estría → cinemática), y
+  // el botón "📏 Plano + línea" de barraMedicion() llena LOS CUATRO campos de una pasada con los
+  // sensores. Con la regla puesta, medir y clasificar después borraba el plano recién medido
+  // (verificado: 208/64 desaparecía del formulario y del disco), y clasificar primero dejaba
+  // trend/plunge escribiéndose en campos atenuados que el geólogo no podía ver ni corregir.
   // --- TBL_AFLORAMIENTO: ver CLASE_AFL_NO_ESTRATIFICADA arriba.
   ARREGLO_ESTRATOS:     {modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
   GRADACION_INTERNA:    {modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
@@ -6294,6 +6287,13 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
       let s=minuscula(e.TIPO_MEDIDA_ESTRUCTURAL||(e.TIPO_ESTRUCTURA||'estructura').replace(/^Estructura\s+/i,''));
       const az=parseFloat(e.AZIMUT), mz=parseFloat(e.MANTEO_BUZAMIENTO);
       if(!isNaN(az)&&!isNaN(mz)) s+=' N'+Math.round(az)+'/'+Math.round(mz);
+      // La lineación (trend/plunge) se narraba en NINGÚN caso: un eje de pliegue o una estría
+      // medidos 115/32 salían como "eje de pliegue (línea)", sin un solo número — y como el PDF
+      // de la libreta REEMPLAZA las tablas por la prosa cuando el punto la tiene (ver
+      // paginaLibreta), esos grados desaparecían del impreso. En una estría es justo el dato que
+      // define la cinemática de la falla. Notación estándar: el plano N208/64, la línea 115/32.
+      const tr=parseFloat(e.TREND), pg=parseFloat(e.PLUNGE);
+      if(!isNaN(tr)&&!isNaN(pg)) s+=(isNaN(az)||isNaN(mz)?' ':' con lineación ')+Math.round(tr)+'/'+Math.round(pg);
       if(e.TIPO_FALLA) s+=' ('+minuscula(e.TIPO_FALLA)+')';
       return s;
     });

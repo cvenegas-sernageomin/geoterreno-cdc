@@ -1,11 +1,15 @@
 // Service worker offline-first (cache estatico)
-const CACHE='geoterreno-cdc-v73';
+const CACHE='geoterreno-cdc-v74';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet.css','./vendor/leaflet.js','./vendor/idb.js','./vendor/leaflet.offline.js',
   './vendor/georaster.browser.bundle.min.js','./vendor/georaster-layer-for-leaflet.min.js',
   './vendor/sql-wasm.js','./vendor/sql-wasm.wasm','./vendor/jszip.js',
   './vendor/images/marker-icon.png','./vendor/images/marker-icon-2x.png','./vendor/images/marker-shadow.png',
   './vendor/images/layers.png','./vendor/images/layers-2x.png'];
+// vendor/gdal3.js + gdal3WebAssembly.{data,wasm} quedan FUERA de ASSETS a proposito: pesan
+// ~39 MB entre los tres y el install del SW los bajaria en cada dispositivo aunque el geologo
+// nunca exporte GDB. Igual quedan cacheados por la rama cache-first de abajo la primera vez
+// que se usa la exportacion estando en linea. NO agregarlos aca "para completar la lista".
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;
