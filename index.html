@@ -1036,6 +1036,18 @@ const MODELO = {
           "nota": "Arquitectura del afloramiento como conjunto; la lista depende de CLASE_AFLORAMIENTO. Las estructuras de detalle (ondulitas, bioturbación, flaser…) van en la ficha Litología (ESTRUCTURA_TIPO_ROCA), no aquí."
         },
         {
+          "nombre": "TIPO_AFLORAMIENTO",
+          "obligatorio": false,
+          "dominio": "TIPO_AFLORAMIENTO",
+          "nota": "Clasificación complementaria propia (no CDC), independiente de CLASE_AFLORAMIENTO: describe qué HAY en el afloramiento (litología simple, secuencia, contacto, estructura, alteración, depósito, cubierto) más que de qué roca es."
+        },
+        {
+          "nombre": "SUBTIPO_AFLORAMIENTO",
+          "obligatorio": false,
+          "dominio": "SUBTIPO_AFLORAMIENTO",
+          "nota": "Subclase según TIPO_AFLORAMIENTO."
+        },
+        {
           "nombre": "ARREGLO_ESTRATOS",
           "obligatorio": false,
           "dominio": "ARREGLO_ESTRATOS",
@@ -2840,6 +2852,101 @@ const MODELO = {
         "No determinada"
       ],
       "fuente": "Norma CDC 2016 Vol IV, campo CRISTALINIDAD -- verbatim, 4/4 términos."
+    },
+    "TIPO_AFLORAMIENTO": {
+      "tipo": "simple",
+      "valores": [
+        "Afloramiento litológico simple",
+        "Secuencia estratificada",
+        "Contacto geológico",
+        "Contacto intrusivo",
+        "Afloramiento estructural",
+        "Afloramiento mineralizado / alterado",
+        "Depósito superficial",
+        "Afloramiento cubierto o de baja calidad"
+      ],
+      "fuente": "Clasificación propia del usuario (no normativa CDC 2016) -- capa descriptiva complementaria a CLASE_AFLORAMIENTO, orden curado por recurrencia y utilidad geológica en terreno; no reordenar por frecuencia."
+    },
+    "SUBTIPO_AFLORAMIENTO": {
+      "tipo": "cascada",
+      "padre": "TIPO_AFLORAMIENTO",
+      "mapa": {
+        "Afloramiento litológico simple": [
+          "Lava / roca volcánica",
+          "Roca piroclástica",
+          "Roca sedimentaria clástica",
+          "Roca carbonatada / fosilífera",
+          "Roca intrusiva / plutónica",
+          "Roca metamórfica / foliada",
+          "Depósito no consolidado"
+        ],
+        "Secuencia estratificada": [
+          "Sucesión volcánico-sedimentaria",
+          "Paquete sedimentario",
+          "Alternancia de capas",
+          "Estratos con estructuras sedimentarias",
+          "Secuencia piroclástica"
+        ],
+        "Contacto geológico": [
+          "Contacto estratigráfico",
+          "Contacto concordante",
+          "Contacto gradacional",
+          "Contacto erosivo",
+          "Discordancia angular",
+          "Discordancia de erosión",
+          "Paraconcordancia",
+          "Inconformidad",
+          "Contacto cubierto / inferido"
+        ],
+        "Contacto intrusivo": [
+          "Contacto intrusivo neto",
+          "Contacto intrusivo difuso",
+          "Contacto con metamorfismo de contacto",
+          "Intrusivo que corta unidad estratificada",
+          "Dique / filón / filón manto",
+          "Apófisis intrusiva"
+        ],
+        "Afloramiento estructural": [
+          "Falla normal",
+          "Falla inversa",
+          "Cabalgadura",
+          "Falla de rumbo",
+          "Zona de cizalla",
+          "Zona de fracturamiento",
+          "Brecha de falla",
+          "Escarpe de falla",
+          "Pliegue",
+          "Anticlinal / sinclinal"
+        ],
+        "Afloramiento mineralizado / alterado": [
+          "Veta",
+          "Veta de cuarzo",
+          "Mineralización diseminada",
+          "Oxidación de hierro",
+          "Alteración propilítica",
+          "Alteración argílica",
+          "Silicificación",
+          "Skarn / metasomatismo"
+        ],
+        "Depósito superficial": [
+          "Aluvial / fluvial",
+          "Coluvial",
+          "Remoción en masa",
+          "Glacial / morrénico",
+          "Lacustre / evaporítico",
+          "Marino / litoral",
+          "Eólico"
+        ],
+        "Afloramiento cubierto o de baja calidad": [
+          "Regolito",
+          "Coluvio",
+          "Afloramiento tapado",
+          "Bloques sueltos / float",
+          "Subafloramiento",
+          "Interpretado por relieve / fotogeología"
+        ]
+      },
+      "fuente": "Clasificación propia del usuario (no normativa CDC 2016)."
     }
   },
   "avisos": [
@@ -2860,7 +2967,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v71';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v72';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -6096,6 +6203,11 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
   // ("El afloramiento") para que la oración se sostenga sola cuando el punto no tiene
   // litología cargada. ---
   if(afl){
+    // 0) clasificación complementaria propia (no CDC, no tiene FRASE curada por valor: son
+    // ~57 términos de una taxonomía del usuario que ya se solapan con contactos/estructura/
+    // alteración tratados aparte más abajo; se enuncia tal cual para no duplicar redacción).
+    if(afl.SUBTIPO_AFLORAMIENTO) frases.push('Se clasifica como '+minuscula(afl.SUBTIPO_AFLORAMIENTO)+'.');
+    else if(afl.TIPO_AFLORAMIENTO) frases.push('Se clasifica como '+minuscula(afl.TIPO_AFLORAMIENTO)+'.');
     // 1) cómo se ve el afloramiento: carácter + espesor + geometría + extensión lateral
     const cl=[CARACTER_FRASE[afl.CARACTER_MESOSCOPICO],
               espesorFrase(afl.ESPESOR_MIN_CM,afl.ESPESOR_MAX_CM),
