@@ -1207,8 +1207,8 @@ const MODELO = {
     "GRADO_CONFIANZA": {
       "tipo": "simple",
       "valores": [
-        "MEDIA",
         "ALTA",
+        "MEDIA",
         "BAJA"
       ],
       "fuente": "Lista de Dominios.xlsx"
@@ -1216,8 +1216,8 @@ const MODELO = {
     "INTENSIDAD_ALTERACION": {
       "tipo": "simple",
       "valores": [
-        "MEDIA",
         "ALTA",
+        "MEDIA",
         "BAJA"
       ],
       "fuente": "Lista de Dominios.xlsx"
@@ -1225,8 +1225,8 @@ const MODELO = {
     "LV_CALIDAD_COORDENADAS": {
       "tipo": "simple",
       "valores": [
-        "confiable",
         "Poco confiable",
+        "confiable",
         "muy confiable"
       ],
       "fuente": "Lista de Dominios.xlsx"
@@ -1247,9 +1247,9 @@ const MODELO = {
     "EXPOSICION_AFLORAMIENTO": {
       "tipo": "simple",
       "valores": [
-        "Excelente (3)",
+        "Tapado (1)",
         "Parcial (2)",
-        "Tapado (1)"
+        "Excelente (3)"
       ],
       "fuente": "Lista de Dominios.xlsx"
     },
@@ -1261,14 +1261,14 @@ const MODELO = {
         "Estructura contacto",
         "Estructura fabrica magnetica",
         "Estructura fractura",
-        "Estructura indiferenciada",
         "Estructura intrusiva",
         "Estructura metamórfica",
         "Estructura pliegue mayor",
         "Estructura pliegue menor",
         "Estructura roca tectonica",
         "Estructura sedimentaria",
-        "Estructura veta"
+        "Estructura veta",
+        "Estructura indiferenciada"
       ],
       "fuente": "Lista de Dominios.xlsx"
     },
@@ -1300,11 +1300,11 @@ const MODELO = {
           "Gabro (sensu lato)",
           "Granitoide cuarcífero",
           "Intrusivo hipabisal félsico",
-          "Intrusivo hipabisal indiferenciado",
           "Intrusivo hipabisal intermedio",
           "Intrusivo hipabisal máfico",
           "Sienita cuarcífera de feldespato alcalino",
-          "Sienita de feldespato alcalino"
+          "Sienita de feldespato alcalino",
+          "Intrusivo hipabisal indiferenciado"
         ],
         "Volcánica": [
           "Ignimbrita",
@@ -1358,438 +1358,438 @@ const MODELO = {
       "padre": "NOMBRE_ROCA",
       "mapa": {
         "Arenisca": [
-          "arcillolita (<0,004 mm)",
-          "arenisca fina (0,25–0,125 mm)",
-          "arenisca gruesa (1–0,5 mm)",
-          "arenisca media (0,5–0,25 mm)",
-          "arenisca muy fina (0,125–0,0625 mm)",
-          "arenisca muy gruesa (2–1 mm)",
-          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
-          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
-          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
-          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
-          "conglomerado/brecha de guijarro fina (8–4 mm)",
-          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
-          "conglomerado/brecha de guijarro media (16–8 mm)",
-          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
-          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
-          "conglomerado/brecha de guijón fino (128–64 mm)",
-          "conglomerado/brecha de guijón grueso (256–128 mm)",
-          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
           "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
-          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
           "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
           "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
-          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
-          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
           "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
-          "limolita fina (0,016–0,008 mm)",
           "limolita gruesa (0,0625–0,031 mm)",
           "limolita media (0,031–0,016 mm)",
-          "limolita muy fina (0,008–0,004 mm)"
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
         ],
         "Lutita": [
-          "arcillolita (<0,004 mm)",
-          "arenisca fina (0,25–0,125 mm)",
-          "arenisca gruesa (1–0,5 mm)",
-          "arenisca media (0,5–0,25 mm)",
-          "arenisca muy fina (0,125–0,0625 mm)",
-          "arenisca muy gruesa (2–1 mm)",
-          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
-          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
-          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
-          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
-          "conglomerado/brecha de guijarro fina (8–4 mm)",
-          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
-          "conglomerado/brecha de guijarro media (16–8 mm)",
-          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
-          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
-          "conglomerado/brecha de guijón fino (128–64 mm)",
-          "conglomerado/brecha de guijón grueso (256–128 mm)",
-          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
           "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
-          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
           "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
           "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
-          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
-          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
           "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
-          "limolita fina (0,016–0,008 mm)",
           "limolita gruesa (0,0625–0,031 mm)",
           "limolita media (0,031–0,016 mm)",
-          "limolita muy fina (0,008–0,004 mm)"
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
         ],
         "Conglomerado": [
-          "arcillolita (<0,004 mm)",
-          "arenisca fina (0,25–0,125 mm)",
-          "arenisca gruesa (1–0,5 mm)",
-          "arenisca media (0,5–0,25 mm)",
-          "arenisca muy fina (0,125–0,0625 mm)",
-          "arenisca muy gruesa (2–1 mm)",
-          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
-          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
-          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
-          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
-          "conglomerado/brecha de guijarro fina (8–4 mm)",
-          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
-          "conglomerado/brecha de guijarro media (16–8 mm)",
-          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
-          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
-          "conglomerado/brecha de guijón fino (128–64 mm)",
-          "conglomerado/brecha de guijón grueso (256–128 mm)",
-          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
           "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
-          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
           "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
           "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
-          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
-          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
           "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
-          "limolita fina (0,016–0,008 mm)",
           "limolita gruesa (0,0625–0,031 mm)",
           "limolita media (0,031–0,016 mm)",
-          "limolita muy fina (0,008–0,004 mm)"
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
         ],
         "Brecha sedimentaria": [
-          "arcillolita (<0,004 mm)",
-          "arenisca fina (0,25–0,125 mm)",
-          "arenisca gruesa (1–0,5 mm)",
-          "arenisca media (0,5–0,25 mm)",
-          "arenisca muy fina (0,125–0,0625 mm)",
-          "arenisca muy gruesa (2–1 mm)",
-          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
-          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
-          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
-          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
-          "conglomerado/brecha de guijarro fina (8–4 mm)",
-          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
-          "conglomerado/brecha de guijarro media (16–8 mm)",
-          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
-          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
-          "conglomerado/brecha de guijón fino (128–64 mm)",
-          "conglomerado/brecha de guijón grueso (256–128 mm)",
-          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
           "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
-          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
           "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
           "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
-          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
-          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
           "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
-          "limolita fina (0,016–0,008 mm)",
           "limolita gruesa (0,0625–0,031 mm)",
           "limolita media (0,031–0,016 mm)",
-          "limolita muy fina (0,008–0,004 mm)"
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
         ],
         "Conglomerado megaclástico": [
-          "arcillolita (<0,004 mm)",
-          "arenisca fina (0,25–0,125 mm)",
-          "arenisca gruesa (1–0,5 mm)",
-          "arenisca media (0,5–0,25 mm)",
-          "arenisca muy fina (0,125–0,0625 mm)",
-          "arenisca muy gruesa (2–1 mm)",
-          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
-          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
-          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
-          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
-          "conglomerado/brecha de guijarro fina (8–4 mm)",
-          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
-          "conglomerado/brecha de guijarro media (16–8 mm)",
-          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
-          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
-          "conglomerado/brecha de guijón fino (128–64 mm)",
-          "conglomerado/brecha de guijón grueso (256–128 mm)",
-          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
           "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
-          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
           "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
           "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
-          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
-          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
           "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
-          "limolita fina (0,016–0,008 mm)",
           "limolita gruesa (0,0625–0,031 mm)",
           "limolita media (0,031–0,016 mm)",
-          "limolita muy fina (0,008–0,004 mm)"
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
         ],
         "Arcillolita": [
-          "arcillolita (<0,004 mm)",
-          "arenisca fina (0,25–0,125 mm)",
-          "arenisca gruesa (1–0,5 mm)",
-          "arenisca media (0,5–0,25 mm)",
-          "arenisca muy fina (0,125–0,0625 mm)",
-          "arenisca muy gruesa (2–1 mm)",
-          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
-          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
-          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
-          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
-          "conglomerado/brecha de guijarro fina (8–4 mm)",
-          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
-          "conglomerado/brecha de guijarro media (16–8 mm)",
-          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
-          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
-          "conglomerado/brecha de guijón fino (128–64 mm)",
-          "conglomerado/brecha de guijón grueso (256–128 mm)",
-          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
           "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
-          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
           "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
           "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
-          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
-          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
           "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
-          "limolita fina (0,016–0,008 mm)",
           "limolita gruesa (0,0625–0,031 mm)",
           "limolita media (0,031–0,016 mm)",
-          "limolita muy fina (0,008–0,004 mm)"
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
         ],
         "Fangolita": [
-          "arcillolita (<0,004 mm)",
-          "arenisca fina (0,25–0,125 mm)",
-          "arenisca gruesa (1–0,5 mm)",
-          "arenisca media (0,5–0,25 mm)",
-          "arenisca muy fina (0,125–0,0625 mm)",
-          "arenisca muy gruesa (2–1 mm)",
-          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
-          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
-          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
-          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
-          "conglomerado/brecha de guijarro fina (8–4 mm)",
-          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
-          "conglomerado/brecha de guijarro media (16–8 mm)",
-          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
-          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
-          "conglomerado/brecha de guijón fino (128–64 mm)",
-          "conglomerado/brecha de guijón grueso (256–128 mm)",
-          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
           "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
-          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
           "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
           "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
-          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
-          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
           "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
-          "limolita fina (0,016–0,008 mm)",
           "limolita gruesa (0,0625–0,031 mm)",
           "limolita media (0,031–0,016 mm)",
-          "limolita muy fina (0,008–0,004 mm)"
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
         ],
         "Limolita": [
-          "arcillolita (<0,004 mm)",
-          "arenisca fina (0,25–0,125 mm)",
-          "arenisca gruesa (1–0,5 mm)",
-          "arenisca media (0,5–0,25 mm)",
-          "arenisca muy fina (0,125–0,0625 mm)",
-          "arenisca muy gruesa (2–1 mm)",
-          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
-          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
-          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
-          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
-          "conglomerado/brecha de guijarro fina (8–4 mm)",
-          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
-          "conglomerado/brecha de guijarro media (16–8 mm)",
-          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
-          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
-          "conglomerado/brecha de guijón fino (128–64 mm)",
-          "conglomerado/brecha de guijón grueso (256–128 mm)",
-          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
           "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
-          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
           "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
           "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
-          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
-          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
           "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
-          "limolita fina (0,016–0,008 mm)",
           "limolita gruesa (0,0625–0,031 mm)",
           "limolita media (0,031–0,016 mm)",
-          "limolita muy fina (0,008–0,004 mm)"
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
         ],
         "Sedimentita siliciclástica indiferenciada": [
-          "arcillolita (<0,004 mm)",
-          "arenisca fina (0,25–0,125 mm)",
-          "arenisca gruesa (1–0,5 mm)",
-          "arenisca media (0,5–0,25 mm)",
-          "arenisca muy fina (0,125–0,0625 mm)",
-          "arenisca muy gruesa (2–1 mm)",
-          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
-          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
-          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
-          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
-          "conglomerado/brecha de guijarro fina (8–4 mm)",
-          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
-          "conglomerado/brecha de guijarro media (16–8 mm)",
-          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
-          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
-          "conglomerado/brecha de guijón fino (128–64 mm)",
-          "conglomerado/brecha de guijón grueso (256–128 mm)",
-          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
           "conglomerado/brecha megaclástica de macrolito (>33,6 km)",
-          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de macrobolón (1048–65 m)",
+          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
           "conglomerado/brecha megaclástica de mesobolón grueso (33–16,4 m)",
           "conglomerado/brecha megaclástica de mesobolón medio (16,4–8,2 m)",
-          "conglomerado/brecha megaclástica de mesobolón muy grueso (65–33 m)",
-          "conglomerado/brecha megaclástica de mesolito (33,6–1,0 km)",
+          "conglomerado/brecha megaclástica de mesobolón fino (8,2–4,1 m)",
+          "conglomerado/brecha de bolón muy grueso (4,1–2,0 m)",
+          "conglomerado/brecha de bolón grueso (2,0–1,0 m)",
+          "conglomerado/brecha de bolón medio (1,0–0,5 m)",
+          "conglomerado/brecha de bolón fino (0,5–0,25 m)",
+          "conglomerado/brecha de guijón grueso (256–128 mm)",
+          "conglomerado/brecha de guijón fino (128–64 mm)",
+          "conglomerado/brecha de guijarro muy gruesa (64–32 mm)",
+          "conglomerado/brecha de guijarro gruesa (32–16 mm)",
+          "conglomerado/brecha de guijarro media (16–8 mm)",
+          "conglomerado/brecha de guijarro fina (8–4 mm)",
+          "conglomerado/brecha de guijarro muy fina (4–2 mm)",
+          "arenisca muy gruesa (2–1 mm)",
+          "arenisca gruesa (1–0,5 mm)",
+          "arenisca media (0,5–0,25 mm)",
+          "arenisca fina (0,25–0,125 mm)",
+          "arenisca muy fina (0,125–0,0625 mm)",
           "limolita / fangolita, lutita (cuando no se diferencia) (0,0625–0,004 mm)",
-          "limolita fina (0,016–0,008 mm)",
           "limolita gruesa (0,0625–0,031 mm)",
           "limolita media (0,031–0,016 mm)",
-          "limolita muy fina (0,008–0,004 mm)"
+          "limolita fina (0,016–0,008 mm)",
+          "limolita muy fina (0,008–0,004 mm)",
+          "arcillolita (<0,004 mm)"
         ],
         "Aluviales": [
-          "arcilla (<0,004 mm)",
-          "arena fina (0,25–0,125 mm)",
-          "arena gruesa (1–0,5 mm)",
-          "arena media (0,5–0,25 mm)",
-          "arena muy fina (0,125–0,0625 mm)",
-          "arena muy gruesa (2–1 mm)",
-          "grava de bolón fino (0,5–0,25 m)",
-          "grava de bolón grueso (2,0–1,0 m)",
-          "grava de bolón medio (1,0–0,5 m)",
-          "grava de bolón muy grueso (4,1–2,0 m)",
-          "grava de guijarro fina (8–4 mm)",
-          "grava de guijarro gruesa (32–16 mm)",
-          "grava de guijarro media (16–8 mm)",
-          "grava de guijarro muy fina (4–2 mm)",
-          "grava de guijarro muy gruesa (64–32 mm)",
-          "grava de guijón fino (128–64 mm)",
-          "grava de guijón grueso (256–128 mm)",
-          "limo / fango (0,0625–0,004 mm)",
-          "limo fino (0,016–0,008 mm)",
-          "limo grueso (0,0625–0,031 mm)",
-          "limo medio (0,031–0,016 mm)",
-          "limo muy fino (0,008–0,004 mm)",
-          "sedimento megaclástico de macrobolón (1048–65 m)",
           "sedimento megaclástico de macrolito (>33,6 km)",
-          "sedimento megaclástico de mesobolón fino (8,2–4,1 m)",
+          "sedimento megaclástico de mesolito (33,6–1,0 km)",
+          "sedimento megaclástico de macrobolón (1048–65 m)",
+          "sedimento megaclástico de mesobolón muy grueso (65–33 m)",
           "sedimento megaclástico de mesobolón grueso (33–16,4 m)",
           "sedimento megaclástico de mesobolón medio (16,4–8,2 m)",
-          "sedimento megaclástico de mesobolón muy grueso (65–33 m)",
-          "sedimento megaclástico de mesolito (33,6–1,0 km)"
+          "sedimento megaclástico de mesobolón fino (8,2–4,1 m)",
+          "grava de bolón muy grueso (4,1–2,0 m)",
+          "grava de bolón grueso (2,0–1,0 m)",
+          "grava de bolón medio (1,0–0,5 m)",
+          "grava de bolón fino (0,5–0,25 m)",
+          "grava de guijón grueso (256–128 mm)",
+          "grava de guijón fino (128–64 mm)",
+          "grava de guijarro muy gruesa (64–32 mm)",
+          "grava de guijarro gruesa (32–16 mm)",
+          "grava de guijarro media (16–8 mm)",
+          "grava de guijarro fina (8–4 mm)",
+          "grava de guijarro muy fina (4–2 mm)",
+          "arena muy gruesa (2–1 mm)",
+          "arena gruesa (1–0,5 mm)",
+          "arena media (0,5–0,25 mm)",
+          "arena fina (0,25–0,125 mm)",
+          "arena muy fina (0,125–0,0625 mm)",
+          "limo / fango (0,0625–0,004 mm)",
+          "limo grueso (0,0625–0,031 mm)",
+          "limo medio (0,031–0,016 mm)",
+          "limo fino (0,016–0,008 mm)",
+          "limo muy fino (0,008–0,004 mm)",
+          "arcilla (<0,004 mm)"
         ],
         "Coluviales": [
-          "arcilla (<0,004 mm)",
-          "arena fina (0,25–0,125 mm)",
-          "arena gruesa (1–0,5 mm)",
-          "arena media (0,5–0,25 mm)",
-          "arena muy fina (0,125–0,0625 mm)",
-          "arena muy gruesa (2–1 mm)",
-          "grava de bolón fino (0,5–0,25 m)",
-          "grava de bolón grueso (2,0–1,0 m)",
-          "grava de bolón medio (1,0–0,5 m)",
-          "grava de bolón muy grueso (4,1–2,0 m)",
-          "grava de guijarro fina (8–4 mm)",
-          "grava de guijarro gruesa (32–16 mm)",
-          "grava de guijarro media (16–8 mm)",
-          "grava de guijarro muy fina (4–2 mm)",
-          "grava de guijarro muy gruesa (64–32 mm)",
-          "grava de guijón fino (128–64 mm)",
-          "grava de guijón grueso (256–128 mm)",
-          "limo / fango (0,0625–0,004 mm)",
-          "limo fino (0,016–0,008 mm)",
-          "limo grueso (0,0625–0,031 mm)",
-          "limo medio (0,031–0,016 mm)",
-          "limo muy fino (0,008–0,004 mm)",
-          "sedimento megaclástico de macrobolón (1048–65 m)",
           "sedimento megaclástico de macrolito (>33,6 km)",
-          "sedimento megaclástico de mesobolón fino (8,2–4,1 m)",
+          "sedimento megaclástico de mesolito (33,6–1,0 km)",
+          "sedimento megaclástico de macrobolón (1048–65 m)",
+          "sedimento megaclástico de mesobolón muy grueso (65–33 m)",
           "sedimento megaclástico de mesobolón grueso (33–16,4 m)",
           "sedimento megaclástico de mesobolón medio (16,4–8,2 m)",
-          "sedimento megaclástico de mesobolón muy grueso (65–33 m)",
-          "sedimento megaclástico de mesolito (33,6–1,0 km)"
+          "sedimento megaclástico de mesobolón fino (8,2–4,1 m)",
+          "grava de bolón muy grueso (4,1–2,0 m)",
+          "grava de bolón grueso (2,0–1,0 m)",
+          "grava de bolón medio (1,0–0,5 m)",
+          "grava de bolón fino (0,5–0,25 m)",
+          "grava de guijón grueso (256–128 mm)",
+          "grava de guijón fino (128–64 mm)",
+          "grava de guijarro muy gruesa (64–32 mm)",
+          "grava de guijarro gruesa (32–16 mm)",
+          "grava de guijarro media (16–8 mm)",
+          "grava de guijarro fina (8–4 mm)",
+          "grava de guijarro muy fina (4–2 mm)",
+          "arena muy gruesa (2–1 mm)",
+          "arena gruesa (1–0,5 mm)",
+          "arena media (0,5–0,25 mm)",
+          "arena fina (0,25–0,125 mm)",
+          "arena muy fina (0,125–0,0625 mm)",
+          "limo / fango (0,0625–0,004 mm)",
+          "limo grueso (0,0625–0,031 mm)",
+          "limo medio (0,031–0,016 mm)",
+          "limo fino (0,016–0,008 mm)",
+          "limo muy fino (0,008–0,004 mm)",
+          "arcilla (<0,004 mm)"
         ],
         "Glaciares": [
-          "arcilla (<0,004 mm)",
-          "arena fina (0,25–0,125 mm)",
-          "arena gruesa (1–0,5 mm)",
-          "arena media (0,5–0,25 mm)",
-          "arena muy fina (0,125–0,0625 mm)",
-          "arena muy gruesa (2–1 mm)",
-          "grava de bolón fino (0,5–0,25 m)",
-          "grava de bolón grueso (2,0–1,0 m)",
-          "grava de bolón medio (1,0–0,5 m)",
-          "grava de bolón muy grueso (4,1–2,0 m)",
-          "grava de guijarro fina (8–4 mm)",
-          "grava de guijarro gruesa (32–16 mm)",
-          "grava de guijarro media (16–8 mm)",
-          "grava de guijarro muy fina (4–2 mm)",
-          "grava de guijarro muy gruesa (64–32 mm)",
-          "grava de guijón fino (128–64 mm)",
-          "grava de guijón grueso (256–128 mm)",
-          "limo / fango (0,0625–0,004 mm)",
-          "limo fino (0,016–0,008 mm)",
-          "limo grueso (0,0625–0,031 mm)",
-          "limo medio (0,031–0,016 mm)",
-          "limo muy fino (0,008–0,004 mm)",
-          "sedimento megaclástico de macrobolón (1048–65 m)",
           "sedimento megaclástico de macrolito (>33,6 km)",
-          "sedimento megaclástico de mesobolón fino (8,2–4,1 m)",
+          "sedimento megaclástico de mesolito (33,6–1,0 km)",
+          "sedimento megaclástico de macrobolón (1048–65 m)",
+          "sedimento megaclástico de mesobolón muy grueso (65–33 m)",
           "sedimento megaclástico de mesobolón grueso (33–16,4 m)",
           "sedimento megaclástico de mesobolón medio (16,4–8,2 m)",
-          "sedimento megaclástico de mesobolón muy grueso (65–33 m)",
-          "sedimento megaclástico de mesolito (33,6–1,0 km)"
+          "sedimento megaclástico de mesobolón fino (8,2–4,1 m)",
+          "grava de bolón muy grueso (4,1–2,0 m)",
+          "grava de bolón grueso (2,0–1,0 m)",
+          "grava de bolón medio (1,0–0,5 m)",
+          "grava de bolón fino (0,5–0,25 m)",
+          "grava de guijón grueso (256–128 mm)",
+          "grava de guijón fino (128–64 mm)",
+          "grava de guijarro muy gruesa (64–32 mm)",
+          "grava de guijarro gruesa (32–16 mm)",
+          "grava de guijarro media (16–8 mm)",
+          "grava de guijarro fina (8–4 mm)",
+          "grava de guijarro muy fina (4–2 mm)",
+          "arena muy gruesa (2–1 mm)",
+          "arena gruesa (1–0,5 mm)",
+          "arena media (0,5–0,25 mm)",
+          "arena fina (0,25–0,125 mm)",
+          "arena muy fina (0,125–0,0625 mm)",
+          "limo / fango (0,0625–0,004 mm)",
+          "limo grueso (0,0625–0,031 mm)",
+          "limo medio (0,031–0,016 mm)",
+          "limo fino (0,016–0,008 mm)",
+          "limo muy fino (0,008–0,004 mm)",
+          "arcilla (<0,004 mm)"
         ],
         "Litorales": [
-          "arcilla (<0,004 mm)",
-          "arena fina (0,25–0,125 mm)",
-          "arena gruesa (1–0,5 mm)",
-          "arena media (0,5–0,25 mm)",
-          "arena muy fina (0,125–0,0625 mm)",
-          "arena muy gruesa (2–1 mm)",
-          "grava de bolón fino (0,5–0,25 m)",
-          "grava de bolón grueso (2,0–1,0 m)",
-          "grava de bolón medio (1,0–0,5 m)",
-          "grava de bolón muy grueso (4,1–2,0 m)",
-          "grava de guijarro fina (8–4 mm)",
-          "grava de guijarro gruesa (32–16 mm)",
-          "grava de guijarro media (16–8 mm)",
-          "grava de guijarro muy fina (4–2 mm)",
-          "grava de guijarro muy gruesa (64–32 mm)",
-          "grava de guijón fino (128–64 mm)",
-          "grava de guijón grueso (256–128 mm)",
-          "limo / fango (0,0625–0,004 mm)",
-          "limo fino (0,016–0,008 mm)",
-          "limo grueso (0,0625–0,031 mm)",
-          "limo medio (0,031–0,016 mm)",
-          "limo muy fino (0,008–0,004 mm)",
-          "sedimento megaclástico de macrobolón (1048–65 m)",
           "sedimento megaclástico de macrolito (>33,6 km)",
-          "sedimento megaclástico de mesobolón fino (8,2–4,1 m)",
+          "sedimento megaclástico de mesolito (33,6–1,0 km)",
+          "sedimento megaclástico de macrobolón (1048–65 m)",
+          "sedimento megaclástico de mesobolón muy grueso (65–33 m)",
           "sedimento megaclástico de mesobolón grueso (33–16,4 m)",
           "sedimento megaclástico de mesobolón medio (16,4–8,2 m)",
-          "sedimento megaclástico de mesobolón muy grueso (65–33 m)",
-          "sedimento megaclástico de mesolito (33,6–1,0 km)"
+          "sedimento megaclástico de mesobolón fino (8,2–4,1 m)",
+          "grava de bolón muy grueso (4,1–2,0 m)",
+          "grava de bolón grueso (2,0–1,0 m)",
+          "grava de bolón medio (1,0–0,5 m)",
+          "grava de bolón fino (0,5–0,25 m)",
+          "grava de guijón grueso (256–128 mm)",
+          "grava de guijón fino (128–64 mm)",
+          "grava de guijarro muy gruesa (64–32 mm)",
+          "grava de guijarro gruesa (32–16 mm)",
+          "grava de guijarro media (16–8 mm)",
+          "grava de guijarro fina (8–4 mm)",
+          "grava de guijarro muy fina (4–2 mm)",
+          "arena muy gruesa (2–1 mm)",
+          "arena gruesa (1–0,5 mm)",
+          "arena media (0,5–0,25 mm)",
+          "arena fina (0,25–0,125 mm)",
+          "arena muy fina (0,125–0,0625 mm)",
+          "limo / fango (0,0625–0,004 mm)",
+          "limo grueso (0,0625–0,031 mm)",
+          "limo medio (0,031–0,016 mm)",
+          "limo fino (0,016–0,008 mm)",
+          "limo muy fino (0,008–0,004 mm)",
+          "arcilla (<0,004 mm)"
         ],
         "Eólicos": [
-          "arcilla (<0,004 mm)",
-          "arena fina (0,25–0,125 mm)",
-          "arena gruesa (1–0,5 mm)",
-          "arena media (0,5–0,25 mm)",
-          "arena muy fina (0,125–0,0625 mm)",
-          "arena muy gruesa (2–1 mm)",
-          "grava de bolón fino (0,5–0,25 m)",
-          "grava de bolón grueso (2,0–1,0 m)",
-          "grava de bolón medio (1,0–0,5 m)",
-          "grava de bolón muy grueso (4,1–2,0 m)",
-          "grava de guijarro fina (8–4 mm)",
-          "grava de guijarro gruesa (32–16 mm)",
-          "grava de guijarro media (16–8 mm)",
-          "grava de guijarro muy fina (4–2 mm)",
-          "grava de guijarro muy gruesa (64–32 mm)",
-          "grava de guijón fino (128–64 mm)",
-          "grava de guijón grueso (256–128 mm)",
-          "limo / fango (0,0625–0,004 mm)",
-          "limo fino (0,016–0,008 mm)",
-          "limo grueso (0,0625–0,031 mm)",
-          "limo medio (0,031–0,016 mm)",
-          "limo muy fino (0,008–0,004 mm)",
-          "sedimento megaclástico de macrobolón (1048–65 m)",
           "sedimento megaclástico de macrolito (>33,6 km)",
-          "sedimento megaclástico de mesobolón fino (8,2–4,1 m)",
+          "sedimento megaclástico de mesolito (33,6–1,0 km)",
+          "sedimento megaclástico de macrobolón (1048–65 m)",
+          "sedimento megaclástico de mesobolón muy grueso (65–33 m)",
           "sedimento megaclástico de mesobolón grueso (33–16,4 m)",
           "sedimento megaclástico de mesobolón medio (16,4–8,2 m)",
-          "sedimento megaclástico de mesobolón muy grueso (65–33 m)",
-          "sedimento megaclástico de mesolito (33,6–1,0 km)"
+          "sedimento megaclástico de mesobolón fino (8,2–4,1 m)",
+          "grava de bolón muy grueso (4,1–2,0 m)",
+          "grava de bolón grueso (2,0–1,0 m)",
+          "grava de bolón medio (1,0–0,5 m)",
+          "grava de bolón fino (0,5–0,25 m)",
+          "grava de guijón grueso (256–128 mm)",
+          "grava de guijón fino (128–64 mm)",
+          "grava de guijarro muy gruesa (64–32 mm)",
+          "grava de guijarro gruesa (32–16 mm)",
+          "grava de guijarro media (16–8 mm)",
+          "grava de guijarro fina (8–4 mm)",
+          "grava de guijarro muy fina (4–2 mm)",
+          "arena muy gruesa (2–1 mm)",
+          "arena gruesa (1–0,5 mm)",
+          "arena media (0,5–0,25 mm)",
+          "arena fina (0,25–0,125 mm)",
+          "arena muy fina (0,125–0,0625 mm)",
+          "limo / fango (0,0625–0,004 mm)",
+          "limo grueso (0,0625–0,031 mm)",
+          "limo medio (0,031–0,016 mm)",
+          "limo fino (0,016–0,008 mm)",
+          "limo muy fino (0,008–0,004 mm)",
+          "arcilla (<0,004 mm)"
         ]
       },
       "fuente": "Udden-Wentworth extendido, escala 29 categorías macrolito–arcilla (siliciclásticos y sedimento no litificado). Ya no aplica a rocas volcánicas: los términos oficiales CDC de NOMBRE_ROCA para Piroclástica/Tefra (ver ROCAS_VOLCANICAS en index.html) ya llevan el tamaño de grano incorporado en el nombre (p. ej. 'Toba de ceniza', 'Tefra de bloques y lapilli').",
@@ -1824,7 +1824,6 @@ const MODELO = {
           "Eutaxítica",
           "Glomeroporfírica",
           "Brechosa",
-          "Indeterminada",
           "Vesicular",
           "Vitroclástica",
           "Afieltrada",
@@ -1847,7 +1846,8 @@ const MODELO = {
           "Miarolítica",
           "Microbrechosa",
           "Reticulada",
-          "Variolítica"
+          "Variolítica",
+          "Indeterminada"
         ],
         "Sedimentaria": [
           "Cristalina",
@@ -2128,17 +2128,17 @@ const MODELO = {
     "TIPO_FALLA": {
       "tipo": "simple",
       "valores": [
-        "Inversa",
         "Normal",
-        "Indiferenciada",
-        "De rumbo sinistral",
-        "De rumbo dextral",
+        "Inversa",
         "Cabalgamiento",
-        "Lístrica",
+        "De rumbo dextral",
+        "De rumbo sinistral",
+        "Normal-dextral (oblicua)",
+        "Normal-sinistral (oblicua)",
         "Inversa-dextral (oblicua)",
         "Inversa-sinistral (oblicua)",
-        "Normal-dextral (oblicua)",
-        "Normal-sinistral (oblicua)"
+        "Lístrica",
+        "Indiferenciada"
       ],
       "fuente": "construida (no venía en las tablas; PROPUESTO)",
       "confirmar": true
@@ -2197,11 +2197,11 @@ const MODELO = {
     "LV_FUENTE_COORDENADA": {
       "tipo": "simple",
       "valores": [
-        "Carta/Mapa",
-        "Estimado en terreno",
-        "Google Earth / imagen",
+        "GPS navegador",
         "GPS geodésico (RTK/DGPS)",
-        "GPS navegador"
+        "Carta/Mapa",
+        "Google Earth / imagen",
+        "Estimado en terreno"
       ],
       "fuente": "diagrama_v3 / estandar CDC (PROPUESTO)",
       "confirmar": true
@@ -2240,10 +2240,10 @@ const MODELO = {
     "ESCALA_TRABAJO": {
       "tipo": "abierta",
       "valores": [
-        "1:25.000",
-        "1:50.000",
         "1:100.000",
-        "1:250.000"
+        "1:50.000",
+        "1:250.000",
+        "1:25.000"
       ],
       "fuente": "escalas de mapeo geológico habituales; define el umbral de sector de la prosa de terreno",
       "editable": true
@@ -2289,8 +2289,8 @@ const MODELO = {
         "Hidrogeológica": [
           "Fuente de agua termal",
           "Geiser",
-          "Fuente de agua indiferenciada",
-          "Fuente de agua mineral"
+          "Fuente de agua mineral",
+          "Fuente de agua indiferenciada"
         ],
         "Indicador estratigráfico/flujo": [
           "Indicador estratigráfico",
@@ -2304,19 +2304,19 @@ const MODELO = {
       "tipo": "simple",
       "valores": [
         "Contacto",
-        "Otro",
         "Cuerpo tabular",
         "Geomorfología",
-        "Estructura tectónica"
+        "Estructura tectónica",
+        "Otro"
       ],
       "fuente": "taxonomia_lineas.csv (validada por el usuario 2026-08-10)"
     },
     "LINEA_CERTEZA": {
       "tipo": "simple",
       "valores": [
-        "Cubierto",
         "Observado",
-        "Inferido"
+        "Inferido",
+        "Cubierto"
       ],
       "fuente": "capa de líneas geológicas preexistente en build_pwa.py (promovida al modelo canónico)"
     },
@@ -2378,36 +2378,36 @@ const MODELO = {
           "Normal",
           "De rumbo sinistral",
           "De rumbo dextral",
-          "Indeterminada",
           "Cabalgamiento",
           "Lístrica",
           "Inversa-dextral (oblicua)",
           "Inversa-sinistral (oblicua)",
           "Normal-dextral (oblicua)",
-          "Normal-sinistral (oblicua)"
+          "Normal-sinistral (oblicua)",
+          "Indeterminada"
         ],
         "Fractura": [
-          "Indeterminada",
           "Diaclasa",
           "Fractura de cizalle",
           "Fractura de extensión",
-          "Zona de fracturamiento"
+          "Zona de fracturamiento",
+          "Indeterminada"
         ],
         "Traza de pliegue": [
           "Sinclinal",
           "Anticlinal",
           "Monoclinal",
           "Sinclinal volcado",
-          "Indeterminado",
           "Anticlinal volcado",
           "Antiforma",
-          "Sinforma"
+          "Sinforma",
+          "Indeterminado"
         ],
         "Zona de cizalla": [
           "Dúctil",
           "Frágil",
-          "Indeterminada",
-          "Frágil-dúctil"
+          "Frágil-dúctil",
+          "Indeterminada"
         ],
         "Lineamiento": [
           "Indeterminado"
@@ -2425,8 +2425,8 @@ const MODELO = {
           "Calcita",
           "Óxidos de hierro",
           "Baritina",
-          "Indeterminada",
-          "Cuarzo-sulfuros"
+          "Cuarzo-sulfuros",
+          "Indeterminada"
         ],
         "Filón manto (sill)": [
           "Máfico",
@@ -2493,8 +2493,8 @@ const MODELO = {
       "tipo": "abierta",
       "valores": [
         "Acceso",
-        "Peligro",
         "Hallazgo",
+        "Peligro",
         "Otro"
       ],
       "fuente": "decision de producto 2026-08-12: Acceso/Peligro/Hallazgo/Otro, ampliable en runtime",
@@ -2509,7 +2509,6 @@ const MODELO = {
           "Nodular",
           "Estratificación cruzada de bajo ángulo",
           "Laminación convoluta",
-          "Indeterminado",
           "Estratificación difusa",
           "Brechoso",
           "Bancos amalgamados",
@@ -2519,11 +2518,11 @@ const MODELO = {
           "Laminado (onduloso)",
           "Laminado (planar)",
           "Macizo, sin estructuras visibles",
-          "Mal estratificado"
+          "Mal estratificado",
+          "Indeterminado"
         ],
         "Volcánico": [
           "Disyunción columnar",
-          "Indeterminado",
           "Autobrechizado",
           "Brechoso (brecha volcánica)",
           "Disyunción en lajas",
@@ -2532,22 +2531,22 @@ const MODELO = {
           "Lávico macizo",
           "Macizo, sin estructuras visibles",
           "Soldado (ignimbrítico)",
-          "Vesicular / amigdaloidal"
+          "Vesicular / amigdaloidal",
+          "Indeterminado"
         ],
         "Intrusivo": [
           "Con enclaves máficos",
-          "Indeterminado",
           "Con foliación magmática",
           "Brechoso (brecha intrusiva)",
           "Con bandeamiento magmático (layering)",
           "Disyunción en bloques",
-          "Macizo, sin estructuras visibles"
+          "Macizo, sin estructuras visibles",
+          "Indeterminado"
         ],
         "Metamórfico": [
           "Macizo",
           "Bandeado",
           "Migmatítico",
-          "Indeterminado",
           "Foliación esquistosa",
           "Foliación gnéisica",
           "Foliación filítica",
@@ -2556,17 +2555,18 @@ const MODELO = {
           "Foliado (granularidad indeterminada)",
           "Foliado y lineado",
           "Granofélsico",
-          "Lineado pero no foliado"
+          "Lineado pero no foliado",
+          "Indeterminado"
         ],
         "Roca de falla (tectonita)": [
-          "Indeterminado",
           "Cataclástica foliada",
           "Cataclástica gruesa (brechosa) foliada",
           "Cataclástica gruesa (brechosa) no foliada",
           "Cataclástica no foliada",
           "Milonítica foliada",
           "Milonítica foliada y lineada",
-          "Vidriosa (pseudotaquilita)"
+          "Vidriosa (pseudotaquilita)",
+          "Indeterminado"
         ]
       },
       "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) (ramas Metamórfico y Roca de falla, verbatim) + Corpus de 45 Cartas Geológicas SGB (RAG) + norma CDC 2016"
@@ -2574,27 +2574,27 @@ const MODELO = {
     "GEOMETRIA_CUERPO": {
       "tipo": "simple",
       "valores": [
-        "Irregular",
-        "Nodular",
-        "Convoluta",
-        "Indeterminado",
-        "En cintas entrelazadas",
-        "Ondulada-paralela y discontinua",
-        "Curvada-no paralela y continua",
-        "Curvada-no paralela y discontinua",
-        "Curvada-paralela y continua",
-        "Curvada-paralela y discontinua",
+        "Tabular: plana-paralela y continua",
+        "Tabular: plana-paralela y discontinua",
+        "Tabular: plana-no paralela y continua",
         "Forma de cuña (plana-no paralela y discontinua)",
-        "Lenticular con base cóncava y techo plano",
-        "Lenticular con base plana y techo convexo",
-        "Lenticular-subparalela y discontinua",
+        "Ondulada-paralela y continua",
+        "Ondulada-paralela y discontinua",
         "Ondulada-no paralela y continua",
         "Ondulada-no paralela y discontinua",
-        "Ondulada-paralela y continua",
+        "Curvada-paralela y continua",
+        "Curvada-paralela y discontinua",
+        "Curvada-no paralela y continua",
+        "Curvada-no paralela y discontinua",
+        "Lenticular-subparalela y discontinua",
+        "Lenticular con base cóncava y techo plano",
+        "Lenticular con base plana y techo convexo",
         "Paralela irregular conforme al sustrato",
-        "Tabular: plana-no paralela y continua",
-        "Tabular: plana-paralela y continua",
-        "Tabular: plana-paralela y discontinua"
+        "En cintas entrelazadas",
+        "Convoluta",
+        "Irregular",
+        "Nodular",
+        "Indeterminado"
       ],
       "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) — campo GEOMETRIA DE ESTRATIFICACION (Stow, 2005). 'En cintas entrelazadas' agregado desde el corpus SGB (Carta Calama)."
     },
@@ -2602,11 +2602,11 @@ const MODELO = {
       "tipo": "simple",
       "valores": [
         "Fresco",
-        "Indeterminado",
         "Débilmente meteorizado",
-        "Intensamente meteorizado",
         "Moderadamente meteorizado",
-        "Obliterada por alteración (textura primaria indeterminable)"
+        "Intensamente meteorizado",
+        "Obliterada por alteración (textura primaria indeterminable)",
+        "Indeterminado"
       ],
       "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) ('Obliterada por alteración', Vol IV) + Corpus de 45 Cartas Geológicas SGB (RAG) + norma CDC 2016"
     },
@@ -2624,19 +2624,19 @@ const MODELO = {
     "ARREGLO_ESTRATOS": {
       "tipo": "simple",
       "valores": [
-        "Indeterminado",
-        "Capa individual que no forma parte de una secuencia sistemática",
-        "Capas inferiores de una secuencia estrato creciente",
-        "Capas inferiores de una secuencia estrato decreciente",
-        "Capas medias de una secuencia estrato creciente",
-        "Capas medias de una secuencia estrato decreciente",
-        "Capas superiores de una secuencia estrato creciente",
-        "Capas superiores de una secuencia estrato decreciente",
-        "Secuencia con alternancia de conjuntos de capas con espesores uniformes",
         "Secuencia estrato creciente",
+        "Capas inferiores de una secuencia estrato creciente",
+        "Capas medias de una secuencia estrato creciente",
+        "Capas superiores de una secuencia estrato creciente",
         "Secuencia estrato decreciente",
+        "Capas inferiores de una secuencia estrato decreciente",
+        "Capas medias de una secuencia estrato decreciente",
+        "Capas superiores de una secuencia estrato decreciente",
+        "Secuencia uniforme",
         "Secuencia heterogénea",
-        "Secuencia uniforme"
+        "Secuencia con alternancia de conjuntos de capas con espesores uniformes",
+        "Capa individual que no forma parte de una secuencia sistemática",
+        "Indeterminado"
       ],
       "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) — campo ARREGLO DE ESTRATOS SEGÚN ESPESOR"
     },
@@ -2644,29 +2644,29 @@ const MODELO = {
       "tipo": "simple",
       "valores": [
         "Gradación normal",
-        "Gradación inversa",
-        "Indeterminada",
+        "Gradación normal de la fracción gruesa",
         "Gradación normal en la base",
-        "Gradación compuesta compleja",
+        "Gradación normal en el techo",
+        "Gradación inversa",
+        "Gradación inversa de la fracción gruesa",
+        "Gradación inversa en la base",
+        "Gradación inversa en el techo",
         "Gradación compuesta inversa-normal",
         "Gradación compuesta normal-inversa",
         "Gradación compuesta oscilatoria",
-        "Gradación inversa de la fracción gruesa",
-        "Gradación inversa en el techo",
-        "Gradación inversa en la base",
-        "Gradación normal de la fracción gruesa",
-        "Gradación normal en el techo",
-        "No gradada"
+        "Gradación compuesta compleja",
+        "No gradada",
+        "Indeterminada"
       ],
       "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) — campo TIPO DE GRADACIÓN INTERNA AL DEPÓSITO (Stow, 2005)"
     },
     "EXTENSION_LATERAL": {
       "tipo": "simple",
       "valores": [
+        "Métrica (< 10 m)",
         "Decamétrica (10 – 100 m)",
         "Hectométrica (100 – 1.000 m)",
         "Kilométrica (> 1 km)",
-        "Métrica (< 10 m)",
         "No determinable a la escala del trabajo"
       ],
       "fuente": "Corpus de 45 Cartas Geológicas SGB (RAG) + norma CDC 2016 — patrón recurrente en las cartas ('continuidad lateral decamétrica')"
@@ -2674,55 +2674,55 @@ const MODELO = {
     "TIPO_LIMITE_INFERIOR": {
       "tipo": "simple",
       "valores": [
-        "Base no expuesta",
-        "Base erosional",
         "Base gradacional",
-        "Base nítida"
+        "Base nítida",
+        "Base erosional",
+        "Base no expuesta"
       ],
       "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) — campo TIPO DE LÍMITE INFERIOR DEL DEPÓSITO"
     },
     "GRADO_FRACTURAMIENTO": {
       "tipo": "simple",
       "valores": [
-        "Indeterminado",
-        "Escasamente fracturado",
-        "Intensamente fracturado",
         "Macizo, sin fracturas apreciables",
+        "Escasamente fracturado",
         "Moderadamente fracturado",
-        "Triturado / brechizado"
+        "Intensamente fracturado",
+        "Triturado / brechizado",
+        "Indeterminado"
       ],
       "fuente": "Corpus de 45 Cartas Geológicas SGB (RAG) + norma CDC 2016 — meteorización y fracturamiento se describen siempre juntos ('de leve a moderada meteorización y fracturamiento'). La norma CDC lo trata en una tabla de fracturas aparte (DDA Descripción de Fracturas), demasiado extensa para una libreta de campo: aquí queda la versión cualitativa."
     },
     "FABRICA_GRAVOSA": {
       "tipo": "simple",
       "valores": [
-        "Indeterminado",
-        "Fábrica desorganizada",
+        "Fábrica organizada con eje mayor de los clastos paralelo al flujo",
+        "Fábrica organizada con eje mayor de los clastos perpendicular al flujo",
         "Fábrica imbricada con eje mayor de los clastos paralelo al flujo",
         "Fábrica imbricada con eje mayor de los clastos perpendicular al flujo",
-        "Fábrica organizada con eje mayor de los clastos paralelo al flujo",
-        "Fábrica organizada con eje mayor de los clastos perpendicular al flujo"
+        "Fábrica desorganizada",
+        "Indeterminado"
       ],
       "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) — campo FÁBRICA DE AFLORAMIENTOS GRAVOSOS (depósitos > 2 mm)"
     },
     "SELECCION": {
       "tipo": "simple",
       "valores": [
-        "Mala",
-        "Moderada",
+        "Muy buena",
         "Buena",
-        "Muy mala",
-        "Muy buena"
+        "Moderada",
+        "Mala",
+        "Muy mala"
       ],
       "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos)"
     },
     "REDONDEAMIENTO": {
       "tipo": "simple",
       "valores": [
-        "Redondeado",
-        "Subredondeado",
         "Anguloso",
         "Subanguloso",
+        "Subredondeado",
+        "Redondeado",
         "Muy redondeado"
       ],
       "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos) (escala de Powers, 1953)"
@@ -2732,8 +2732,8 @@ const MODELO = {
       "valores": [
         "Calcáreo",
         "Silíceo",
-        "Yesífero",
         "Ferruginoso",
+        "Yesífero",
         "Sin cementar"
       ],
       "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos)"
@@ -2787,13 +2787,13 @@ const MODELO = {
     "TEXTURA_DUNHAM": {
       "tipo": "simple",
       "valores": [
-        "Packstone",
         "Mudstone",
         "Wackestone",
-        "Rudstone",
+        "Packstone",
         "Grainstone",
-        "Boundstone",
         "Floatstone",
+        "Rudstone",
+        "Boundstone",
         "Framestone",
         "Bindstone"
       ],
@@ -2803,8 +2803,8 @@ const MODELO = {
       "tipo": "simple",
       "valores": [
         "No soldada",
-        "Moderadamente soldada",
         "Débilmente soldada",
+        "Moderadamente soldada",
         "Densamente soldada"
       ],
       "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos)"
@@ -2860,7 +2860,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v70';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v71';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3513,19 +3513,25 @@ const ROCAS_VOLCANICAS = {
 // poiquilítica/micrográfica/diktitaxítica — y "Soldada", que ya es el campo propio SOLDADURA).
 // Orden dentro de cada lista: por frecuencia real de uso en las Cartas Geologicas
 // (RAG ChromaDB "prosa_geologica", 55.470 chunks tipo=carta, 2026-08-21), empate
-// alfabetico -- mismo criterio y misma corrida que reordeno modelo_canonico.json
+// alfabetico -- mismo criterio y misma corrida que ordena modelo_canonico.json
 // (ver modelo/ordenar_dominios_por_frecuencia.py). Facilita elegir en terreno.
+// Son listas NOMINALES (nombres de textura sin secuencia propia), asi que la frecuencia
+// aplica; en cambio los dominios ORDINALES del modelo (escalas de grado, Udden-Wentworth,
+// Dunham...) conservan su orden curado -- ver la lista ORDINALES de ese script.
+// "Indeterminada" va SIEMPRE al final aunque sea frecuente en el corpus: es la respuesta
+// "no se", no una textura (por frecuencia pura quedaba 5ta en piroclasticas, sobre terminos
+// descriptivos reales).
 const TEXTURA_VOLCANICA = {
   'Lava': ['Porfírica', 'Traquítica', 'Intergranular', 'Fluidal', 'Pilotaxítica',
     'Felsítica', 'Intersertal', 'Hialopilítica', 'Glomeroporfírica', 'Brechosa',
-    'Indeterminada', 'Vesicular', 'Afieltrada', 'Esferulítica', 'Vitrofírica',
-    'Amigdaloidal', 'Ocoítica', 'Perlítica', 'Escoriácea', 'Microporfírica',
-    'Obliterada por alteración', 'Globulosa', 'Litofisa (litofisae)', 'Miarolítica',
-    'Microbrechosa', 'Variolítica'],
-  'Piroclástica': ['Porfírica', 'Piroclástica', 'Eutaxítica', 'Brechosa', 'Indeterminada',
-    'Vesicular', 'Vitroclástica', 'Glomeroporfídica', 'Pumícea', 'Amigdaloidal',
-    'Matriz-soportada', 'Escoriácea', 'Clasto-soportada', 'Microporfídica',
-    'Obliterada por alteración', 'Reomórfica', 'Microbrechosa', 'Reticulada'],
+    'Vesicular', 'Afieltrada', 'Esferulítica', 'Vitrofírica', 'Amigdaloidal',
+    'Ocoítica', 'Perlítica', 'Escoriácea', 'Microporfírica', 'Obliterada por alteración',
+    'Globulosa', 'Litofisa (litofisae)', 'Miarolítica', 'Microbrechosa', 'Variolítica',
+    'Indeterminada'],
+  'Piroclástica': ['Porfírica', 'Piroclástica', 'Eutaxítica', 'Brechosa', 'Vesicular',
+    'Vitroclástica', 'Glomeroporfídica', 'Pumícea', 'Amigdaloidal', 'Matriz-soportada',
+    'Escoriácea', 'Clasto-soportada', 'Microporfídica', 'Obliterada por alteración',
+    'Reomórfica', 'Microbrechosa', 'Reticulada', 'Indeterminada'],
 };
 TEXTURA_VOLCANICA['Tefra'] = TEXTURA_VOLCANICA['Piroclástica'];
 // Matriz/masa intersticial — solo Piroclástica/Tefra ahora: Lava usa el campo propio
@@ -3716,7 +3722,16 @@ function formulario(store, reg, ctx){
 
   // habilita/oculta campos condicionales según los valores actuales
   function aplicarCondicionales(){
-    const v={};for(const k in inputs)v[k]=inputs[k].value;
+    // Un campo de selección múltiple es un <div> de chips, no un input: leer .value da
+    // undefined. Hoy ninguna regla de CONDICIONALES mira un multiselección (verificado: los
+    // 5 que existen — COMPOSICION_MINERAL_PRINCIPAL, FENOCRISTALES_ESPECIE, CRISTALES_ESPECIE,
+    // PROPOSITO_ANALISIS, PUNTOS_APOYO — no son padres de cascada ni los lee ninguna regla),
+    // así que no hay bug vivo; se arma igual con el MISMO criterio que getData() para que
+    // agregar mañana una regla sobre uno de ellos no falle en silencio. Es exactamente el
+    // patrón que ya se coló dos veces (preservarValor y la limpieza de condicionales se
+    // escribieron para <select> y no cubrían los chips).
+    const v={};for(const k in inputs){const i=inputs[k];
+      v[k]= i._multi ? [...i.querySelectorAll('input:checked')].map(c=>c.value).join('; ') : i.value;}
     for(const cn in CONDICIONALES){
       const inp=inputs[cn]; if(!inp)continue;
       const {modo,regla}=CONDICIONALES[cn];
@@ -4393,7 +4408,7 @@ async function renderProyecto(app){
           el('small',{},(pt['Coordenadas Geográficas Decimales_Lat']||pt.LAT||'—')+', '+(pt['Coordenadas Geográficas Decimales_Long']||pt.LONG||'—')+' · '+(pt.FECHA||'')) ),
         el('span',{class:'pill'},(pt._nlito||0)+' lito'));
       if(!modoSel){
-        fila.append(el('button',{class:'btn sec mini',title:'Duplicar (sin coordenadas)',onclick:async(e)=>{e.stopPropagation();const np=await duplicarPunto(pt.id);if(!np){toast('No se pudo duplicar el punto');return;}toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉'));
+        fila.append(el('button',{class:'btn sec mini',title:'Duplicar (sin coordenadas)',onclick:async(e)=>{e.stopPropagation();if(bloqueoGabineteActivo())return;const np=await duplicarPunto(pt.id);if(!np){toast('No se pudo duplicar el punto');return;}toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉'));
       }
       listaBox.append(fila);
     });
@@ -4402,10 +4417,11 @@ async function renderProyecto(app){
   btnSel.onclick=()=>{ modoSel=!modoSel; if(!modoSel)selIds.clear(); pintar(); };
   pintar();
 }
-function nav0Punto(){curPunto=null;nav({n:'punto',id:'__new__'});}
+function nav0Punto(){if(bloqueoGabineteActivo())return;curPunto=null;nav({n:'punto',id:'__new__'});}
 
 // -------- Mover puntos de control a otro proyecto --------
 async function abrirModalMoverPuntos(ids, origen, onDone){
+  if(bloqueoGabineteActivo())return;
   if(!ids.length){toast('No hay puntos seleccionados');return;}
   const cont=document.getElementById('mover-lista-proyectos');
   const resumen=document.getElementById('mover-resumen');
@@ -4430,6 +4446,7 @@ async function abrirModalMoverPuntos(ids, origen, onDone){
 function cerrarModalMover(){document.getElementById('mover-modal').style.display='none';}
 
 async function moverPuntos(ids, proyectoDestinoId, origen){
+  if(bloqueoGabineteActivo())return;
   const store=storeActivo();
   const destino=await get('proyecto',proyectoDestinoId);
   if(!destino){toast('Proyecto destino no encontrado');return;}
@@ -4514,6 +4531,9 @@ async function renderPunto(app){
   app.append(cm.card);
 
   const guardarPunto=async()=>{
+    // en Gabinete bloqueado los campos ya estan desactivados, pero el boton "✓ Guardar punto"
+    // y los "+ Agregar ..." (que guardan el punto antes de crear la ficha hija) no lo estaban.
+    if(bloqueoGabineteActivo())return null;
     const d=f.getData();Object.assign(curPunto,d);curPunto._parent=curProyecto.id;
     curPunto.ID_PROYECTO=curProyecto.ID_PROYECTO||curProyecto.id;
     // autonumeración del ID de punto: al primer guardado, si el usuario no lo cambió, asigna y avanza el correlativo
@@ -4539,6 +4559,7 @@ async function renderPunto(app){
     items.forEach((it,i)=>box.append(bloqueHijo(h,it,i,litos)));
     if(!(h.unico && items.length>0)) hc.body.append(el('div',{class:'btnbar'},
       el('button',{class:'btn '+(h.clase==='lito'?'':'orange')+' mini',onclick:async()=>{
+        if(bloqueoGabineteActivo())return;
         await guardarPunto();
         const reg={id:uid(),_parent:curPunto.id};
         if(h.store==='muestreo'){const sc=namingCfg(curProyecto).smp;
@@ -4565,26 +4586,26 @@ async function renderPunto(app){
       box.append(el('div',{class:'list-item',onclick:()=>editorFotomapa(fm)},
         fm._base?el('img',{src:fm._base,style:'width:54px;height:40px;object-fit:cover;border-radius:6px'}):el('span',{class:'pill'},'sin foto'),
         el('div',{class:'t'},el('b',{},fm.TITULO||'Foto-mapa'),el('small',{},nh+' detalles')),
-        el('button',{class:'btn del mini',onclick:async(e)=>{e.stopPropagation();if(confirm('¿Eliminar este foto-mapa y sus detalles?')){await borrarFotomapaArbol(fm.id);renderPunto(app);}}},'🗑')));
+        el('button',{class:'btn del mini',onclick:async(e)=>{e.stopPropagation();if(bloqueoGabineteActivo())return;if(confirm('¿Eliminar este foto-mapa y sus detalles?')){await borrarFotomapaArbol(fm.id);renderPunto(app);}}},'🗑')));
     }
     fmc.body.append(box);
     fmc.body.append(el('div',{class:'btnbar'},
-      el('button',{class:'btn mini',onclick:async()=>{await guardarPunto();const reg={id:uid(),_parent:null,_punto:curPunto.id,_pins:null};await put('fotomapa',reg);secAbiertas.add('fotomapa');editorFotomapa(reg);}},'+ Nuevo foto-mapa')));
+      el('button',{class:'btn mini',onclick:async()=>{if(bloqueoGabineteActivo())return;await guardarPunto();const reg={id:uid(),_parent:null,_punto:curPunto.id,_pins:null};await put('fotomapa',reg);secAbiertas.add('fotomapa');editorFotomapa(reg);}},'+ Nuevo foto-mapa')));
     app.append(fmc.card);
   }
 
   $('#fab').append(
     el('button',{class:'btn',onclick:async()=>{await guardarPunto();toast('Punto guardado');nav({n:'proyecto',id:curProyecto.id});}},'✓ Guardar punto'),
-    el('button',{class:'btn sec',onclick:async()=>{await guardarPunto();const np=await duplicarPunto(curPunto.id);if(!np){toast('No se pudo duplicar el punto');return;}toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉ Duplicar'),
+    el('button',{class:'btn sec',onclick:async()=>{if(bloqueoGabineteActivo())return;await guardarPunto();const np=await duplicarPunto(curPunto.id);if(!np){toast('No se pudo duplicar el punto');return;}toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉ Duplicar'),
     el('button',{class:'btn sec',onclick:()=>guardarPunto().then(()=>nav({n:'proyecto',id:curProyecto.id}))},'Volver'),
-    nuevo?null:el('button',{class:'btn del',onclick:async()=>{if(confirm('¿Eliminar este punto y sus datos asociados?')){await borrarPunto(curPunto.id);nav({n:'proyecto',id:curProyecto.id});}}},'🗑'));
+    nuevo?null:el('button',{class:'btn del',onclick:async()=>{if(bloqueoGabineteActivo())return;if(confirm('¿Eliminar este punto y sus datos asociados?')){if(await borrarPunto(curPunto.id)===false)return;nav({n:'proyecto',id:curProyecto.id});}}},'🗑'));
 }
 
 function bloqueHijo(h,reg,i,litos){
   const b=el('div',{class:'child-block'+(h.clase==='lito'?' lito':''),'data-store':h.store});
   const hd=el('div',{class:'hd'});
   hd.append(el('span',{class:'n'},h.unico?h.titulo:h.titulo+' '+(i+1)));
-  hd.append(el('button',{class:'btn del mini',onclick:async()=>{await del(h.store,reg.id);renderPunto($('#app'));}},'Eliminar'));
+  hd.append(el('button',{class:'btn del mini',onclick:async()=>{if(bloqueoGabineteActivo())return;await del(h.store,reg.id);renderPunto($('#app'));}},'Eliminar'));
   b.append(hd);
   if(h.store==='foto'){ b.append(bloqueFoto(reg,litos)); }
   else if(h.store==='esquema'){ b.append(bloqueEsquema(reg)); }
@@ -4648,6 +4669,7 @@ function bloqueEsquema(reg){
 }
 
 async function borrarPunto(id){
+  if(bloqueoGabineteActivo())return false;
   for(const h of HIJAS){const its=await childrenOf(h.store,id);for(const it of its)await del(h.store,it.id);}
   for(const fm of await fotomapasRaiz(id)) await borrarFotomapaArbol(fm.id);
   await del(storeActivo(),id);
@@ -5223,6 +5245,9 @@ function compositaFotomapa(node){return new Promise(async res=>{
 // muestreo, geomorfología), pero deja en blanco las coordenadas y NO copia fotos/esquemas/imagen
 // satelital (son propios del sitio).
 async function duplicarPunto(srcId){
+  // sin aviso: los llamadores ya avisan (y avisan mejor). Aca queda solo como red de
+  // seguridad para cualquier llamador nuevo que olvide chequear.
+  if(bloqueoGabineteActivo(false))return null;
   const src=await get(storeActivo(),srcId); if(!src)return null;
   const np=Object.assign({},src,{id:uid(),_parent:src._parent},ahora());
   ['Coordenadas Geográficas Decimales_Lat','Coordenadas Geográficas Decimales_Long','COTA','PRECISION_GPS','ID_PUNTO_CONTROL']
@@ -6148,9 +6173,7 @@ async function generarProsaProyecto(){
   // este generador reescribe PROSA_CAMPO de TODOS los puntos de una, asi que tiene que
   // respetarlo igual que los campos del formulario (updateFormReadonly solo desactiva
   // input/select/textarea, nunca vio los botones).
-  if(storeActivo()===RM_GAB_STORE && gabineteBloqueado()){
-    toast('Gabinete está bloqueado — desbloquéalo para generar la prosa');return;
-  }
+  if(bloqueoGabineteActivo())return;
   if(navigator.onLine===false){toast('Sin conexión: se necesita internet para consultar toponimia IGM');return;}
   const store=storeActivo(), esGab=coleccionActiva()==='gabinete';
   const puntos=(await childrenOf(store,curProyecto.id))
@@ -6280,6 +6303,23 @@ async function paginaLibreta(pr,pt,coleccion){
 // segun lo que el usuario decidio la ultima vez.
 function gabineteBloqueado() {
   return localStorage.getItem('captura-gabinete-bloqueado') === '1';
+}
+
+// updateFormReadonly() solo desactiva input/select/textarea: NUNCA vio los BOTONES, asi que
+// con Gabinete bloqueado se podia igual crear, duplicar, mover y hasta BORRAR puntos, y todo
+// eso escribia en disco (verificado en el navegador: duplicar/mover/borrar los tres pasaban).
+// El bloqueo tiene que impedir la ESCRITURA, no solo atenuar campos. Esta funcion es el guard
+// unico; se llama desde las tres funciones nucleo que escriben (duplicarPunto/borrarPunto/
+// moverPuntos) ademas de los handlers, para que un llamador nuevo quede cubierto solo.
+// No se puede meter dentro de put()/del(): la app tambien hace escrituras incidentales de
+// mantencion (p. ej. renderProyecto guarda _npuntos en cada dibujo) que no son ediciones del
+// usuario y bloquearlas dispararia avisos en cada render.
+function bloqueoGabineteActivo(aviso) {
+  if (storeActivo() === RM_GAB_STORE && gabineteBloqueado()) {
+    if (aviso !== false) toast('Gabinete está bloqueado — desbloquéalo para modificarlo');
+    return true;
+  }
+  return false;
 }
 
 function toggleBloqueoGabinete() {
