@@ -65,6 +65,9 @@
   .multichips{display:flex;flex-wrap:wrap;gap:6px}
   .multichips .chip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid var(--inp-bd);border-radius:20px;background:var(--inp);font-size:13px;cursor:pointer}
   .multichips .chip.on{background:var(--verde);color:#fff;border-color:var(--verde)}
+  /* valor guardado que ya no está en la lista vigente: se conserva, pero se marca */
+  .multichips .chip.huerfano{border-style:dashed}
+  .multichips .chip.huerfano.on{background:#7a6a1f;border-color:#7a6a1f}
   .multichips .chip input{width:15px;height:15px;margin:0}
   .row{display:flex;flex-wrap:wrap;gap:10px}
   .fld{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;flex:1 1 220px;min-width:0}
@@ -301,6 +304,74 @@ const MODELO = {
           "obligatorio": true,
           "dominio": "NOMBRE_ROCA",
           "nota": "la lista depende del campo TIPO_ROCA"
+        },
+        {
+          "nombre": "SELECCION",
+          "obligatorio": false,
+          "dominio": "SELECCION",
+          "nota": "Depósitos, rocas sedimentarias clásticas y piroclásticas."
+        },
+        {
+          "nombre": "REDONDEAMIENTO",
+          "obligatorio": false,
+          "dominio": "REDONDEAMIENTO",
+          "nota": "Depósitos y rocas sedimentarias clásticas."
+        },
+        {
+          "nombre": "CEMENTO",
+          "obligatorio": false,
+          "dominio": "CEMENTO",
+          "nota": "Rocas sedimentarias y depósitos."
+        },
+        {
+          "nombre": "COMPOSICION_MINERAL_PRINCIPAL",
+          "obligatorio": false,
+          "dominio": "MINERAL",
+          "multiple": true,
+          "nota": "Rocas intrusivas y metamórficas. Selección múltiple; el porcentaje/hábito va en COMPOSICION_MINERAL_DETALLE."
+        },
+        {
+          "nombre": "COMPOSICION_MINERAL_DETALLE",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Texto libre: % y hábito de los minerales de COMPOSICION_MINERAL_PRINCIPAL (ej. \"biotita 5%, cristales gruesos\")."
+        },
+        {
+          "nombre": "FENOCRISTALES_ESPECIE",
+          "obligatorio": false,
+          "dominio": "MINERAL",
+          "multiple": true,
+          "nota": "Rocas volcánicas (lavas y piroclásticas). Selección múltiple; % y tamaño van en FENOCRISTALES_DETALLE."
+        },
+        {
+          "nombre": "FENOCRISTALES_DETALLE",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Texto libre: % y tamaño de los fenocristales de FENOCRISTALES_ESPECIE."
+        },
+        {
+          "nombre": "MASA_FUNDAMENTAL",
+          "obligatorio": false,
+          "dominio": "MASA_FUNDAMENTAL",
+          "nota": "Solo lavas (TIPO_VOLCANICA = Lava)."
+        },
+        {
+          "nombre": "TEXTURA_DUNHAM",
+          "obligatorio": false,
+          "dominio": "TEXTURA_DUNHAM",
+          "nota": "Solo NOMBRE_ROCA = Caliza."
+        },
+        {
+          "nombre": "SOLDADURA",
+          "obligatorio": false,
+          "dominio": "SOLDADURA",
+          "nota": "Solo rocas piroclásticas (TIPO_VOLCANICA = Piroclástica)."
+        },
+        {
+          "nombre": "GRADO_CONSOLIDACION",
+          "obligatorio": false,
+          "dominio": "GRADO_CONSOLIDACION",
+          "nota": "Solo depósitos (TIPO_ROCA = Depósito)."
         }
       ],
       "geometria": null,
@@ -373,12 +444,6 @@ const MODELO = {
           "nombre": "NOMBRE_LOCALIDAD",
           "obligatorio": false,
           "dominio": null,
-          "nota": null
-        },
-        {
-          "nombre": "EXPOSICION_AFLORAMIENTO",
-          "obligatorio": true,
-          "dominio": "EXPOSICION_AFLORAMIENTO",
           "nota": null
         },
         {
@@ -906,6 +971,109 @@ const MODELO = {
       "geometria": "POINT",
       "pk": "ID_NOTA",
       "cardinalidad": "0..N"
+    },
+    "TBL_AFLORAMIENTO": {
+      "campos": [
+        {
+          "nombre": "ID_PUNTO_CONTROL",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "ID_AFLORAMIENTO",
+          "obligatorio": true,
+          "dominio": null,
+          "nota": null
+        },
+        {
+          "nombre": "GRADO_EXPOSICION_AFLORAMIENTO",
+          "obligatorio": true,
+          "dominio": "EXPOSICION_AFLORAMIENTO",
+          "nota": "Trasladado desde PUNTO_CONTROL (mismo dominio, reusado también por TBL_CONTACTO.EXPOSICION_CONTACTO)."
+        },
+        {
+          "nombre": "CLASE_AFLORAMIENTO",
+          "obligatorio": false,
+          "dominio": "CLASE_AFLORAMIENTO",
+          "nota": "Define qué lista de caracteres mesoscópicos se ofrece abajo."
+        },
+        {
+          "nombre": "CARACTER_MESOSCOPICO",
+          "obligatorio": false,
+          "dominio": "CARACTER_MESOSCOPICO",
+          "nota": "Arquitectura del afloramiento como conjunto; la lista depende de CLASE_AFLORAMIENTO. Las estructuras de detalle (ondulitas, bioturbación, flaser…) van en la ficha Litología (ESTRUCTURA_TIPO_ROCA), no aquí."
+        },
+        {
+          "nombre": "ARREGLO_ESTRATOS",
+          "obligatorio": false,
+          "dominio": "ARREGLO_ESTRATOS",
+          "nota": "Tendencia del ESPESOR de los estratos hacia el techo (estrato creciente/decreciente). La tendencia granulométrica va en GRADACION_INTERNA."
+        },
+        {
+          "nombre": "GRADACION_INTERNA",
+          "obligatorio": false,
+          "dominio": "GRADACION_INTERNA",
+          "nota": "Gradación granulométrica dentro del depósito (normal = grano decreciente hacia el techo)."
+        },
+        {
+          "nombre": "ESPESOR_MIN_CM",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Numérico, centímetros. Espesor de estrato/banco observado. La app deriva de aquí la clase de la escala de Ingram (1954) para la prosa: láminas / capas / bancos."
+        },
+        {
+          "nombre": "ESPESOR_MAX_CM",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Numérico, centímetros."
+        },
+        {
+          "nombre": "GEOMETRIA_CUERPO",
+          "obligatorio": false,
+          "dominio": "GEOMETRIA_CUERPO",
+          "nota": "Geometría de la estratificación (Stow, 2005). El término ya indica si es continua o discontinua; la ESCALA de la extensión va en EXTENSION_LATERAL."
+        },
+        {
+          "nombre": "EXTENSION_LATERAL",
+          "obligatorio": false,
+          "dominio": "EXTENSION_LATERAL",
+          "nota": null
+        },
+        {
+          "nombre": "TIPO_LIMITE_INFERIOR",
+          "obligatorio": false,
+          "dominio": "TIPO_LIMITE_INFERIOR",
+          "nota": "Base de la capa o depósito descrito. NO es el contacto entre unidades geológicas: eso se registra en la ficha Contactos."
+        },
+        {
+          "nombre": "GRADO_METEORIZACION",
+          "obligatorio": false,
+          "dominio": "GRADO_METEORIZACION",
+          "nota": null
+        },
+        {
+          "nombre": "GRADO_FRACTURAMIENTO",
+          "obligatorio": false,
+          "dominio": "GRADO_FRACTURAMIENTO",
+          "nota": null
+        },
+        {
+          "nombre": "FABRICA_GRAVOSA",
+          "obligatorio": false,
+          "dominio": "FABRICA_GRAVOSA",
+          "nota": "Solo para depósitos gravosos (granulometría > 2 mm): orientación e imbricación de clastos, útil para inferir paleocorriente."
+        },
+        {
+          "nombre": "NOTA_AFLORAMIENTO",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Texto libre. Campo normativo CDC 2016 'NOTA AFLORAMIENTO'."
+        }
+      ],
+      "geometria": null,
+      "pk": "ID_AFLORAMIENTO",
+      "cardinalidad": "0..1"
     }
   },
   "relaciones": [
@@ -973,6 +1141,11 @@ const MODELO = {
       "padre": "TBL_PROYECTO",
       "hijo": "NOTA_CAMPO",
       "campo": "ID_PROYECTO"
+    },
+    {
+      "padre": "PUNTO_CONTROL",
+      "hijo": "TBL_AFLORAMIENTO",
+      "campo": "ID_PUNTO_CONTROL"
     }
   ],
   "dominios": {
@@ -1134,7 +1307,10 @@ const MODELO = {
           "Esquisto",
           "Gneis",
           "Mármol",
-          "Cuarcita"
+          "Cuarcita",
+          "Migmatita",
+          "Filita",
+          "Anfibolita"
         ],
         "Depósito": [
           "Aluviales",
@@ -2007,7 +2183,12 @@ const MODELO = {
     },
     "ESCALA_TRABAJO": {
       "tipo": "abierta",
-      "valores": ["1:25.000", "1:50.000", "1:100.000", "1:250.000"],
+      "valores": [
+        "1:25.000",
+        "1:50.000",
+        "1:100.000",
+        "1:250.000"
+      ],
       "fuente": "escalas de mapeo geológico habituales; define el umbral de sector de la prosa de terreno",
       "editable": true
     },
@@ -2262,6 +2443,324 @@ const MODELO = {
       ],
       "fuente": "decision de producto 2026-08-12: Acceso/Peligro/Hallazgo/Otro, ampliable en runtime",
       "editable": true
+    },
+    "CARACTER_MESOSCOPICO": {
+      "tipo": "cascada",
+      "padre": "CLASE_AFLORAMIENTO",
+      "mapa": {
+        "Sedimentario / estratificado": [
+          "Macizo, sin estructuras visibles",
+          "Bien estratificado",
+          "Mal estratificado",
+          "Estratificación difusa",
+          "Bancos amalgamados",
+          "Laminado (planar)",
+          "Laminado (onduloso)",
+          "Laminación convoluta",
+          "Estratificación cruzada planar (tabular)",
+          "Estratificación cruzada en artesa",
+          "Estratificación cruzada tangencial",
+          "Estratificación cruzada de bajo ángulo",
+          "Nodular",
+          "Brechoso",
+          "Indeterminado"
+        ],
+        "Volcánico": [
+          "Macizo, sin estructuras visibles",
+          "Lávico macizo",
+          "Fluidal (bandeamiento de flujo)",
+          "Autobrechizado",
+          "Disyunción columnar",
+          "Disyunción en lajas",
+          "Vesicular / amigdaloidal",
+          "Brechoso (brecha volcánica)",
+          "Estratificado (piroclástico)",
+          "Soldado (ignimbrítico)",
+          "Indeterminado"
+        ],
+        "Intrusivo": [
+          "Macizo, sin estructuras visibles",
+          "Con foliación magmática",
+          "Con bandeamiento magmático (layering)",
+          "Con enclaves máficos",
+          "Brechoso (brecha intrusiva)",
+          "Disyunción en bloques",
+          "Indeterminado"
+        ],
+        "Metamórfico": [
+          "Macizo",
+          "Granofélsico",
+          "Cornificado (hornfélsico)",
+          "Clivaje pizarroso",
+          "Foliación filítica",
+          "Foliación esquistosa",
+          "Foliación gnéisica",
+          "Foliado (granularidad indeterminada)",
+          "Foliado y lineado",
+          "Lineado pero no foliado",
+          "Migmatítico",
+          "Bandeado",
+          "Indeterminado"
+        ],
+        "Roca de falla (tectonita)": [
+          "Milonítica foliada",
+          "Milonítica foliada y lineada",
+          "Cataclástica foliada",
+          "Cataclástica no foliada",
+          "Cataclástica gruesa (brechosa) foliada",
+          "Cataclástica gruesa (brechosa) no foliada",
+          "Vidriosa (pseudotaquilita)",
+          "Indeterminado"
+        ]
+      },
+      "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) (ramas Metamórfico y Roca de falla, verbatim) + Corpus de 45 Cartas Geológicas SGB (RAG) + norma CDC 2016"
+    },
+    "GEOMETRIA_CUERPO": {
+      "tipo": "simple",
+      "valores": [
+        "Tabular: plana-paralela y continua",
+        "Tabular: plana-paralela y discontinua",
+        "Tabular: plana-no paralela y continua",
+        "Forma de cuña (plana-no paralela y discontinua)",
+        "Ondulada-paralela y continua",
+        "Ondulada-paralela y discontinua",
+        "Ondulada-no paralela y continua",
+        "Ondulada-no paralela y discontinua",
+        "Curvada-paralela y continua",
+        "Curvada-paralela y discontinua",
+        "Curvada-no paralela y continua",
+        "Curvada-no paralela y discontinua",
+        "Lenticular-subparalela y discontinua",
+        "Lenticular con base cóncava y techo plano",
+        "Lenticular con base plana y techo convexo",
+        "Paralela irregular conforme al sustrato",
+        "En cintas entrelazadas",
+        "Convoluta",
+        "Irregular",
+        "Nodular",
+        "Indeterminado"
+      ],
+      "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) — campo GEOMETRIA DE ESTRATIFICACION (Stow, 2005). 'En cintas entrelazadas' agregado desde el corpus SGB (Carta Calama)."
+    },
+    "GRADO_METEORIZACION": {
+      "tipo": "simple",
+      "valores": [
+        "Fresco",
+        "Débilmente meteorizado",
+        "Moderadamente meteorizado",
+        "Intensamente meteorizado",
+        "Obliterada por alteración (textura primaria indeterminable)",
+        "Indeterminado"
+      ],
+      "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) ('Obliterada por alteración', Vol IV) + Corpus de 45 Cartas Geológicas SGB (RAG) + norma CDC 2016"
+    },
+    "CLASE_AFLORAMIENTO": {
+      "tipo": "simple",
+      "valores": [
+        "Sedimentario / estratificado",
+        "Volcánico",
+        "Intrusivo",
+        "Metamórfico",
+        "Roca de falla (tectonita)"
+      ],
+      "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) — tablas TBL_AF_DEP_SEDIMENTARIO / DEP_IGNEO_VOLCANICO / ROCA_METAMORFICA / ROCA_TECTONICA"
+    },
+    "ARREGLO_ESTRATOS": {
+      "tipo": "simple",
+      "valores": [
+        "Secuencia estrato creciente",
+        "Capas inferiores de una secuencia estrato creciente",
+        "Capas medias de una secuencia estrato creciente",
+        "Capas superiores de una secuencia estrato creciente",
+        "Secuencia estrato decreciente",
+        "Capas inferiores de una secuencia estrato decreciente",
+        "Capas medias de una secuencia estrato decreciente",
+        "Capas superiores de una secuencia estrato decreciente",
+        "Secuencia uniforme",
+        "Secuencia heterogénea",
+        "Secuencia con alternancia de conjuntos de capas con espesores uniformes",
+        "Capa individual que no forma parte de una secuencia sistemática",
+        "Indeterminado"
+      ],
+      "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) — campo ARREGLO DE ESTRATOS SEGÚN ESPESOR"
+    },
+    "GRADACION_INTERNA": {
+      "tipo": "simple",
+      "valores": [
+        "Gradación normal",
+        "Gradación normal de la fracción gruesa",
+        "Gradación normal en la base",
+        "Gradación normal en el techo",
+        "Gradación inversa",
+        "Gradación inversa de la fracción gruesa",
+        "Gradación inversa en la base",
+        "Gradación inversa en el techo",
+        "Gradación compuesta inversa-normal",
+        "Gradación compuesta normal-inversa",
+        "Gradación compuesta oscilatoria",
+        "Gradación compuesta compleja",
+        "No gradada",
+        "Indeterminada"
+      ],
+      "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) — campo TIPO DE GRADACIÓN INTERNA AL DEPÓSITO (Stow, 2005)"
+    },
+    "EXTENSION_LATERAL": {
+      "tipo": "simple",
+      "valores": [
+        "Métrica (< 10 m)",
+        "Decamétrica (10 – 100 m)",
+        "Hectométrica (100 – 1.000 m)",
+        "Kilométrica (> 1 km)",
+        "No determinable a la escala del trabajo"
+      ],
+      "fuente": "Corpus de 45 Cartas Geológicas SGB (RAG) + norma CDC 2016 — patrón recurrente en las cartas ('continuidad lateral decamétrica')"
+    },
+    "TIPO_LIMITE_INFERIOR": {
+      "tipo": "simple",
+      "valores": [
+        "Base gradacional",
+        "Base nítida",
+        "Base erosional",
+        "Base no expuesta"
+      ],
+      "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) — campo TIPO DE LÍMITE INFERIOR DEL DEPÓSITO"
+    },
+    "GRADO_FRACTURAMIENTO": {
+      "tipo": "simple",
+      "valores": [
+        "Macizo, sin fracturas apreciables",
+        "Escasamente fracturado",
+        "Moderadamente fracturado",
+        "Intensamente fracturado",
+        "Triturado / brechizado",
+        "Indeterminado"
+      ],
+      "fuente": "Corpus de 45 Cartas Geológicas SGB (RAG) + norma CDC 2016 — meteorización y fracturamiento se describen siempre juntos ('de leve a moderada meteorización y fracturamiento'). La norma CDC lo trata en una tabla de fracturas aparte (DDA Descripción de Fracturas), demasiado extensa para una libreta de campo: aquí queda la versión cualitativa."
+    },
+    "FABRICA_GRAVOSA": {
+      "tipo": "simple",
+      "valores": [
+        "Fábrica organizada con eje mayor de los clastos paralelo al flujo",
+        "Fábrica organizada con eje mayor de los clastos perpendicular al flujo",
+        "Fábrica imbricada con eje mayor de los clastos paralelo al flujo",
+        "Fábrica imbricada con eje mayor de los clastos perpendicular al flujo",
+        "Fábrica desorganizada",
+        "Indeterminado"
+      ],
+      "fuente": "Norma CDC 2016 Vol III/IV/V (Estándares para entrada de datos Geología Básica) — campo FÁBRICA DE AFLORAMIENTOS GRAVOSOS (depósitos > 2 mm)"
+    },
+    "SELECCION": {
+      "tipo": "simple",
+      "valores": [
+        "Muy buena",
+        "Buena",
+        "Moderada",
+        "Mala",
+        "Muy mala"
+      ],
+      "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos)"
+    },
+    "REDONDEAMIENTO": {
+      "tipo": "simple",
+      "valores": [
+        "Anguloso",
+        "Subanguloso",
+        "Subredondeado",
+        "Redondeado",
+        "Muy redondeado"
+      ],
+      "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos) (escala de Powers, 1953)"
+    },
+    "CEMENTO": {
+      "tipo": "simple",
+      "valores": [
+        "Calcáreo",
+        "Silíceo",
+        "Ferruginoso",
+        "Yesífero",
+        "Sin cementar"
+      ],
+      "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos)"
+    },
+    "MINERAL": {
+      "tipo": "simple",
+      "valores": [
+        "Cuarzo",
+        "Feldespato potásico (ortoclasa/microclina)",
+        "Plagioclasa",
+        "Biotita",
+        "Muscovita",
+        "Hornblenda",
+        "Piroxeno (clinopiroxeno)",
+        "Piroxeno (ortopiroxeno)",
+        "Olivino",
+        "Granate",
+        "Estaurolita",
+        "Andalucita",
+        "Sillimanita",
+        "Cianita",
+        "Clorita",
+        "Epidota",
+        "Calcita",
+        "Magnetita",
+        "Ilmenita",
+        "Titanita (esfena)",
+        "Circón",
+        "Apatito",
+        "Allanita",
+        "Sulfuros (pirita/calcopirita)",
+        "Turmalina"
+      ],
+      "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos) — especies citadas para rocas plutónicas/metamórficas/volcánicas"
+    },
+    "MASA_FUNDAMENTAL": {
+      "tipo": "simple",
+      "valores": [
+        "Traquítica",
+        "Afieltrada",
+        "Intersertal",
+        "Hialopilítica",
+        "Pilotaxítica",
+        "Microfelsítica",
+        "Felsítica",
+        "Granofírica/micrográfica",
+        "Vítrea"
+      ],
+      "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos) — textura de la matriz, distinta de la textura de los fenocristales"
+    },
+    "TEXTURA_DUNHAM": {
+      "tipo": "simple",
+      "valores": [
+        "Mudstone",
+        "Wackestone",
+        "Packstone",
+        "Grainstone",
+        "Floatstone",
+        "Rudstone",
+        "Boundstone",
+        "Framestone",
+        "Bindstone"
+      ],
+      "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos) (clasificación de Dunham, 1962, ampliada por Embry & Klovan 1971)"
+    },
+    "SOLDADURA": {
+      "tipo": "simple",
+      "valores": [
+        "No soldada",
+        "Débilmente soldada",
+        "Moderadamente soldada",
+        "Densamente soldada"
+      ],
+      "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos)"
+    },
+    "GRADO_CONSOLIDACION": {
+      "tipo": "simple",
+      "valores": [
+        "No consolidado",
+        "Semiconsolidado",
+        "Consolidado / litificado"
+      ],
+      "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos)"
     }
   },
   "avisos": [
@@ -2281,7 +2780,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v59';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v65';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2311,6 +2810,7 @@ function restaurarAbiertos(){const a=abiertosGet();
 const STORE2TBL = {proyecto:'TBL_PROYECTO',punto:'PUNTO_CONTROL',litologia:'TBL_LITOLOGIA',
   estructural:'TBL_DATOS_ESTRUCTURALES',contacto:'TBL_CONTACTO',muestreo:'TBL_MUESTREO',
   foto:'TBL_FOTOGRAFIAS',esquema:'TBL_ESQUEMA_DIBUJO',geomorf:'TBL_GEOMORFOLOGIA',
+  aflora:'TBL_AFLORAMIENTO',
   punto_gabinete:'PUNTO_CONTROL_GABINETE',linea_gabinete:'LINEA_CONTROL_GABINETE'};
 const STORES = Object.keys(STORE2TBL);
 // 'linea' no cuelga de un punto (es una capa aparte, hermana de PUNTO_CONTROL) -> no entra
@@ -2319,6 +2819,10 @@ const LINEA_TBL = 'LINEA_CONTROL';
 // 'nota' tampoco cuelga de un punto: hermana de PUNTO_CONTROL/LINEA_CONTROL bajo TBL_PROYECTO.
 const NOTA_TBL = 'NOTA_CAMPO';
 const HIJAS = [
+  // Afloramiento va PRIMERO: describe el conjunto (mesoescala) que contiene a las rocas, así que
+  // se llena antes que la litología de cada una. Es panel unico (unico:true) -> una sola ficha
+  // por punto, sin numerar y sin boton "+ Agregar" una vez creada.
+  {store:'aflora', titulo:'Afloramiento', clase:'', unico:true},
   {store:'litologia', titulo:'Litología', clase:'lito', oblig:true},
   {store:'estructural', titulo:'Datos estructurales', clase:''},
   {store:'contacto', titulo:'Contactos', clase:''},
@@ -2369,13 +2873,40 @@ function esDeProyecto(store,r,proyectoId,idsPuntos){
 function nombreArchivoProyecto(proyecto){return (proyecto&&proyecto.NOMBRE_PROYECTO||'proyecto').replace(/[\\/:*?"<>|]+/g,'_');}
 
 // ============================ IndexedDB ============================
-const DB='captura-terreno', VER=6;   // v6: nuevo store 'nota' (Notas de campo)
+const DB='captura-terreno', VER=7;   // v7: nuevo store 'aflora' (Afloramiento, panel único)
 let db;
 function openDB(){return new Promise((res,rej)=>{
   let done=false; const finish=(fn,v)=>{if(!done){done=true;fn(v);}};
   const r=indexedDB.open(DB,VER);
-  r.onupgradeneeded=()=>{const d=r.result;STORES.concat(['fotomapa','linea','nota']).forEach(s=>{if(!d.objectStoreNames.contains(s)){const os=d.createObjectStore(s,{keyPath:'id'});
-    if(s!=='proyecto')os.createIndex('parent','_parent',{unique:false});}});};
+  r.onupgradeneeded=()=>{const d=r.result;
+    const yaTeniaAflora=d.objectStoreNames.contains('aflora');
+    STORES.concat(['fotomapa','linea','nota']).forEach(s=>{if(!d.objectStoreNames.contains(s)){const os=d.createObjectStore(s,{keyPath:'id'});
+      if(s!=='proyecto')os.createIndex('parent','_parent',{unique:false});}});
+    // Migración v7: EXPOSICION_AFLORAMIENTO vivía en PUNTO_CONTROL; se traslada a
+    // GRADO_EXPOSICION_AFLORAMIENTO en la ficha nueva 'aflora' (panel único). Se copia
+    // automáticamente para no perder el dato ya capturado en campañas anteriores.
+    // Nada de esto puede abortar la transacción de upgrade: si aborta, openDB() entero
+    // rechaza y la app no abre la base entera por no haber podido copiar un dato de un
+    // punto. Cada request lleva su onerror con preventDefault() para que el fallo quede
+    // contenido en ese registro (el dato original sigue intacto en el punto, y el import
+    // de respaldos hace esta misma migración como segunda red).
+    if(!yaTeniaAflora){
+      const txM=r.transaction;
+      const noAbortar=req=>{req.onerror=ev=>{ev.preventDefault();console.warn('Migración v7: registro omitido',req.error);};return req;};
+      ['punto','punto_gabinete'].forEach(storeName=>{
+        const q=noAbortar(txM.objectStore(storeName).getAll());
+        q.onsuccess=ev=>{
+          (ev.target.result||[]).forEach(p=>{
+            if(!p||!p.EXPOSICION_AFLORAMIENTO)return;
+            try{
+              noAbortar(txM.objectStore('aflora').put(
+                {id:uid(),_parent:p.id,GRADO_EXPOSICION_AFLORAMIENTO:p.EXPOSICION_AFLORAMIENTO}));
+            }catch(e){console.warn('Migración v7: no se pudo migrar el punto',p.id,e);}
+          });
+        };
+      });
+    }
+  };
   r.onsuccess=()=>{db=r.result;
     db.onversionchange=()=>{try{db.close();}catch(e){}};   // libera para que otra instancia pueda actualizar
     finish(res,db);};
@@ -2456,7 +2987,7 @@ async function buildBackupBlob(coleccion = 'terreno') {
   backup[lineaStore] = await all(lineaStore);
   backup.nota = await all('nota');   // las notas cuelgan del proyecto, no de la colección
 
-  // Las 7 tablas hijas son stores COMPARTIDOS por las dos colecciones (cuelgan del punto
+  // Las tablas hijas (ver HIJAS) son stores COMPARTIDOS por las dos colecciones (cuelgan del punto
   // por _parent, no del store del punto). Sacarlas con all() metia las hijas de gabinete
   // dentro del backup de terreno y viceversa; al restaurar quedaban huerfanas, con un
   // _parent apuntando a un punto que no viajo en el archivo.
@@ -2498,6 +3029,7 @@ async function importBackup(file, destinoColeccion = null) {
           linea_gabinete: esGabinete ? 'linea_gabinete' : 'linea',
           nota: 'nota',
           litologia: 'litologia',
+          aflora: 'aflora',
           estructural: 'estructural',
           contacto: 'contacto',
           muestreo: 'muestreo',
@@ -2545,6 +3077,24 @@ async function importBackup(file, destinoColeccion = null) {
           }
         }
 
+        // Un respaldo anterior a v60 trae EXPOSICION_AFLORAMIENTO dentro del punto y NINGUN
+        // registro 'aflora'. La migracion de openDB() ya corrio (fue al abrir la BD), asi que
+        // sin esto el dato quedaria invisible: el campo ya no existe en la ficha del punto y
+        // no habria ficha de Afloramiento que lo muestre. Mismo criterio que la migracion v7.
+        const conAflora = new Set((await all('aflora')).map(a => a._parent));
+        let migrados = 0;
+        for (const storeOrigen of ['punto', 'punto_gabinete']) {
+          for (const p of (data[storeOrigen] || [])) {
+            if (!p || !p.EXPOSICION_AFLORAMIENTO || conAflora.has(p.id)) continue;
+            try {
+              await put('aflora', {id: uid(), _parent: p.id, GRADO_EXPOSICION_AFLORAMIENTO: p.EXPOSICION_AFLORAMIENTO});
+              conAflora.add(p.id); migrados++;
+            } catch (err) {
+              errores.push('aflora/' + p.id + ': ' + (err && err.message || err));
+            }
+          }
+        }
+
         resolve({
           ok: errores.length === 0,
           insertadas: totalInsertadas,
@@ -2552,6 +3102,7 @@ async function importBackup(file, destinoColeccion = null) {
           coleccion: coleccion,
           fotosTotal: fotosTotal,
           fotosConImagen: fotosConImagen,
+          afloraMigrados: migrados,
         });
       } catch (err) {
         reject(err);
@@ -2625,9 +3176,13 @@ async function importBackupUI(coleccion) {
           ? `<br>📷 ${result.fotosConImagen}/${result.fotosTotal} imágenes restauradas correctamente.`
           : `<br>⚠️ Solo ${result.fotosConImagen} de ${result.fotosTotal} imágenes se restauraron con datos — revisa esos registros.`)
       : '';
+    // respaldo anterior a v60: la exposición del afloramiento se rescató a su ficha nueva
+    const afloraMsg = result.afloraMigrados
+      ? `<br>🪨 ${result.afloraMigrados} punto(s) de un respaldo antiguo: su exposición de afloramiento se trasladó a la ficha Afloramiento.`
+      : '';
     statusDiv.innerHTML = (result.ok && fotosOk)
-      ? `<span style="color:var(--verde);">${ok}${fotosMsg}</span>`
-      : `<span style="color:var(--rojo);">⚠️ ${ok}${fotosMsg}` + (result.errores.length
+      ? `<span style="color:var(--verde);">${ok}${fotosMsg}${afloraMsg}</span>`
+      : `<span style="color:var(--rojo);">⚠️ ${ok}${fotosMsg}${afloraMsg}` + (result.errores.length
           ? `<br>${result.errores.length} con error: ${esc(result.errores[0])}`
             + (result.errores.length > 1 ? ` (y ${result.errores.length - 1} más — ver consola)` : '')
           : '') + `</span>`;
@@ -2776,7 +3331,7 @@ function tipoWidget(campo){
   const n=campo.nombre;
   if(campo.dominio) return 'select';
   if(/^(LAT|LONG)/.test(n)||/Lat$|Long$/.test(n)) return 'number';
-  if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|RUMBO|ORIENTACION|TREND|PLUNGE/.test(n)) return 'number';
+  if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|RUMBO|ORIENTACION|TREND|PLUNGE|ESPESOR/.test(n)) return 'number';
   if(n==='FECHA') return 'date';
   if(n==='HORA') return 'time';
   if(/DESCRIPCION|OBSERVACION|COMENTARIO|RELACION_LITOLOGIA|DISTRIBUCION|TEXTO|PROSA/.test(n)) return 'textarea';
@@ -2816,24 +3371,52 @@ const ROCAS_VOLCANICAS = {
 
 // Campos condicionales: se muestran/habilitan solo si se cumple la regla; si no, se limpian.
 //  modo 'bloquear' = se deshabilita y atenúa · modo 'ocultar' = se esconde por completo.
+// Nombres de roca sedimentaria CLÁSTICA (detrítica): comparten GRANULOMETRIA, SELECCION y
+// REDONDEAMIENTO porque los tres describen el mismo tipo de grano/clasto. Caliza queda fuera
+// a propósito (no detrítica; su textura se describe con TEXTURA_DUNHAM).
+const SEDIMENTARIA_CLASTICA = ['Arcillolita', 'Arenisca', 'Brecha sedimentaria', 'Conglomerado',
+  'Conglomerado megaclástico', 'Fangolita', 'Limolita', 'Lutita',
+  'Sedimentita siliciclástica indiferenciada'];
 const CONDICIONALES = {
   // Una litología es roca O depósito: TIPO_DEPOSITO solo con TIPO_ROCA = "Depósito".
   TIPO_DEPOSITO: {modo:'bloquear', regla: v => v['TIPO_ROCA']==='Depósito'},
   // Lava/Piroclástica/Tefra solo aplica a rocas volcánicas (acota NOMBRE_ROCA, ver filtrarNombreRocaVolcanica).
   TIPO_VOLCANICA: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
-  // Granulometría solo para: (1) todos los depósitos, (2) rocas sedimentarias siliciclásticas
-  // (Arcillolita, Arenisca, Brecha sedimentaria, Conglomerado, Conglomerado megaclástico, Fangolita,
-  // Limolita, Lutita, Sedimentita siliciclástica indiferenciada); Caliza queda fuera (no detrítica).
+  // Granulometría solo para: (1) todos los depósitos, (2) rocas sedimentarias siliciclásticas.
   // Ya no aplica a volcánicas: los nombres oficiales de Piroclástica/Tefra ya llevan el tamaño de grano incorporado.
   GRANULOMETRIA: {modo:'ocultar', regla: v => {
     const tipo = v['TIPO_ROCA'];
-    const nombre = v['NOMBRE_ROCA'];
     if (tipo === 'Depósito') return true;
-    if (tipo === 'Sedimentaria') return ['Arcillolita', 'Arenisca', 'Brecha sedimentaria', 'Conglomerado',
-      'Conglomerado megaclástico', 'Fangolita', 'Limolita', 'Lutita',
-      'Sedimentita siliciclástica indiferenciada'].includes(nombre);
+    if (tipo === 'Sedimentaria') return SEDIMENTARIA_CLASTICA.includes(v['NOMBRE_ROCA']);
     return false;
   }},
+  // --- Descripción litológica en detalle (v62). Mismo criterio que GRANULOMETRIA:
+  // reusa la lista de 9 nombres siliciclásticos para lo que solo aplica a roca clástica.
+  SELECCION: {modo:'ocultar', regla: v => {
+    const tipo = v['TIPO_ROCA'];
+    if (tipo === 'Depósito') return true;
+    if (tipo === 'Volcánica') return v['TIPO_VOLCANICA'] === 'Piroclástica';
+    if (tipo === 'Sedimentaria') return SEDIMENTARIA_CLASTICA.includes(v['NOMBRE_ROCA']);
+    return false;
+  }},
+  REDONDEAMIENTO: {modo:'ocultar', regla: v => {
+    const tipo = v['TIPO_ROCA'];
+    if (tipo === 'Depósito') return true;
+    if (tipo === 'Sedimentaria') return SEDIMENTARIA_CLASTICA.includes(v['NOMBRE_ROCA']);
+    return false;
+  }},
+  CEMENTO: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Sedimentaria' || v['TIPO_ROCA']==='Depósito'},
+  // Composición mineral (plutónicas/metamórficas) y fenocristales (volcánicas) son dos
+  // conceptos distintos del CSV de referencia — no comparten campo. El detalle de texto
+  // libre de cada uno se oculta junto con su lista de minerales.
+  COMPOSICION_MINERAL_PRINCIPAL: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Intrusiva' || v['TIPO_ROCA']==='Metamórfica'},
+  COMPOSICION_MINERAL_DETALLE:   {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Intrusiva' || v['TIPO_ROCA']==='Metamórfica'},
+  FENOCRISTALES_ESPECIE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
+  FENOCRISTALES_DETALLE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
+  MASA_FUNDAMENTAL: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Lava'},
+  TEXTURA_DUNHAM:   {modo:'ocultar', regla: v => v['NOMBRE_ROCA']==='Caliza'},
+  SOLDADURA:        {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Piroclástica'},
+  GRADO_CONSOLIDACION: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Depósito'},
   // Tipo de falla solo cuando la estructura medida es una falla (formulario de punto).
   TIPO_FALLA: {modo:'ocultar', regla: v => v['TIPO_ESTRUCTURA']==='Estructura falla'},
   // --- LINEA_CONTROL: el tipo y el subtipo los resuelve la cascada
@@ -2863,12 +3446,23 @@ function formulario(store, reg, ctx){
       // selección múltiple: grupo de chips con checkbox (ej. propósito de análisis)
       inp=el('div',{class:'multichips'});
       const sel=new Set((reg[n]?String(reg[n]).split(/\s*;\s*/):[]).filter(Boolean));
-      opciones(campo.dominio,null).forEach(o=>{
-        const chip=el('label',{class:'chip'+(sel.has(o.value)?' on':'')});
-        const cb=el('input',{type:'checkbox'});cb.checked=sel.has(o.value);cb.value=o.value;
+      const chip1=(valor,etiqueta,huerfano)=>{
+        const chip=el('label',{class:'chip'+(sel.has(valor)?' on':'')+(huerfano?' huerfano':'')});
+        const cb=el('input',{type:'checkbox'});cb.checked=sel.has(valor);cb.value=valor;
         cb.addEventListener('change',()=>chip.classList.toggle('on',cb.checked));
-        chip.append(cb,el('span',{},o.label));inp.append(chip);
-      });
+        chip.append(cb,el('span',{},etiqueta));
+        if(huerfano)chip.title='Valor guardado que ya no está en la lista vigente; se conserva para no perder el dato.';
+        inp.append(chip);
+      };
+      const delDominio=opciones(campo.dominio,null);
+      delDominio.forEach(o=>chip1(o.value,o.label,false));
+      // Red de seguridad, equivalente a preservarValor() para los <select> simples: un valor
+      // guardado que ya NO está en el dominio (lista depurada o término renombrado entre
+      // versiones -- ya pasó dos veces en este modelo) no tenía checkbox, así que getData()
+      // no lo veía y el auto-guardado de la ficha lo borraba del disco en silencio al tocar
+      // cualquier otro campo. Se le crea su propio chip, marcado, para conservarlo.
+      const vigentes=new Set(delDominio.map(o=>o.value));
+      [...sel].filter(v=>!vigentes.has(v)).forEach(v=>chip1(v,v,true));
       inp.name=n; inp._multi=true;
     } else if(w==='select'){
       inp=el('select');
@@ -2951,7 +3545,16 @@ function formulario(store, reg, ctx){
       // edite cualquier otro campo de la ficha — el auto-guardado de bloqueHijo() persiste todo
       // lo que devuelva getData(), así que limpiar de más aquí es borrar del disco sin aviso.
       const eraOk=inp._condOk; inp._condOk=ok;
-      if(!ok){ if(inp.value && eraOk===true)inp.value=''; inp.required=false; }
+      if(!ok){
+        // Un campo de selección múltiple es un <div> de checkboxes, no un input: no tiene
+        // .value, así que la limpieza de abajo nunca lo tocaba y el valor quedaba escondido
+        // en el registro (p.ej. reclasificar un granito como volcánica dejaba su composición
+        // mineral intrusiva viajando a los exports y a la prosa, sin forma de verla ni
+        // corregirla porque el campo ya estaba oculto).
+        if(inp._multi){ if(eraOk===true) inp.querySelectorAll('input[type=checkbox]').forEach(cb=>{cb.checked=false;cb.closest('.chip').classList.remove('on');}); }
+        else if(inp.value && eraOk===true) inp.value='';
+        inp.required=false;
+      }
       else { const cd=cs.find(c=>c.nombre===cn); if(cd&&cd.obligatorio)inp.required=true; }
     }
   }
@@ -3712,7 +4315,7 @@ async function renderPunto(app){
     const hc=tarjetaColapsable(h.titulo+(h.oblig?' *':''),{clave:h.store,lleno:items.length>0,badge:items.length});
     const box=el('div');hc.body.append(box);
     items.forEach((it,i)=>box.append(bloqueHijo(h,it,i,litos)));
-    hc.body.append(el('div',{class:'btnbar'},
+    if(!(h.unico && items.length>0)) hc.body.append(el('div',{class:'btnbar'},
       el('button',{class:'btn '+(h.clase==='lito'?'':'orange')+' mini',onclick:async()=>{
         await guardarPunto();
         const reg={id:uid(),_parent:curPunto.id};
@@ -3758,7 +4361,7 @@ async function renderPunto(app){
 function bloqueHijo(h,reg,i,litos){
   const b=el('div',{class:'child-block'+(h.clase==='lito'?' lito':''),'data-store':h.store});
   const hd=el('div',{class:'hd'});
-  hd.append(el('span',{class:'n'},h.titulo+' '+(i+1)));
+  hd.append(el('span',{class:'n'},h.unico?h.titulo:h.titulo+' '+(i+1)));
   hd.append(el('button',{class:'btn del mini',onclick:async()=>{await del(h.store,reg.id);renderPunto($('#app'));}},'Eliminar'));
   b.append(hd);
   if(h.store==='foto'){ b.append(bloqueFoto(reg,litos)); }
@@ -4394,8 +4997,9 @@ function compositaFotomapa(node){return new Promise(async res=>{
     res(cv.toDataURL('image/jpeg',.85));};
   img.onerror=()=>res(node._base); img.src=node._base;});}
 
-// Duplica un punto con sus datos DESCRIPTIVOS (litología, estructurales, contactos, muestreo, geomorfología),
-// pero deja en blanco las coordenadas y NO copia fotos/esquemas/imagen satelital (son propios del sitio).
+// Duplica un punto con sus datos DESCRIPTIVOS (litología, afloramiento, estructurales, contactos,
+// muestreo, geomorfología), pero deja en blanco las coordenadas y NO copia fotos/esquemas/imagen
+// satelital (son propios del sitio).
 async function duplicarPunto(srcId){
   const src=await get(storeActivo(),srcId); if(!src)return null;
   const np=Object.assign({},src,{id:uid(),_parent:src._parent},ahora());
@@ -4406,7 +5010,7 @@ async function duplicarPunto(srcId){
   // litologías (remapear ids para reenlazar estructurales)
   const mapLito={};
   for(const li of await childrenOf('litologia',srcId)){const n=Object.assign({},li,{id:uid(),_parent:np.id});mapLito[li.id]=n.id;await put('litologia',n);}
-  for(const store of ['estructural','contacto','muestreo','geomorf']){
+  for(const store of ['aflora','estructural','contacto','muestreo','geomorf']){
     for(const it of await childrenOf(store,srcId)){const n=Object.assign({},it,{id:uid(),_parent:np.id});
       if(n.ID_LITOLOGIA&&mapLito[n.ID_LITOLOGIA])n.ID_LITOLOGIA=mapLito[n.ID_LITOLOGIA];
       await put(store,n);}
@@ -4473,7 +5077,7 @@ async function exportMenu(proyectoId){
     ? 'Genera los archivos con los datos del proyecto <b>'+esc(pr.NOMBRE_PROYECTO||'')+'</b> solamente.'
     : 'Genera los archivos con todos los datos capturados en este dispositivo.'}));
   card.append(el('div',{class:'btnbar',style:'margin-top:12px;flex-direction:column;align-items:stretch'},
-    el('button',{class:'btn',onclick:()=>exportCSV(proyectoId)},'⇩ CSV (ZIP con las 8 tablas)'),
+    el('button',{class:'btn',onclick:()=>exportCSV(proyectoId)},'⇩ CSV (ZIP con todas las tablas)'),
     el('button',{class:'btn blue',onclick:()=>exportKMZ(proyectoId)},'🌎 KMZ (puntos para Google Earth)'),
     el('button',{class:'btn blue',onclick:()=>exportGPKG(proyectoId)},'🗺️ GeoPackage (.gpkg — QGIS / ArcGIS)'),
     el('button',{class:'btn blue',onclick:()=>exportGDB(proyectoId)},'🗄️ GDB — File Geodatabase de Esri (ZIP)'),
@@ -4699,8 +5303,10 @@ async function construirGPKG(proyectoId){
    db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,min_x,min_y,max_x,max_y,srs_id) VALUES ('NOTA_CAMPO','features','NOTA_CAMPO',?,?,?,?,4326)",nN?[env.x0,env.y0,env.x1,env.y1]:[null,null,null,null]);
    db.run("INSERT INTO gpkg_geometry_columns VALUES ('NOTA_CAMPO','geom','POINT',4326,0,0)");
   }
+  let nT=0;
   for(const s of STORES){  // resto de tablas, sin geometría
     if(s==='punto'||s==='punto_gabinete'||s==='linea_gabinete')continue;   // ya salieron como capas espaciales
+    nT++;
     const tbl=STORE2TBL[s];const cs=campos(s).map(c=>c.nombre);
     const extras=(s==='foto'||s==='esquema')?[['IMAGEN',r=>dataUrlBytes(r._img)]]:[];
     const st=crear(tbl,cs,extras,false);
@@ -4711,7 +5317,7 @@ async function construirGPKG(proyectoId){
     db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,srs_id) VALUES (?,?,?,0)",[tbl,'attributes',tbl]);
   }
   const bytes=db.export();db.close();
-  return {bytes,nP,nL};
+  return {bytes,nP,nL,nT};
 }
 
 async function exportGPKG(proyectoId){
@@ -4720,7 +5326,7 @@ async function exportGPKG(proyectoId){
     const r=await construirGPKG(proyectoId);
     const nombre=proyectoId?'captura_terreno_'+nombreArchivoProyecto(await get('proyecto',proyectoId))+'.gpkg':'captura_terreno.gpkg';
     descargar(nombre,new Blob([r.bytes],{type:'application/geopackage+sqlite3'}));
-    toast('GeoPackage exportado ('+r.nP+' puntos, '+r.nL+' líneas, 8 tablas)');
+    toast('GeoPackage exportado ('+r.nP+' puntos, '+r.nL+' líneas, '+r.nT+' tablas)');
   }catch(e){console.error(e);toast('Error al generar GeoPackage: '+e.message);}
 }
 
@@ -4828,7 +5434,7 @@ function umbralSector(proyecto){
 // Cada oracion se arma juntando SOLO las clausulas que existen y cerrando una vez con punto.
 // Concatenar fragmentos que pueden venir vacios y limpiar despues con regex producia ",." al
 // final (ej. punto sin EXPOSICION_AFLORAMIENTO: "...en un sector de ladera,.").
-// datos = {litos, estr, cont, geomorf, mues} -- las 5 fichas hijas que hasta v57 quedaban
+// datos = {litos, aflora, estr, cont, geomorf, mues} -- las fichas hijas que hasta v57 quedaban
 // SOLO en las tablas del PDF. Como v57 esconde esas tablas apenas hay PROSA_CAMPO, una prosa
 // que no las mencionara las hacia desaparecer de la libreta impresa sin aviso (geomorfologia,
 // contactos y muestreo no se narraban en absoluto; estructurales solo salia el conteo, sin los
@@ -4860,11 +5466,336 @@ const CONTACTO_VERBO={
   'Discordante angular':(t,b)=>t+(esPlural(t)?' se disponen en discordancia angular sobre ':' se dispone en discordancia angular sobre ')+b,
   'Discordante erosiva':(t,b)=>t+(esPlural(t)?' se disponen en discordancia erosiva sobre ':' se dispone en discordancia erosiva sobre ')+b,
 };
+// ---- Afloramiento (TBL_AFLORAMIENTO): carácter del conjunto a MESOESCALA ----
+// Los valores del dominio están en femenino porque describen "la roca/la sucesión"; el
+// sujeto de la oración generada es "el afloramiento" (masculino), así que cada mapa traduce
+// a la forma concordada en vez de reusar la etiqueta cruda. Vocabulario del corpus de Cartas
+// SGB ("sucesión bien estratificada", "paquetes granodecrecientes", "cuerpos lateralmente
+// extensos a escala decamétrica", "no se puede separar a la escala del trabajo").
+// Valor sin frase (o cadena vacía) = no aporta cláusula: "No aplica"/"No determinable" son
+// respuestas explícitas del geólogo, no datos que valga la pena narrar.
+// Carácter mesoscópico: las 5 ramas de la cascada CLASE_AFLORAMIENTO comparten este mapa
+// plano porque los valores no se repiten entre ramas salvo los genéricos ("Macizo, sin
+// estructuras visibles", "Indeterminado"), que además significan lo mismo en todas.
+const CARACTER_FRASE={
+  // Sedimentario / estratificado
+  'Macizo, sin estructuras visibles':'macizo, sin estructuras internas visibles',
+  'Bien estratificado':'bien estratificado',
+  'Mal estratificado':'mal estratificado',
+  'Estratificación difusa':'con superficies de estratificación difusas',
+  'Bancos amalgamados':'en bancos amalgamados',
+  'Laminado (planar)':'con laminación planar',
+  'Laminado (onduloso)':'con laminación ondulosa',
+  'Laminación convoluta':'con laminación convoluta',
+  'Estratificación cruzada planar (tabular)':'con estratificación cruzada planar',
+  'Estratificación cruzada en artesa':'con estratificación cruzada en artesa',
+  'Estratificación cruzada tangencial':'con estratificación cruzada tangencial',
+  'Estratificación cruzada de bajo ángulo':'con estratificación cruzada de bajo ángulo',
+  'Nodular':'con fábrica nodular',
+  'Brechoso':'de aspecto brechoso',
+  // Volcánico
+  'Lávico macizo':'como una lava maciza',
+  'Fluidal (bandeamiento de flujo)':'con bandeamiento de flujo',
+  'Autobrechizado':'autobrechizado',
+  'Disyunción columnar':'con disyunción columnar',
+  'Disyunción en lajas':'con disyunción en lajas',
+  'Vesicular / amigdaloidal':'vesicular a amigdaloidal',
+  'Brechoso (brecha volcánica)':'como una brecha volcánica',
+  'Estratificado (piroclástico)':'estratificado, de carácter piroclástico',
+  'Soldado (ignimbrítico)':'soldado, de carácter ignimbrítico',
+  // Intrusivo
+  'Con foliación magmática':'con foliación magmática',
+  'Con bandeamiento magmático (layering)':'con bandeamiento magmático',
+  'Con enclaves máficos':'con enclaves máficos',
+  'Brechoso (brecha intrusiva)':'como una brecha intrusiva',
+  'Disyunción en bloques':'con disyunción en bloques',
+  // Metamórfico (texturas oficiales del Vol IV)
+  'Macizo':'macizo',
+  'Granofélsico':'con textura granofélsica',
+  'Cornificado (hornfélsico)':'cornificado (hornfélsico)',
+  'Clivaje pizarroso':'con clivaje pizarroso',
+  'Foliación filítica':'con foliación filítica',
+  'Foliación esquistosa':'con foliación esquistosa',
+  'Foliación gnéisica':'con foliación gnéisica',
+  'Foliado (granularidad indeterminada)':'foliado',
+  'Foliado y lineado':'foliado y lineado',
+  'Lineado pero no foliado':'lineado pero no foliado',
+  'Migmatítico':'con estructura migmatítica',
+  'Bandeado':'bandeado',
+  // Roca de falla (tectonita) — texturas oficiales del Vol V
+  'Milonítica foliada':'con textura milonítica foliada',
+  'Milonítica foliada y lineada':'con textura milonítica foliada y lineada',
+  'Cataclástica foliada':'con textura cataclástica foliada',
+  'Cataclástica no foliada':'con textura cataclástica no foliada',
+  'Cataclástica gruesa (brechosa) foliada':'con textura cataclástica gruesa (brechosa) foliada',
+  'Cataclástica gruesa (brechosa) no foliada':'con textura cataclástica gruesa (brechosa) no foliada',
+  'Vidriosa (pseudotaquilita)':'con textura vidriosa (pseudotaquilita)',
+  // común a varias ramas
+  'Indeterminado':'',
+};
+// Geometría de estratificación (Stow 2005, vía norma CDC): el término oficial ya dice si es
+// continua o discontinua, por eso no hay cláusula de continuidad aparte.
+const GEOMETRIA_FRASE={
+  'Tabular: plana-paralela y continua':'de geometría tabular, plana-paralela y continua',
+  'Tabular: plana-paralela y discontinua':'de geometría tabular, plana-paralela y discontinua',
+  'Tabular: plana-no paralela y continua':'de geometría tabular, plana-no paralela y continua',
+  'Forma de cuña (plana-no paralela y discontinua)':'con geometría en forma de cuña',
+  'Ondulada-paralela y continua':'de geometría ondulada-paralela y continua',
+  'Ondulada-paralela y discontinua':'de geometría ondulada-paralela y discontinua',
+  'Ondulada-no paralela y continua':'de geometría ondulada-no paralela y continua',
+  'Ondulada-no paralela y discontinua':'de geometría ondulada-no paralela y discontinua',
+  'Curvada-paralela y continua':'de geometría curvada-paralela y continua',
+  'Curvada-paralela y discontinua':'de geometría curvada-paralela y discontinua',
+  'Curvada-no paralela y continua':'de geometría curvada-no paralela y continua',
+  'Curvada-no paralela y discontinua':'de geometría curvada-no paralela y discontinua',
+  'Lenticular-subparalela y discontinua':'de geometría lenticular-subparalela y discontinua',
+  'Lenticular con base cóncava y techo plano':'en cuerpos lenticulares de base cóncava y techo plano',
+  'Lenticular con base plana y techo convexo':'en cuerpos lenticulares de base plana y techo convexo',
+  'Paralela irregular conforme al sustrato':'en capas paralelas irregulares, conformes al sustrato',
+  'En cintas entrelazadas':'en cintas entrelazadas',
+  'Convoluta':'de geometría convoluta',
+  'Irregular':'de geometría irregular',
+  'Nodular':'de geometría nodular',
+  'Indeterminado':'',
+};
+const EXTENSION_FRASE={
+  'Métrica (< 10 m)':'con continuidad lateral métrica',
+  'Decamétrica (10 – 100 m)':'con continuidad lateral decamétrica',
+  'Hectométrica (100 – 1.000 m)':'con continuidad lateral hectométrica',
+  'Kilométrica (> 1 km)':'con continuidad lateral kilométrica',
+  'No determinable a la escala del trabajo':'sin continuidad lateral separable a la escala del trabajo',
+};
+// Arreglo de estratos según espesor (campo CDC): oración propia, sujeto "el depósito".
+const ARREGLO_FRASE={
+  'Secuencia estrato creciente':'una secuencia estrato creciente',
+  'Capas inferiores de una secuencia estrato creciente':'las capas inferiores de una secuencia estrato creciente',
+  'Capas medias de una secuencia estrato creciente':'las capas medias de una secuencia estrato creciente',
+  'Capas superiores de una secuencia estrato creciente':'las capas superiores de una secuencia estrato creciente',
+  'Secuencia estrato decreciente':'una secuencia estrato decreciente',
+  'Capas inferiores de una secuencia estrato decreciente':'las capas inferiores de una secuencia estrato decreciente',
+  'Capas medias de una secuencia estrato decreciente':'las capas medias de una secuencia estrato decreciente',
+  'Capas superiores de una secuencia estrato decreciente':'las capas superiores de una secuencia estrato decreciente',
+  'Secuencia uniforme':'una secuencia de espesores uniformes',
+  'Secuencia heterogénea':'una secuencia de espesores heterogéneos',
+  'Secuencia con alternancia de conjuntos de capas con espesores uniformes':'una secuencia con alternancia de conjuntos de capas de espesores uniformes',
+  'Capa individual que no forma parte de una secuencia sistemática':'una capa individual, sin arreglo secuencial sistemático',
+  'Indeterminado':'',
+};
+// Gradación interna (Stow 2005, vía CDC). "No gradada" no encaja en "Presenta ..." y lleva
+// su propia oración; el resto se completa como "Presenta gradación …".
+const GRADACION_FRASE={
+  'Gradación normal':'gradación normal',
+  'Gradación normal de la fracción gruesa':'gradación normal de la fracción gruesa',
+  'Gradación normal en la base':'gradación normal en la base',
+  'Gradación normal en el techo':'gradación normal en el techo',
+  'Gradación inversa':'gradación inversa',
+  'Gradación inversa de la fracción gruesa':'gradación inversa de la fracción gruesa',
+  'Gradación inversa en la base':'gradación inversa en la base',
+  'Gradación inversa en el techo':'gradación inversa en el techo',
+  'Gradación compuesta inversa-normal':'gradación compuesta inversa-normal',
+  'Gradación compuesta normal-inversa':'gradación compuesta normal-inversa',
+  'Gradación compuesta oscilatoria':'gradación compuesta oscilatoria',
+  'Gradación compuesta compleja':'gradación compuesta compleja',
+  'No gradada':'',
+  'Indeterminada':'',
+};
+const LIMITE_FRASE={
+  'Base gradacional':'La base del depósito es gradacional',
+  'Base nítida':'La base del depósito es nítida',
+  'Base erosional':'La base del depósito es erosiva',
+  'Base no expuesta':'La base del depósito no está expuesta',
+};
+// Meteorización y fracturamiento comparten oración: el corpus los describe siempre juntos
+// ("de leve a moderada meteorización y fracturamiento"). Sujeto "la roca" (femenino).
+const METEORIZACION_FRASE={
+  'Fresco':'fresca',
+  'Débilmente meteorizado':'débilmente meteorizada',
+  'Moderadamente meteorizado':'moderadamente meteorizada',
+  'Intensamente meteorizado':'intensamente meteorizada',
+  'Obliterada por alteración (textura primaria indeterminable)':'con su textura primaria obliterada por alteración',
+  'Indeterminado':'',
+};
+const FRACTURAMIENTO_FRASE={
+  'Macizo, sin fracturas apreciables':'sin fracturamiento apreciable',
+  'Escasamente fracturado':'escasamente fracturada',
+  'Moderadamente fracturado':'moderadamente fracturada',
+  'Intensamente fracturado':'intensamente fracturada',
+  'Triturado / brechizado':'triturada y brechizada',
+  'Indeterminado':'',
+};
+const FABRICA_FRASE={
+  'Fábrica organizada con eje mayor de los clastos paralelo al flujo':'Los clastos presentan una fábrica organizada, con su eje mayor paralelo al flujo',
+  'Fábrica organizada con eje mayor de los clastos perpendicular al flujo':'Los clastos presentan una fábrica organizada, con su eje mayor perpendicular al flujo',
+  'Fábrica imbricada con eje mayor de los clastos paralelo al flujo':'Los clastos presentan una fábrica imbricada, con su eje mayor paralelo al flujo',
+  'Fábrica imbricada con eje mayor de los clastos perpendicular al flujo':'Los clastos presentan una fábrica imbricada, con su eje mayor perpendicular al flujo',
+  'Fábrica desorganizada':'Los clastos presentan una fábrica desorganizada, sin orientación preferente',
+  'Indeterminado':'',
+};
+// "capas de X a Y cm de espesor" (patrón de espesor del corpus). El sustantivo y la unidad
+// salen de la escala de Ingram (1954) que adopta la norma CDC en ESPESOR PROMEDIO DE
+// ESTRATIFICACION EN AFLORAMIENTO: bajo 1 cm son LÁMINAS (en mm), entre 1 y 100 cm CAPAS
+// (estratos, en cm) y sobre 1 m BANCOS (en m). Así el geólogo solo carga números y la prosa
+// usa igual el vocabulario oficial. Tolera que venga un solo extremo o los dos al revés.
+function espesorFrase(min,max){
+  const a=parseFloat(min), b=parseFloat(max);
+  const okA=!isNaN(a)&&a>0, okB=!isNaN(b)&&b>0;
+  if(!okA&&!okB) return '';
+  const lo=okA&&okB?Math.min(a,b):(okA?a:b), hi=okA&&okB?Math.max(a,b):(okA?a:b);
+  const num=v=>v.toLocaleString('es-CL',{maximumFractionDigits:2});
+  const clase=v=> v<1 ? 0 : v<100 ? 1 : 2;   // 0 láminas (mm) · 1 capas (cm) · 2 bancos (m)
+  const ESCALA=[['láminas','mm',v=>v*10],['capas','cm',v=>v],['bancos','m',v=>v/100]];
+  // Si los dos extremos caen en clases distintas no hay un sustantivo ni una unidad que
+  // sirvan para ambos: fijarlos por el extremo menor daba absurdos ("láminas de 5 a 2.000
+  // mm" para un rango de 0,5 cm a 2 m). En ese caso se usa el término y la unidad neutros
+  // del medio ("estratos", cm), que es además la forma más frecuente en el corpus.
+  const [sust,unidad,conv] = clase(lo)===clase(hi) ? ESCALA[clase(lo)] : ['estratos','cm',v=>v];
+  const rango = lo===hi ? num(conv(lo)) : num(conv(lo))+' a '+num(conv(hi));
+  return 'en '+sust+' de '+rango+' '+unidad+' de espesor';
+}
+// ---- Litología (TBL_LITOLOGIA): detalle de CADA roca/depósito individual, distinto del
+// carácter del afloramiento como conjunto (arriba). Calibrado contra un ejemplo VERBATIM
+// del corpus (Fm. Moctezuma, Carta Calama, Tomlinson et al. 2018, p.43-44):
+//   "La capa A grada a un paquete de 6 m de arenisca muy fina con cemento calcáreo (B), con
+//   estratificación cruzada, conformada por cuarzo (70%)... plagioclasa (15%)..."
+// Dos reglas que la primera versión de esta función no seguía y el usuario marcó como mala
+// (revisadas 2026-08-20): (1) NOMBRE_ROCA + GRANULOMETRIA se funden en un solo sustantivo
+// ("arenisca muy fina", nunca "Arenisca, arenisca muy fina" — GRANULOMETRIA ya es una
+// cascada de NOMBRE_ROCA en el modelo, casi siempre repite el nombre); (2) los participios
+// concuerdan en género con el nombre de la roca ("conformada"/"conformado"), no van fijos.
+const GENERO_ROCA_DEPOSITO=new Set(['Aluviales','Coluviales','Glaciares','Litorales','Eólicos']);
+// Género por la PRIMERA palabra (el sustantivo núcleo), no por el final de la cadena: los
+// nombres compuestos terminan en una palabra cuyo género no es el del núcleo. Auditado
+// contra los 64 valores reales de NOMBRE_ROCA — mirar el final fallaba en 3:
+// "Sienita de feldespato alcalino" y "Sienita cuarcífera de feldespato alcalino" (daban
+// masculino por "alcalino") y "Andesita (intermedia/silícea)" (terminaba en paréntesis).
+// Con el núcleo: terminado en 'a' es femenino (arenisca, sienita, andesita, toba, caliza,
+// migmatita...); el resto masculino (granito, gabro, gneis, mármol, granitoide...). Los 5
+// nombres de depósito son adjetivos plurales que califican "depósitos": caso aparte.
+function generoRoca(nombreRoca){
+  if(GENERO_ROCA_DEPOSITO.has(nombreRoca)) return 'mpl';
+  const nucleo=String(nombreRoca||'').trim().split(/\s+/)[0].replace(/[(),]/g,'');
+  // sin nombre, sujetoLitologia() cae al respaldo "la roca", que es femenino
+  if(!nucleo) return 'f';
+  return /a$/i.test(nucleo) ? 'f' : 'm';
+}
+const CONFORMAR={f:'conformada',m:'conformado',mpl:'conformados'};
+// "arenisca media (0,5–0,25 mm)" → "arenisca media": en prosa no se escribe el rango entre
+// paréntesis (el corpus tampoco lo hace: "arenisca gruesa", nunca "arenisca gruesa (1-0,5mm)").
+const sinRango=s=>(s||'').replace(/\s*\([^)]*\)\s*$/,'').trim();
+// Detalle libre del geólogo entre paréntesis. Se le quita la puntuación final para no
+// producir "(biotita accesoria.)." cuando el texto ya venía cerrado con punto.
+const parentesis=s=>{const t=(s||'').trim().replace(/[.,;:]+$/,'');return t?' ('+t+')':'';};
+// Funde NOMBRE_ROCA + GRANULOMETRIA en un solo sujeto para la oración. GRANULOMETRIA es una
+// cascada de NOMBRE_ROCA, así que casi siempre el término ya empieza con el nombre de la
+// roca ("arenisca" → "arenisca media"): se reemplaza el nombre suelto por el término
+// completo. Los depósitos (NOMBRE_ROCA = adjetivo plural) y el caso "conglomerado/brecha de
+// X" (cascada compartida por Conglomerado y Brecha sedimentaria) tienen patrón propio.
+// true si g empieza EXACTAMENTE con la palabra nombre (no solo el prefijo de caracteres):
+// "conglomerado" es prefijo de caracteres de "conglomerado/brecha..." pero no es la misma
+// palabra (el separador '/' no es un límite de palabra válido aquí a propósito, se resuelve
+// aparte como caso compartido antes de llegar a este chequeo).
+function empiezaConPalabra(g,nombre){
+  const gl=g.toLowerCase(), nl=nombre.toLowerCase();
+  if(!gl.startsWith(nl)) return false;
+  const sig=gl.charAt(nl.length);
+  return sig==='' || !/[a-záéíóúñ]/.test(sig);
+}
+function sujetoLitologia(nombreRoca,tipoRoca,granulometria){
+  const nombre=nombreRoca||tipoRoca||'la roca';
+  const g=sinRango(granulometria);
+  if(!g) return nombre;
+  if(tipoRoca==='Depósito') return 'Depósitos '+nombre.toLowerCase()+' de '+g;
+  // Los términos "conglomerado/brecha de X" vienen de la escala Udden-Wentworth, que las 9
+  // rocas sedimentarias clásticas comparten completa (no solo Conglomerado y Brecha): se
+  // reemplaza ese prefijo doble por el nombre real de la roca. Va ANTES del chequeo genérico
+  // de abajo porque "conglomerado" es prefijo de caracteres de "conglomerado/brecha..." sin
+  // ser el mismo término. Si el geólogo eligió una granulometría incoherente con el nombre
+  // (p. ej. Arenisca + "conglomerado/brecha de guijarro"), la prosa refleja esa incoherencia
+  // en vez de taparla: el modelo permite la combinación y el dato es suyo, no del generador.
+  const gCompartido=g.replace(/^conglomerado\/brecha\b/i, nombre.toLowerCase());
+  if(gCompartido!==g) return nombre.charAt(0).toUpperCase()+gCompartido.slice(1);
+  if(empiezaConPalabra(g,nombre)) return nombre+g.slice(nombre.length);
+  return nombre+', de granulometría '+g;
+}
+const SELECCION_FRASE={
+  'Muy buena':'muy bien seleccionados','Buena':'bien seleccionados','Moderada':'moderadamente seleccionados',
+  'Mala':'mal seleccionados','Muy mala':'muy mal seleccionados',
+};
+const REDONDEAMIENTO_FRASE={
+  'Anguloso':'angulosos','Subanguloso':'subangulosos','Subredondeado':'subredondeados',
+  'Redondeado':'redondeados','Muy redondeado':'muy redondeados',
+};
+const CEMENTO_FRASE={
+  'Calcáreo':'con cemento calcáreo','Silíceo':'con cemento silíceo','Ferruginoso':'con cemento ferruginoso',
+  'Yesífero':'con cemento yesífero','Sin cementar':'sin cementar',
+};
+const SOLDADURA_FRASE={
+  'No soldada':'sin soldadura','Débilmente soldada':'de soldadura débil',
+  'Moderadamente soldada':'de soldadura moderada','Densamente soldada':'de soldadura densa',
+};
+const CONSOLIDACION_FRASE={
+  'No consolidado':'de carácter no consolidado','Semiconsolidado':'de carácter semiconsolidado',
+  'Consolidado / litificado':'de carácter consolidado',
+};
 function prosaPunto(pt,datos,toponimo,anterior,umbral){
-  const {litos,estr,cont,geomorf,mues}=datos;
+  const {litos,aflora,estr,cont,geomorf,mues}=datos;
+  // Afloramiento es panel unico (0..1): se toma la primera ficha si existe.
+  const afl=(aflora&&aflora[0])||null;
   const frases=[];
   const minuscula=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
   const lista=a=>a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+' y '+a[a.length-1];
+  // Campos multiselección se guardan como "Cuarzo; Biotita" (ver formulario(), widget de chips).
+  const multi=s=>(s||'').split(';').map(x=>x.trim()).filter(Boolean);
+  // Sujeto (nombre+granulometría fundidos) + fragmentos con preposición propia, en el orden
+  // del párrafo tipo del corpus SGB (qué es → composición → textura/grano → clastos/cemento
+  // → alteración) — cada fragmento se lee solo, como en el ejemplo verbatim de Fm. Moctezuma:
+  // "...arenisca muy fina con cemento calcáreo, con estratificación cruzada, conformada por
+  // cuarzo...". Devuelve '' si la litología no tiene ningún dato más allá del nombre (ya
+  // cubierto en la oración-resumen anterior).
+  const fraseLitologia=l=>{
+    const sujeto=sujetoLitologia(l.NOMBRE_ROCA,l.TIPO_ROCA,l.GRANULOMETRIA);
+    const frag=[];
+    if(l.COLOR_FRESCO){
+      let c='de color '+minuscula(l.COLOR_FRESCO);
+      if(l.COLOR_METEORIZADO && l.COLOR_METEORIZADO!==l.COLOR_FRESCO) c+=', que meteoriza a '+minuscula(l.COLOR_METEORIZADO);
+      frag.push(c);
+    }
+    if(l.TEXTURA && l.TEXTURA_DUNHAM) frag.push('de textura '+minuscula(l.TEXTURA)+' ('+minuscula(l.TEXTURA_DUNHAM)+')');
+    else if(l.TEXTURA_DUNHAM) frag.push('de textura '+minuscula(l.TEXTURA_DUNHAM));
+    else if(l.TEXTURA) frag.push('de textura '+minuscula(l.TEXTURA));
+    if(l.MASA_FUNDAMENTAL) frag.push('con masa fundamental '+minuscula(l.MASA_FUNDAMENTAL));
+    const fenos=multi(l.FENOCRISTALES_ESPECIE);
+    if(fenos.length) frag.push('con fenocristales de '+lista(fenos.map(minuscula))+parentesis(l.FENOCRISTALES_DETALLE));
+    // clastos: selección y redondeamiento se funden en un solo adjetivo plural, igual que el
+    // corpus ("clastos mal seleccionados y subredondeados"), no dos fragmentos sueltos.
+    const clastos=[SELECCION_FRASE[l.SELECCION],REDONDEAMIENTO_FRASE[l.REDONDEAMIENTO]].filter(Boolean);
+    if(clastos.length) frag.push('de clastos '+clastos.join(' y '));
+    if(l.CEMENTO) frag.push(CEMENTO_FRASE[l.CEMENTO]||('con cemento '+minuscula(l.CEMENTO)));
+    if(l.SOLDADURA) frag.push(SOLDADURA_FRASE[l.SOLDADURA]||minuscula(l.SOLDADURA));
+    if(l.GRADO_CONSOLIDACION) frag.push(CONSOLIDACION_FRASE[l.GRADO_CONSOLIDACION]||minuscula(l.GRADO_CONSOLIDACION));
+    if(l.ESTRUCTURA_TIPO_ROCA) frag.push('con '+minuscula(l.ESTRUCTURA_TIPO_ROCA));
+    // composición mineral: participio concuerda en género con el nombre de la roca
+    // ("conformada"/"conformado"/"conformados"), no queda fijo en femenino.
+    const compMin=multi(l.COMPOSICION_MINERAL_PRINCIPAL);
+    if(compMin.length) frag.push(CONFORMAR[generoRoca(l.NOMBRE_ROCA)]+' por '+lista(compMin.map(minuscula))
+      +parentesis(l.COMPOSICION_MINERAL_DETALLE));
+    if(l.TIPO_ALTERACION_LITO){
+      // los valores del dominio TIPO_ALTERACION ya son sustantivos ("Silicificación",
+      // "Argilización"...): "con alteración silicificación" apilaba dos sustantivos.
+      let a='con '+minuscula(l.TIPO_ALTERACION_LITO);
+      if(l.INTENSIDAD_ALTERACION) a+=' de intensidad '+l.INTENSIDAD_ALTERACION.toLowerCase();
+      a+=parentesis(l.DISTRIBUCION_ALTERACION);
+      frag.push(a);
+    }
+    // La granulometría ya va fundida en "sujeto" (no es un fragmento más): si es el ÚNICO
+    // dato extra, sujeto ya difiere del nombre desnudo y hay que decirlo igual (antes se
+    // perdía en silencio: "Se reconoce brecha sedimentaria." sin más, sin la granulometría).
+    const nombre=l.NOMBRE_ROCA||l.TIPO_ROCA||'la roca';
+    // el sujeto abre la oración: el respaldo "la roca" (registro sin NOMBRE_ROCA) venía en minúscula
+    const Sujeto=sujeto.charAt(0).toUpperCase()+sujeto.slice(1);
+    if(!frag.length) return sujeto===nombre ? '' : Sujeto+'.';
+    return Sujeto+', '+frag.join(', ')+'.';
+  };
 
   // --- ubicacion (encadena con el punto anterior si estan en el mismo sector) ---
   const ubic=[];
@@ -4879,8 +5810,12 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
   }
   if(!mismoSector) ubic.push(toponimo?('El punto se localiza al '+toponimo.rumbo+' de '+toponimo.texto):'El punto se localiza');
   if(pt.CONTEXTO_GEOMORFOLOGICO) ubic.push('en un sector de '+minuscula(pt.CONTEXTO_GEOMORFOLOGICO));
-  if(pt.EXPOSICION_AFLORAMIENTO) ubic.push(EXPO_FRASE[pt.EXPOSICION_AFLORAMIENTO]
-    ||('con exposición de afloramiento '+minuscula(pt.EXPOSICION_AFLORAMIENTO.replace(/\s*\(\d\)\s*$/,''))));
+  // La exposicion vive en la ficha Afloramiento desde v60; el fallback a pt.EXPOSICION_AFLORAMIENTO
+  // cubre puntos de respaldos viejos que aun no pasaron por la migracion (si no, la clausula
+  // desaparecia en silencio de la prosa ya generada).
+  const expo=(afl&&afl.GRADO_EXPOSICION_AFLORAMIENTO)||pt.EXPOSICION_AFLORAMIENTO;
+  if(expo) ubic.push(EXPO_FRASE[expo]
+    ||('con exposición de afloramiento '+minuscula(String(expo).replace(/\s*\(\d\)\s*$/,''))));
   frases.push(ubic.join(', ')+'.');
 
   // --- geomorfologia (TBL_GEOMORFOLOGIA -- rasgos puntuales, distinto de CONTEXTO_GEOMORFOLOGICO
@@ -4897,6 +5832,47 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     const unidades=[...new Set(litos.map(l=>l.UNIDAD_GEOLOGICA).filter(Boolean))];
     frases.push('Se reconoce'+(nombres.length>1?'n':'')+' '+lista(nombres)
       +(unidades.length?', asignable'+(nombres.length>1?'s':'')+' a la'+(unidades.length>1?'s unidades ':' unidad ')+lista(unidades):'')+'.');
+  }
+  // Detalle por litología individual (v62: composición, textura, selección, cemento,
+  // alteración...). Una oración por roca que tenga algo más que decir; si son varias
+  // litologías del mismo punto, cada una queda identificada por su propio nombre.
+  for(const l of litos){ const d=fraseLitologia(l); if(d) frases.push(d); }
+
+  // --- afloramiento (mesoescala): carácter del CONJUNTO, no de cada roca. Va después del
+  // nombre de roca porque replica el paso (iii) del párrafo tipo de litología del corpus
+  // ("qué es → textura/color/grano → espesores y forma de capas"). El sujeto es explícito
+  // ("El afloramiento") para que la oración se sostenga sola cuando el punto no tiene
+  // litología cargada. ---
+  if(afl){
+    // 1) cómo se ve el afloramiento: carácter + espesor + geometría + extensión lateral
+    const cl=[CARACTER_FRASE[afl.CARACTER_MESOSCOPICO],
+              espesorFrase(afl.ESPESOR_MIN_CM,afl.ESPESOR_MAX_CM),
+              GEOMETRIA_FRASE[afl.GEOMETRIA_CUERPO],
+              EXTENSION_FRASE[afl.EXTENSION_LATERAL]].filter(Boolean);
+    // Varios términos oficiales ya traen una "y" adentro ("plana-paralela y continua"): cerrar
+    // la enumeración con otra "y" da "…y continua y con continuidad lateral…". En ese caso se
+    // enumera solo con comas, que además es como escriben las cartas.
+    if(cl.length) frases.push('El afloramiento se presenta '
+      +(cl.some(s=>/ y /.test(s)) ? cl.join(', ') : lista(cl))+'.');
+    // 2) arreglo secuencial de los estratos (tendencia de espesor)
+    const arr=ARREGLO_FRASE[afl.ARREGLO_ESTRATOS];
+    if(arr) frases.push('El depósito corresponde a '+arr+'.');
+    // 3) gradación granulométrica interna
+    if(afl.GRADACION_INTERNA==='No gradada') frases.push('No presenta gradación interna.');
+    else { const gr=GRADACION_FRASE[afl.GRADACION_INTERNA]; if(gr) frases.push('Presenta '+gr+'.'); }
+    // 4) base del depósito (distinta del contacto entre unidades, que va en su propia ficha)
+    const lim=LIMITE_FRASE[afl.TIPO_LIMITE_INFERIOR];
+    if(lim) frases.push(lim+'.');
+    // 5) estado de la roca: meteorización y fracturamiento en una sola oración
+    const est=[METEORIZACION_FRASE[afl.GRADO_METEORIZACION],
+               FRACTURAMIENTO_FRASE[afl.GRADO_FRACTURAMIENTO]].filter(Boolean);
+    if(est.length) frases.push('La roca se presenta '+lista(est)+'.');
+    // 6) fábrica de clastos (solo depósitos gravosos)
+    const fab=FABRICA_FRASE[afl.FABRICA_GRAVOSA];
+    if(fab) frases.push(fab+'.');
+    // 7) La nota es texto del propio geólogo: se copia tal cual (solo se le cierra el punto).
+    const nota=(afl.NOTA_AFLORAMIENTO||'').trim();
+    if(nota) frases.push(/[.!?…]$/.test(nota)?nota:nota+'.');
   }
 
   // --- contactos: verbo de relación segun TIPO_CONTACTO (grada a/intruye a/discordancia...);
@@ -4963,7 +5939,8 @@ async function generarProsaProyecto(){
     for(const pt of puntos){
       const lat=parseFloat(pt[inLat]),lon=parseFloat(pt[inLon]);
       const datos={
-        litos:await childrenOf('litologia',pt.id), estr:await childrenOf('estructural',pt.id),
+        litos:await childrenOf('litologia',pt.id), aflora:await childrenOf('aflora',pt.id),
+        estr:await childrenOf('estructural',pt.id),
         cont:await childrenOf('contacto',pt.id), geomorf:await childrenOf('geomorf',pt.id),
         mues:await childrenOf('muestreo',pt.id),
       };
@@ -5019,6 +5996,7 @@ async function paginaLibreta(pr,pt,coleccion){
   const lat=pt['Coordenadas Geográficas Decimales_Lat']||pt.LAT||'';
   const lon=pt['Coordenadas Geográficas Decimales_Long']||pt.LONG||'';
   const litos=await childrenOf('litologia',pt.id);
+  const aflora=await childrenOf('aflora',pt.id);
   const estr=await childrenOf('estructural',pt.id);
   const cont=await childrenOf('contacto',pt.id);
   const geomorf=await childrenOf('geomorf',pt.id);
@@ -5045,6 +6023,7 @@ async function paginaLibreta(pr,pt,coleccion){
   const seccionDatos = tieneProsa
     ? '<div class="prosa">'+esc(pt.PROSA_CAMPO)+'</div>'
     : '<div class="sec"><h2>Litología ('+litos.length+')</h2>'+tablaRegs('litologia',litos)+'</div>'
+      +(aflora.length?'<div class="sec"><h2>Afloramiento</h2>'+tablaRegs('aflora',aflora)+'</div>':'')
       // Geomorfología nunca se mostraba aquí (hueco previo, no lo introdujo la prosa): la
       // agrego para que el respaldo tabulado quede tan completo como el que reemplaza la prosa.
       +(geomorf.length?'<div class="sec"><h2>Geomorfología</h2>'+tablaRegs('geomorf',geomorf)+'</div>':'')

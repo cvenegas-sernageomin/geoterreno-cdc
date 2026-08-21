@@ -6,14 +6,18 @@ Instalable en celular; funciona sin conexión tras la primera carga.
 **En línea:** https://cvenegas-sernageomin.github.io/geoterreno-cdc/
 
 ## Funcionalidad
-- Multi-proyecto, modelo relacional de 8 tablas (proyecto → punto de control → litología,
-  estructurales, contactos, muestreo, fotografías, esquemas), almacenado en IndexedDB.
+- Multi-proyecto, modelo relacional (proyecto → punto de control → afloramiento, litología,
+  estructurales, contactos, geomorfología, muestreo, fotografías, esquemas), en IndexedDB.
+- Ficha **Afloramiento** (una por punto): carácter del afloramiento a *mesoescala* — grado de
+  exposición, carácter mesoscópico (macizo / bien estratificado / gradado / foliado…), tendencia
+  granulométrica, espesor de capas o bancos, geometría del cuerpo, continuidad lateral y grado de
+  meteorización. Alimenta la redacción automática de la prosa de terreno.
 - Formularios maestro-detalle con **listas de dominio y cascadas** (TIPO_ROCA → NOMBRE_ROCA;
   TIPO_ESTRUCTURA → tipo de medida).
 - **Mapa satelital** (Esri World Imagery) con pin arrastrable ↔ coordenadas, GPS, descarga de
   **tiles offline**, captura de vista satelital y overlay de **GeoTIFF** propio.
 - Cámara para fotografías y **esquema en canvas**.
-- **Exportación: CSV** (ZIP con las 8 tablas), **KMZ** (puntos + imagen satelital + GeoTIFF como
+- **Exportación: CSV** (ZIP con todas las tablas), **KMZ** (puntos + imagen satelital + GeoTIFF como
   GroundOverlay), **GeoPackage** (.gpkg con capas de puntos y líneas EPSG:4326 + tablas de
   atributos con fotos/esquemas como BLOB; QGIS/ArcGIS), **GDB** (File Geodatabase de Esri en ZIP,
   convertida en el navegador con GDAL/WASM — la primera vez requiere conexión, ~40 MB) y
