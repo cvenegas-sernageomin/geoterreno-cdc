@@ -43,10 +43,10 @@
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--txt);
     background:linear-gradient(180deg,var(--bg1),var(--bg2)) fixed;min-height:100vh;-webkit-text-size-adjust:100%}
-  header{background:linear-gradient(135deg,var(--header1),var(--header2));color:#fff;padding:12px 15px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10;box-shadow:0 4px 14px -6px rgba(0,0,0,.4)}
+  header{background:linear-gradient(135deg,var(--header1),var(--header2));color:#fff;padding:calc(12px + env(safe-area-inset-top)) 15px 12px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10;box-shadow:0 4px 14px -6px rgba(0,0,0,.4)}
   header h1{font-size:16px;margin:0;flex:1;font-weight:650;letter-spacing:.2px}
   header .ctx{font-size:11px;opacity:.88;font-weight:400}
-  main{max-width:820px;margin:0 auto;padding:14px 12px 96px}
+  main{max-width:820px;margin:0 auto;padding:14px 12px calc(96px + env(safe-area-inset-bottom))}
   .card{background:var(--surface);border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:13px;box-shadow:var(--shadow)}
   .card h2{font-size:14px;margin:0 0 11px;color:var(--verde);display:flex;align-items:center;gap:8px;font-weight:650;letter-spacing:.2px}
   .collap{padding:0;overflow:hidden}
@@ -73,7 +73,10 @@
   .fld{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;flex:1 1 220px;min-width:0}
   .fld label{font-size:11.5px;font-weight:600;color:var(--lbl);letter-spacing:.2px}
   .fld label .req{color:var(--rojo);margin-left:2px}
-  .fld input,.fld select,.fld textarea{padding:9px 10px;border:1px solid var(--inp-bd);border-radius:10px;font-size:14px;font-family:inherit;background:var(--inp);color:var(--txt);width:100%;transition:border-color .15s,box-shadow .15s}
+  /* font-size 16px, no 14px: bajo 16px Safari en iPhone hace zoom automatico al enfocar el
+     campo (viejo comportamiento de iOS, sigue vigente) — con 35+ campos por ficha, ese zoom-y-
+     vuelta a cada toque hace la app case-a-caso inusable en el telefono. */
+  .fld input,.fld select,.fld textarea{padding:9px 10px;border:1px solid var(--inp-bd);border-radius:10px;font-size:16px;font-family:inherit;background:var(--inp);color:var(--txt);width:100%;transition:border-color .15s,box-shadow .15s}
   .fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--verde);box-shadow:var(--ring)}
   .fld textarea{resize:vertical;min-height:58px}
   .fld .nota{font-size:10px;color:var(--muted)}
@@ -102,7 +105,7 @@
   fieldset{border:1px solid var(--bd);border-radius:10px;margin:0 0 10px;padding:8px 10px}
   legend{font-size:12px;font-weight:700;color:var(--naranja);padding:0 6px}
   legend.lito{color:var(--verde2)}
-  .fab{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--bd);padding:9px 12px;display:flex;gap:8px;max-width:820px;margin:0 auto;z-index:9;box-shadow:0 -6px 18px -10px rgba(0,0,0,.28)}
+  .fab{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--bd);padding:9px 12px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;max-width:820px;margin:0 auto;z-index:9;box-shadow:0 -6px 18px -10px rgba(0,0,0,.28)}
   .toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#1f2a22;color:#eef4ee;padding:11px 18px;border-radius:22px;font-size:13px;opacity:0;transition:.3s;z-index:99;pointer-events:none;box-shadow:0 8px 24px -8px rgba(0,0,0,.5)}
   .toast.on{opacity:.97}
   .thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
@@ -118,6 +121,9 @@
   .leaflet-control-scale-line{background:rgba(255,255,255,.75);color:#111}
   #satthumb img{width:120px;height:90px}
   .medbar{flex:0 0 100%;width:100%;background:var(--surface2);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin-bottom:9px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  /* Medir con el telefono en terreno (sol, guantes, apuro) necesita un blanco mas grande que un
+     boton "mini" comun — 30px quedaba corto frente a las ~44px recomendadas para tocar en movil. */
+  .medbar button{min-height:42px;padding:8px 14px}
   .mapfull{height:66vh;min-height:340px;width:100%;border-radius:10px;overflow:hidden;z-index:0}
   .mapbig{height:calc(100vh - 162px);height:calc(100dvh - 162px);min-height:320px;width:100%;border-radius:10px;overflow:hidden;z-index:0}
   .mapcard{padding:0;margin-bottom:6px;overflow:hidden;position:relative}
@@ -2967,7 +2973,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v74';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v75';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3837,7 +3843,10 @@ function formulario(store, reg, ctx){
     // en tablas con plano (estructural/contacto) se usa la barra de medición combinada, no botones sueltos
     if(sensor && w==='number' && !PLANO_CAMPOS[store]) fld.append(sensorInput(inp,sensor));
     else fld.append(inp);
-    if(campo.nota) fld.append(el('div',{class:'nota'},campo.nota));
+    // campo.nota (texto de modelo_canonico.json) ya NO se muestra bajo el campo: alargaba el
+    // formulario con explicaciones que un geólogo no necesita en terreno (ej. "la lista depende
+    // de CLASE_AFLORAMIENTO"). Sigue disponible como documentación en el modelo/diccionario de
+    // datos para quien mantiene la app — ver Documentos/Diccionario_Datos_GeoTerreno_CDC.docx.
     // Debajo del selector de litología, la unidad geológica de la opción elegida: se lee del
     // mismo campo UNIDAD_GEOLOGICA de la ficha de litología (no se copia, sigue las correcciones
     // que se le hagan ahí después -- mismo criterio que litoTxt/unidad en vista Muestras).
