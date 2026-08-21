@@ -341,13 +341,13 @@ const MODELO = {
           "obligatorio": false,
           "dominio": "MINERAL",
           "multiple": true,
-          "nota": "Rocas volcánicas (lavas y piroclásticas). Selección múltiple; % y tamaño van en FENOCRISTALES_DETALLE."
+          "nota": "Solo rocas volcánicas de tipo Lava (textura porfídica: cristales más grandes que la masa fundamental). Para rocas piroclásticas/tefra use CRISTALES_ESPECIE -- ahí los componentes cristalinos son fragmentos clásticos, no fenocristales. Selección múltiple; % y tamaño van en FENOCRISTALES_DETALLE."
         },
         {
           "nombre": "FENOCRISTALES_DETALLE",
           "obligatorio": false,
           "dominio": null,
-          "nota": "Texto libre: % y tamaño de los fenocristales de FENOCRISTALES_ESPECIE."
+          "nota": "Texto libre: % y tamaño de los fenocristales de FENOCRISTALES_ESPECIE. Solo Lava."
         },
         {
           "nombre": "MASA_FUNDAMENTAL",
@@ -372,6 +372,31 @@ const MODELO = {
           "obligatorio": false,
           "dominio": "GRADO_CONSOLIDACION",
           "nota": "Solo depósitos (TIPO_ROCA = Depósito)."
+        },
+        {
+          "nombre": "CRISTALES_ESPECIE",
+          "obligatorio": false,
+          "dominio": "MINERAL",
+          "multiple": true,
+          "nota": "Rocas volcánicas piroclásticas y tefra: fragmentos cristalinos (cristaloclastos), no fenocristales -- la roca es clástica, no una lava coherente. Selección múltiple; % y tamaño van en CRISTALES_DETALLE."
+        },
+        {
+          "nombre": "CRISTALES_DETALLE",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Texto libre: % y tamaño de los cristales de CRISTALES_ESPECIE. Solo Piroclástica/Tefra."
+        },
+        {
+          "nombre": "MATRIZ_COMPOSICION",
+          "obligatorio": false,
+          "dominio": "MATRIZ_COMPOSICION",
+          "nota": "Rocas volcánicas (Lava, Piroclástica o Tefra). La lista depende de TIPO_VOLCANICA (ver MATRIZ_VOLCANICA en index.html)."
+        },
+        {
+          "nombre": "MATRIZ_DETALLE",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Texto libre: detalle adicional de la matriz (color, grado de alteración, etc.)."
         }
       ],
       "geometria": null,
@@ -2785,6 +2810,24 @@ const MODELO = {
         "Consolidado / litificado"
       ],
       "fuente": "campos_plantillas_litologicas.csv (RAG Generador de Cartas Geológicas, 33 litotipos)"
+    },
+    "MATRIZ_COMPOSICION": {
+      "tipo": "simple",
+      "valores": [
+        "Vítrea",
+        "Hipocristalina",
+        "Holocristalina",
+        "Microcristalina",
+        "Criptocristalina",
+        "Felsítica",
+        "Desvitrificada",
+        "Cenizosa",
+        "Cristalina",
+        "Lítica",
+        "Carbonatizada",
+        "Silicificada"
+      ],
+      "fuente": "Corpus RAG Cartas SGB (campo 'Matriz' de Toba/Ignimbrita/Tufita) + norma CDC 2016 Vol IV campo CRISTALINIDAD (Holocristalina/Hipocristalina/Holohialina). Fallback (unión); el acotamiento por TIPO_VOLCANICA vive en MATRIZ_VOLCANICA/filtrarMatrizVolcanica() en index.html, mismo mecanismo que TEXTURA_VOLCANICA."
     }
   },
   "avisos": [
@@ -2804,7 +2847,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v66';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v67';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -2897,7 +2940,7 @@ function esDeProyecto(store,r,proyectoId,idsPuntos){
 function nombreArchivoProyecto(proyecto){return (proyecto&&proyecto.NOMBRE_PROYECTO||'proyecto').replace(/[\\/:*?"<>|]+/g,'_');}
 
 // ============================ IndexedDB ============================
-const DB='captura-terreno', VER=7;   // v7: nuevo store 'aflora' (Afloramiento, panel único)
+const DB='captura-terreno', VER=8;   // v8: FENOCRISTALES_ESPECIE/DETALLE de piroclásticas/tefra migran a CRISTALES_ESPECIE/DETALLE
 let db;
 function openDB(){return new Promise((res,rej)=>{
   let done=false; const finish=(fn,v)=>{if(!done){done=true;fn(v);}};
@@ -2929,6 +2972,28 @@ function openDB(){return new Promise((res,rej)=>{
           });
         };
       });
+    }
+    // Migración v8: FENOCRISTALES_ESPECIE/DETALLE (v62) se dejó visible por error para
+    // "lavas y piroclásticas" — en una piroclástica los componentes cristalinos son
+    // fragmentos clásticos (cristaloclastos), no fenocristales (eso implica textura porfídica
+    // de una roca ígnea coherente). El campo se acotó a Lava; lo ya capturado en piroclásticas/
+    // tefra se copia a CRISTALES_ESPECIE/DETALLE para no perderlo de vista (el dato viejo en
+    // FENOCRISTALES_* no se borra, solo deja de mostrarse).
+    {
+      const txM=r.transaction;
+      const noAbortar=req=>{req.onerror=ev=>{ev.preventDefault();console.warn('Migración v8: registro omitido',req.error);};return req;};
+      const q=noAbortar(txM.objectStore('litologia').getAll());
+      q.onsuccess=ev=>{
+        (ev.target.result||[]).forEach(li=>{
+          if(!li) return;
+          const esPiroclasticaOTefra = li.TIPO_ROCA==='Volcánica' && (li.TIPO_VOLCANICA==='Piroclástica' || li.TIPO_VOLCANICA==='Tefra');
+          if(!esPiroclasticaOTefra || !li.FENOCRISTALES_ESPECIE || li.CRISTALES_ESPECIE) return;
+          li.CRISTALES_ESPECIE = li.FENOCRISTALES_ESPECIE;
+          if(li.FENOCRISTALES_DETALLE) li.CRISTALES_DETALLE = li.FENOCRISTALES_DETALLE;
+          try{ noAbortar(txM.objectStore('litologia').put(li)); }
+          catch(e){ console.warn('Migración v8: no se pudo migrar la litología',li.id,e); }
+        });
+      };
     }
   };
   r.onsuccess=()=>{db=r.result;
@@ -3410,6 +3475,19 @@ const TEXTURA_VOLCANICA = {
     'Clasto-soportada', 'Matriz-soportada', 'Obliterada por alteración', 'Indeterminada'],
 };
 TEXTURA_VOLCANICA['Tefra'] = TEXTURA_VOLCANICA['Piroclástica'];
+// Matriz/masa intersticial por origen volcánico — mismo mecanismo que TEXTURA_VOLCANICA, para
+// el campo MATRIZ_COMPOSICION. Lava usa el eje de cristalinidad de la roca en su conjunto
+// (campo oficial CDC "CRISTALINIDAD": Holocristalina/Hipocristalina/Holohialina); Piroclástica
+// y Tefra usan la composición de la matriz entre clastos (vítrea/cenizosa/cristalina/lítica),
+// vocabulario del corpus SGB ("matriz vítrea de tamaño ceniza", "matriz de ceniza vítrea",
+// "carbonatizada"). Tefra reusa la lista de Piroclástica (su equivalente no litificado).
+const MATRIZ_VOLCANICA = {
+  'Lava': ['Vítrea', 'Hipocristalina', 'Holocristalina', 'Microcristalina', 'Criptocristalina',
+    'Felsítica', 'Desvitrificada'],
+  'Piroclástica': ['Vítrea', 'Cenizosa', 'Cristalina', 'Lítica', 'Carbonatizada', 'Silicificada',
+    'Desvitrificada'],
+};
+MATRIZ_VOLCANICA['Tefra'] = MATRIZ_VOLCANICA['Piroclástica'];
 
 // Campos condicionales: se muestran/habilitan solo si se cumple la regla; si no, se limpian.
 //  modo 'bloquear' = se deshabilita y atenúa · modo 'ocultar' = se esconde por completo.
@@ -3448,13 +3526,23 @@ const CONDICIONALES = {
     return false;
   }},
   CEMENTO: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Sedimentaria' || v['TIPO_ROCA']==='Depósito'},
-  // Composición mineral (plutónicas/metamórficas) y fenocristales (volcánicas) son dos
-  // conceptos distintos del CSV de referencia — no comparten campo. El detalle de texto
-  // libre de cada uno se oculta junto con su lista de minerales.
+  // Composición mineral (plutónicas/metamórficas) y fenocristales (SOLO lavas) son conceptos
+  // distintos del CSV de referencia — no comparten campo. "Fenocristal" implica textura
+  // porfídica de una roca ígnea coherente (cristal mayor que la masa fundamental que lo
+  // rodea); en una piroclástica los componentes cristalinos son fragmentos clásticos
+  // (cristaloclastos), no fenocristales — ver CRISTALES_ESPECIE. El detalle de texto libre de
+  // cada uno se oculta junto con su lista de minerales.
   COMPOSICION_MINERAL_PRINCIPAL: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Intrusiva' || v['TIPO_ROCA']==='Metamórfica'},
   COMPOSICION_MINERAL_DETALLE:   {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Intrusiva' || v['TIPO_ROCA']==='Metamórfica'},
-  FENOCRISTALES_ESPECIE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
-  FENOCRISTALES_DETALLE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
+  FENOCRISTALES_ESPECIE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Lava'},
+  FENOCRISTALES_DETALLE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Lava'},
+  CRISTALES_ESPECIE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && (v['TIPO_VOLCANICA']==='Piroclástica' || v['TIPO_VOLCANICA']==='Tefra')},
+  CRISTALES_DETALLE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && (v['TIPO_VOLCANICA']==='Piroclástica' || v['TIPO_VOLCANICA']==='Tefra')},
+  // Matriz: Lava, Piroclástica o Tefra por igual (la lista de opciones la acota MATRIZ_VOLCANICA/
+  // filtrarMatrizVolcanica(), no esta regla — igual que TEXTURA se ve en las tres pero con
+  // opciones distintas).
+  MATRIZ_COMPOSICION: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
+  MATRIZ_DETALLE:     {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
   MASA_FUNDAMENTAL: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Lava'},
   TEXTURA_DUNHAM:   {modo:'ocultar', regla: v => v['NOMBRE_ROCA']==='Caliza'},
   SOLDADURA:        {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Piroclástica'},
@@ -3652,9 +3740,23 @@ function formulario(store, reg, ctx){
     else if(esBuild){ preservarValor(iTX, actual); iTX.value=actual; }
     else iTX.value='';
   }
+  // Idéntico a filtrarTexturaVolcanica(), para MATRIZ_COMPOSICION (Lava/Piroclástica/Tefra).
+  function filtrarMatrizVolcanica(esBuild){
+    const iTV=inputs['TIPO_VOLCANICA'], iMZ=inputs['MATRIZ_COMPOSICION'];
+    if(!iTV||!iMZ)return;
+    const subset = iTV.value ? MATRIZ_VOLCANICA[iTV.value] : null;
+    if(!subset)return;
+    const actual=iMZ.value;
+    iMZ.innerHTML='';iMZ.append(el('option',{value:''},'— seleccionar —'));
+    subset.forEach(v=>iMZ.append(el('option',{value:v},v)));
+    if(subset.includes(actual)) iMZ.value=actual;
+    else if(esBuild){ preservarValor(iMZ, actual); iMZ.value=actual; }
+    else iMZ.value='';
+  }
   aplicarCondicionales();
   filtrarNombreRocaVolcanica(true);
   filtrarTexturaVolcanica(true);
+  filtrarMatrizVolcanica(true);
   aplicarCondicionales();
 
   // cascadas: al cambiar el padre, repoblar hijos (y nietos)
@@ -3662,11 +3764,12 @@ function formulario(store, reg, ctx){
     const changed=e.target.name; if(!changed)return;
     repoblarHijosDe(changed, e.target.value);
     aplicarCondicionales();
-    // TIPO_VOLCANICA no es un padre de cascada genérico: solo recorta NOMBRE_ROCA/TEXTURA
-    // cuando el cambio viene de TIPO_ROCA o del propio TIPO_VOLCANICA (no en cada tecleo de
-    // otro campo).
+    // TIPO_VOLCANICA no es un padre de cascada genérico: solo recorta NOMBRE_ROCA/TEXTURA/
+    // MATRIZ_COMPOSICION cuando el cambio viene de TIPO_ROCA o del propio TIPO_VOLCANICA (no
+    // en cada tecleo de otro campo).
     if(changed==='TIPO_ROCA'||changed==='TIPO_VOLCANICA'){
-      filtrarNombreRocaVolcanica(false); filtrarTexturaVolcanica(false); aplicarCondicionales();
+      filtrarNombreRocaVolcanica(false); filtrarTexturaVolcanica(false); filtrarMatrizVolcanica(false);
+      aplicarCondicionales();
     }
     // dominio abierto "agregar nuevo"
     if(e.target.tagName==='SELECT' && e.target.value==='__add__'){
@@ -5824,8 +5927,12 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     else if(l.TEXTURA_DUNHAM) frag.push('de textura '+minuscula(l.TEXTURA_DUNHAM));
     else if(l.TEXTURA) frag.push('de textura '+minuscula(l.TEXTURA));
     if(l.MASA_FUNDAMENTAL) frag.push('con masa fundamental '+minuscula(l.MASA_FUNDAMENTAL));
+    if(l.MATRIZ_COMPOSICION) frag.push('con matriz '+minuscula(l.MATRIZ_COMPOSICION)+parentesis(l.MATRIZ_DETALLE));
     const fenos=multi(l.FENOCRISTALES_ESPECIE);
     if(fenos.length) frag.push('con fenocristales de '+lista(fenos.map(minuscula))+parentesis(l.FENOCRISTALES_DETALLE));
+    // cristaloclastos (piroclásticas/tefra): distinto de fenocristales, ver CONDICIONALES.
+    const cristales=multi(l.CRISTALES_ESPECIE);
+    if(cristales.length) frag.push('con cristales de '+lista(cristales.map(minuscula))+parentesis(l.CRISTALES_DETALLE));
     // clastos: selección y redondeamiento se funden en un solo adjetivo plural, igual que el
     // corpus ("clastos mal seleccionados y subredondeados"), no dos fragmentos sueltos.
     const clastos=[SELECCION_FRASE[l.SELECCION],REDONDEAMIENTO_FRASE[l.REDONDEAMIENTO]].filter(Boolean);
