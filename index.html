@@ -1782,7 +1782,11 @@ const MODELO = {
         ],
         "Volcánica": [
           "Afanítica",
+          "Afírica",
+          "Afanítica porfírica",
+          "Afanítica seriada",
           "Porfírica",
+          "Glomeroporfírica",
           "Vítrea",
           "Hipocristalina",
           "Holohialina",
@@ -1791,7 +1795,27 @@ const MODELO = {
           "Vesicular",
           "Amigdaloidal",
           "Traquítica (fluidal)",
-          "Piroclástica"
+          "Pilotaxítica",
+          "Afieltrada",
+          "Intersertal",
+          "Hialopilítica",
+          "Felsítica",
+          "Esferulítica",
+          "Perlítica",
+          "Obliterada por alteración",
+          "Indeterminada",
+          "Fragmental",
+          "Piroclástica",
+          "Vitroclástica",
+          "Eutaxítica",
+          "Pumícea",
+          "Escoriácea",
+          "Reomórfica",
+          "Reticulada",
+          "Brechosa",
+          "Microbrechosa",
+          "Clasto-soportada",
+          "Matriz-soportada"
         ],
         "Sedimentaria": [
           "Clástica (detrítica)",
@@ -1823,7 +1847,7 @@ const MODELO = {
           "Gradada"
         ]
       },
-      "fuente": "propuesto (el CDC trae TEXTURA como lista plana ígnea; sublistas por tipo de roca)",
+      "fuente": "propuesto (el CDC trae TEXTURA como lista plana ígnea; sublistas por tipo de roca) Rama Volcánica ampliada y dividida Lava/Piroclástica (norma CDC 2016 Vol IV, campo TEXTURA DE ROCA); el acotamiento por TIPO_VOLCANICA vive en TEXTURA_VOLCANICA/filtrarTexturaVolcanica() en index.html, esta lista es el fallback (unión) sin elegir Lava/Piroclástica/Tefra.",
       "confirmar": true
     },
     "ESTRUCTURA_TIPO_ROCA": {
@@ -2780,7 +2804,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v65';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v66';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3368,6 +3392,24 @@ const ROCAS_VOLCANICAS = {
     'Tefra de ceniza y bombas', 'Tefra de ceniza y lapilli', 'Tefra de lapilli y bloques',
     'Tefra de lapilli y bombas', 'Tefra de lapilli y ceniza', 'Tefra indiferenciada'],
 };
+// Textura por origen volcánico — mismo mecanismo que ROCAS_VOLCANICAS/filtrarNombreRocaVolcanica
+// (más abajo), pero para el campo TEXTURA en vez de NOMBRE_ROCA: una Andesita y una Toba no pueden
+// tener la misma lista de texturas (antes sí — TEXTURA.Volcánica era una lista única de 11 términos
+// sin distinguir Lava de Piroclástica). Fuente: norma CDC 2016 Vol IV, campo "TEXTURA DE ROCA", que
+// divide el dominio en "para rocas lávicas" / "para rocas piroclásticas" (curado al nivel de
+// detalle de terreno de esta app; se excluye "Soldada"/"No soldada" porque ya es el campo propio
+// SOLDADURA, v62, con una escala graduada más útil que un sí/no). Tefra reusa la lista de
+// Piroclástica: es su equivalente no litificado, la norma no da un dominio de textura aparte.
+const TEXTURA_VOLCANICA = {
+  'Lava': ['Afanítica', 'Afírica', 'Afanítica porfírica', 'Afanítica seriada', 'Porfírica',
+    'Glomeroporfírica', 'Vítrea', 'Hipocristalina', 'Holohialina', 'Microcristalina', 'Criptocristalina',
+    'Vesicular', 'Amigdaloidal', 'Traquítica (fluidal)', 'Pilotaxítica', 'Afieltrada', 'Intersertal',
+    'Hialopilítica', 'Felsítica', 'Esferulítica', 'Perlítica', 'Obliterada por alteración', 'Indeterminada'],
+  'Piroclástica': ['Fragmental', 'Piroclástica', 'Vitroclástica', 'Eutaxítica', 'Pumícea', 'Escoriácea',
+    'Reomórfica', 'Vesicular', 'Amigdaloidal', 'Reticulada', 'Porfírica', 'Brechosa', 'Microbrechosa',
+    'Clasto-soportada', 'Matriz-soportada', 'Obliterada por alteración', 'Indeterminada'],
+};
+TEXTURA_VOLCANICA['Tefra'] = TEXTURA_VOLCANICA['Piroclástica'];
 
 // Campos condicionales: se muestran/habilitan solo si se cumple la regla; si no, se limpian.
 //  modo 'bloquear' = se deshabilita y atenúa · modo 'ocultar' = se esconde por completo.
@@ -3596,8 +3638,23 @@ function formulario(store, reg, ctx){
     // silenciosamente una granulometría ya elegida, sin que nada relevante haya cambiado).
     if(nuevo!==actual) repoblarHijosDe('NOMBRE_ROCA', nuevo);
   }
+  // Mismo mecanismo que filtrarNombreRocaVolcanica(), para el campo TEXTURA: nada cuelga de
+  // TEXTURA como padre de cascada, así que no hace falta repoblar hijos, solo acotar/preservar.
+  function filtrarTexturaVolcanica(esBuild){
+    const iTV=inputs['TIPO_VOLCANICA'], iTX=inputs['TEXTURA'];
+    if(!iTV||!iTX)return;
+    const subset = iTV.value ? TEXTURA_VOLCANICA[iTV.value] : null;
+    if(!subset)return;
+    const actual=iTX.value;
+    iTX.innerHTML='';iTX.append(el('option',{value:''},'— seleccionar —'));
+    subset.forEach(v=>iTX.append(el('option',{value:v},v)));
+    if(subset.includes(actual)) iTX.value=actual;
+    else if(esBuild){ preservarValor(iTX, actual); iTX.value=actual; }
+    else iTX.value='';
+  }
   aplicarCondicionales();
   filtrarNombreRocaVolcanica(true);
+  filtrarTexturaVolcanica(true);
   aplicarCondicionales();
 
   // cascadas: al cambiar el padre, repoblar hijos (y nietos)
@@ -3605,9 +3662,12 @@ function formulario(store, reg, ctx){
     const changed=e.target.name; if(!changed)return;
     repoblarHijosDe(changed, e.target.value);
     aplicarCondicionales();
-    // TIPO_VOLCANICA no es un padre de cascada genérico: solo recorta NOMBRE_ROCA cuando
-    // el cambio viene de TIPO_ROCA o del propio TIPO_VOLCANICA (no en cada tecleo de otro campo).
-    if(changed==='TIPO_ROCA'||changed==='TIPO_VOLCANICA'){ filtrarNombreRocaVolcanica(false); aplicarCondicionales(); }
+    // TIPO_VOLCANICA no es un padre de cascada genérico: solo recorta NOMBRE_ROCA/TEXTURA
+    // cuando el cambio viene de TIPO_ROCA o del propio TIPO_VOLCANICA (no en cada tecleo de
+    // otro campo).
+    if(changed==='TIPO_ROCA'||changed==='TIPO_VOLCANICA'){
+      filtrarNombreRocaVolcanica(false); filtrarTexturaVolcanica(false); aplicarCondicionales();
+    }
     // dominio abierto "agregar nuevo"
     if(e.target.tagName==='SELECT' && e.target.value==='__add__'){
       const campo=cs.find(c=>c.nombre===e.target.name);
