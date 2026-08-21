@@ -5361,10 +5361,10 @@ async function exportGDB(proyectoId){
 // ============================ Prosa de terreno (Gabinete) ============================
 // Borrador narrativo por punto para que el PDF final se lea como una libreta real, no una
 // planilla. Motor de reglas (no LLM): combina toponimia IGM + lectura geomorfologica +
-// litologia/estructuras del punto, y encadena puntos cercanos ("mismo sector") en vez de
-// repetir el topónimo en cada uno. TEXTO PLACEHOLDER: las frases reales quedan pendientes
-// del material de referencia (estándares de publicación SERNAGEOMIN) que se integrará acá
-// sin tocar el resto del andamiaje (toponimia, umbral, guardado, PDF).
+// afloramiento + litologia/estructuras del punto, y encadena puntos cercanos ("mismo
+// sector") en vez de repetir el topónimo en cada uno. Vocabulario y patrones calibrados
+// contra el corpus de Cartas SGB (ver entrenamiento_modelo_informes_geologicos.md) y la
+// norma CDC 2016 -- ya no es placeholder, ver historial v58/v61/v63/v65.
 
 // Servicio real de toponimia IGM (Feature Server "Hosted", CORS abierto -- verificado). Chile
 // dividido en franjas de ~3° de latitud por seccion; los limites vienen de los extents reales
