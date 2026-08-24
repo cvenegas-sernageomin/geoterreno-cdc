@@ -95,6 +95,8 @@
   .list-item .t b{font-size:14px}
   .list-item .t small{color:var(--muted);font-size:11.5px;display:block;margin-top:1px}
   .pill{font-size:10px;padding:3px 9px;border-radius:20px;background:var(--surface2);color:var(--muted);border:1px solid var(--bd);white-space:nowrap}
+  .grouphdr{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:10px 2px 6px;border-bottom:1px solid var(--bd);margin-bottom:6px}
+  .grouphdr:first-child{padding-top:2px}
   .list-item.sel{border-color:var(--verde);background:var(--surface2)}
   .list-item input[type=checkbox]{width:19px;height:19px;flex:0 0 auto;accent-color:var(--verde)}
   .empty{color:var(--muted);font-size:13px;text-align:center;padding:20px}
@@ -2973,7 +2975,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v75';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v76';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -4476,6 +4478,7 @@ function editorNaming(pr){
 }
 
 // -------- Proyecto: puntos de control --------
+let _ptFiltro={q:'',fecha:'',localidad:'',geomorf:'',muestras:''};
 async function renderProyecto(app){
   curProyecto=await get('proyecto',vista.id);
   if(!curProyecto)return nav({n:'home'});
@@ -4485,6 +4488,14 @@ async function renderProyecto(app){
   app.append(toggleModo('puntos'));
   const puntos=(await childrenOf(storeActivo(),curProyecto.id));
   curProyecto._npuntos=puntos.length;put('proyecto',curProyecto);
+  // Muestras de todos los puntos, cargadas UNA vez (no una consulta por punto) y agrupadas
+  // por _parent -- se usan para el pill/siglas de cada fila y el filtro "Con muestras".
+  const muestrasPorPunto=new Map();
+  (await all('muestreo')).forEach(m=>{
+    if(!muestrasPorPunto.has(m._parent))muestrasPorPunto.set(m._parent,[]);
+    muestrasPorPunto.get(m._parent).push(m);
+  });
+  puntos.forEach(pt=>pt._muestras=muestrasPorPunto.get(pt.id)||[]);
   const head=el('div',{class:'card'});
   const barra=el('div',{class:'btnbar'},
       el('button',{class:'btn sec mini',onclick:()=>editorProyecto(curProyecto)},'✎ Editar proyecto'),
@@ -4504,9 +4515,40 @@ async function renderProyecto(app){
   const btnSel=el('button',{class:'btn sec mini'},'☑ Seleccionar');
   const btnTodos=el('button',{class:'btn sec mini',style:'display:none'},'Todos');
   card.append(el('div',{class:'btnbar'},el('h2',{style:'margin:0'},'Puntos de control ('+puntos.length+')'),btnSel,btnTodos));
+  // --- filtros: mismo patron que renderMuestras (buscador + selects sobre el array ya cargado) ---
+  const buscar=el('input',{type:'search',placeholder:'Buscar ID o localidad…'});buscar.value=_ptFiltro.q;
+  const ffecha=el('select');
+  ffecha.append(el('option',{value:''},'Todas las fechas'));
+  [...new Set(puntos.map(p=>p.FECHA).filter(Boolean))].sort().forEach(f=>ffecha.append(el('option',{value:f},f)));
+  ffecha.value=_ptFiltro.fecha;
+  const floc=el('select');
+  floc.append(el('option',{value:''},'Todas las localidades'));
+  [...new Set(puntos.map(p=>p.NOMBRE_LOCALIDAD).filter(Boolean))].sort().forEach(v=>floc.append(el('option',{value:v},v)));
+  floc.value=_ptFiltro.localidad;
+  const fgeo=el('select');
+  fgeo.append(el('option',{value:''},'Todo contexto geomorf.'));
+  (dominio('CONTEXTO_GEOMORFOLOGICO').valores||[]).forEach(v=>fgeo.append(el('option',{value:v},v)));
+  fgeo.value=_ptFiltro.geomorf;
+  const fmue=el('select');
+  fmue.append(el('option',{value:''},'Con o sin muestras'),el('option',{value:'si'},'Solo con muestras'),el('option',{value:'no'},'Solo sin muestras'));
+  fmue.value=_ptFiltro.muestras;
+  const filtros=el('div',{class:'row'});
+  filtros.append(el('div',{class:'fld'},el('label',{},'Buscar'),buscar),
+    el('div',{class:'fld'},el('label',{},'Fecha'),ffecha),
+    el('div',{class:'fld'},el('label',{},'Localidad'),floc),
+    el('div',{class:'fld'},el('label',{},'Contexto geomorfológico'),fgeo),
+    el('div',{class:'fld'},el('label',{},'Muestras'),fmue));
+  if(puntos.length)card.append(filtros);
+  const resumenFiltro=el('div',{class:'muted',style:'margin:2px 0 6px'});
+  card.append(resumenFiltro);
   const listaBox=el('div');
   card.append(listaBox);
   app.append(card);
+  buscar.addEventListener('input',()=>{_ptFiltro.q=buscar.value;pintar();});
+  ffecha.addEventListener('change',()=>{_ptFiltro.fecha=ffecha.value;pintar();});
+  floc.addEventListener('change',()=>{_ptFiltro.localidad=floc.value;pintar();});
+  fgeo.addEventListener('change',()=>{_ptFiltro.geomorf=fgeo.value;pintar();});
+  fmue.addEventListener('change',()=>{_ptFiltro.muestras=fmue.value;pintar();});
 
   function pintarFab(){
     const fab=$('#fab'); fab.innerHTML='';
@@ -4523,37 +4565,70 @@ async function renderProyecto(app){
     }
   }
 
+  // Puntos visibles segun el filtro vigente -- btnTodos/modoSel operan SOLO sobre estos, para no
+  // seleccionar/mover puntos que el filtro esta ocultando y que el usuario no ve en pantalla.
+  let visibles=puntos;
+
   function pintar(){
     listaBox.innerHTML='';
+    const q=_ptFiltro.q.trim().toLowerCase();
+    visibles=puntos.filter(pt=>{
+      if(_ptFiltro.fecha && pt.FECHA!==_ptFiltro.fecha)return false;
+      if(_ptFiltro.localidad && pt.NOMBRE_LOCALIDAD!==_ptFiltro.localidad)return false;
+      if(_ptFiltro.geomorf && pt.CONTEXTO_GEOMORFOLOGICO!==_ptFiltro.geomorf)return false;
+      if(_ptFiltro.muestras==='si' && !pt._muestras.length)return false;
+      if(_ptFiltro.muestras==='no' && pt._muestras.length)return false;
+      if(q && ![pt.ID_PUNTO_CONTROL,pt.NOMBRE_LOCALIDAD,pt.FECHA].some(v=>String(v||'').toLowerCase().includes(q)))return false;
+      return true;
+    });
+    resumenFiltro.textContent = puntos.length ? (visibles.length+' de '+puntos.length+' puntos') : '';
     btnSel.textContent = modoSel ? '✕ Salir de selección' : '☑ Seleccionar';
-    btnTodos.style.display = (modoSel && puntos.length) ? '' : 'none';
-    btnTodos.textContent = (selIds.size===puntos.length && puntos.length) ? 'Ninguno' : 'Todos';
+    btnTodos.style.display = (modoSel && visibles.length) ? '' : 'none';
+    btnTodos.textContent = (selIds.size===visibles.length && visibles.length) ? 'Ninguno' : 'Todos';
     btnTodos.onclick=()=>{
-      if(selIds.size===puntos.length) selIds.clear();
-      else puntos.forEach(pt=>selIds.add(pt.id));
+      if(selIds.size===visibles.length) selIds.clear();
+      else visibles.forEach(pt=>selIds.add(pt.id));
       pintar();
     };
     if(!puntos.length){ listaBox.append(el('div',{class:'empty'},'Sin puntos. Agrega el primero con el botón +.')); pintarFab(); return; }
-    puntos.forEach((pt,i)=>{
-      const marcado=selIds.has(pt.id);
-      const fila=el('div',{class:'list-item'+(modoSel&&marcado?' sel':''),onclick:()=>{
-        if(modoSel){ marcado?selIds.delete(pt.id):selIds.add(pt.id); pintar(); return; }
-        nav({n:'punto',id:pt.id});
-      }});
-      if(modoSel){
-        const cb=el('input',{type:'checkbox'}); cb.checked=marcado;
-        cb.addEventListener('click',e=>e.stopPropagation());
-        cb.addEventListener('change',()=>{ cb.checked?selIds.add(pt.id):selIds.delete(pt.id); pintar(); });
-        fila.append(cb);
-      }
-      fila.append(
-        el('div',{class:'t'},el('b',{},pt.ID_PUNTO_CONTROL||('Punto '+(i+1))),
-          el('small',{},(pt['Coordenadas Geográficas Decimales_Lat']||pt.LAT||'—')+', '+(pt['Coordenadas Geográficas Decimales_Long']||pt.LONG||'—')+' · '+(pt.FECHA||'')) ),
-        el('span',{class:'pill'},(pt._nlito||0)+' lito'));
-      if(!modoSel){
-        fila.append(el('button',{class:'btn sec mini',title:'Duplicar (sin coordenadas)',onclick:async(e)=>{e.stopPropagation();if(bloqueoGabineteActivo())return;const np=await duplicarPunto(pt.id);if(!np){toast('No se pudo duplicar el punto');return;}toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉'));
-      }
-      listaBox.append(fila);
+    if(!visibles.length){ listaBox.append(el('div',{class:'empty'},'Ningún punto calza con el filtro.')); pintarFab(); return; }
+
+    // --- agrupar por dia (visual, no cambia el almacenamiento): mismo criterio de orden que
+    // ya usa generarProsaProyecto (FECHA+HORA, formato ISO -> localeCompare basta) ---
+    const conFecha=visibles.filter(p=>p.FECHA).sort((a,b)=>((a.FECHA||'')+'T'+(a.HORA||'')).localeCompare((b.FECHA||'')+'T'+(b.HORA||'')));
+    const sinFecha=visibles.filter(p=>!p.FECHA);
+    const grupos=new Map();
+    conFecha.forEach(p=>{ if(!grupos.has(p.FECHA))grupos.set(p.FECHA,[]); grupos.get(p.FECHA).push(p); });
+    if(sinFecha.length)grupos.set('',sinFecha);
+
+    let contador=0;
+    grupos.forEach((ptsDia,fecha)=>{
+      listaBox.append(el('div',{class:'grouphdr'},(fecha||'Sin fecha')+' · '+ptsDia.length+' punto'+(ptsDia.length===1?'':'s')));
+      ptsDia.forEach(pt=>{
+        contador++;
+        const marcado=selIds.has(pt.id);
+        const fila=el('div',{class:'list-item'+(modoSel&&marcado?' sel':''),onclick:()=>{
+          if(modoSel){ marcado?selIds.delete(pt.id):selIds.add(pt.id); pintar(); return; }
+          nav({n:'punto',id:pt.id});
+        }});
+        if(modoSel){
+          const cb=el('input',{type:'checkbox'}); cb.checked=marcado;
+          cb.addEventListener('click',e=>e.stopPropagation());
+          cb.addEventListener('change',()=>{ cb.checked?selIds.add(pt.id):selIds.delete(pt.id); pintar(); });
+          fila.append(cb);
+        }
+        const siglas=pt._muestras.map(m=>(m.ID_MUESTRA||'').trim()||'(s/sigla)');
+        fila.append(
+          el('div',{class:'t'},
+            el('b',{},pt.ID_PUNTO_CONTROL||('Punto '+contador)),
+            siglas.length?el('span',{style:'color:var(--muted);font-weight:400;font-size:12px'},'  🧪 '+siglas.join(', ')):null,
+            el('small',{},(pt['Coordenadas Geográficas Decimales_Lat']||pt.LAT||'—')+', '+(pt['Coordenadas Geográficas Decimales_Long']||pt.LONG||'—')+(pt.NOMBRE_LOCALIDAD?' · '+pt.NOMBRE_LOCALIDAD:'')) ),
+          el('span',{class:'pill'},(pt._nlito||0)+' lito'));
+        if(!modoSel){
+          fila.append(el('button',{class:'btn sec mini',title:'Duplicar (sin coordenadas)',onclick:async(e)=>{e.stopPropagation();if(bloqueoGabineteActivo())return;const np=await duplicarPunto(pt.id);if(!np){toast('No se pudo duplicar el punto');return;}toast('Duplicado — asigna coordenadas e ID');nav({n:'punto',id:np.id});}},'⧉'));
+        }
+        listaBox.append(fila);
+      });
     });
     pintarFab();
   }
