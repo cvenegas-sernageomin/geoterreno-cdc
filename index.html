@@ -2975,7 +2975,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v76';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v78';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -5865,6 +5865,21 @@ function bearingDeg(lat1,lon1,lat2,lon2){
     x=Math.cos(lat1*r)*Math.sin(lat2*r)-Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos((lon2-lon1)*r);
   return (Math.atan2(y,x)*180/Math.PI+360)%360;
 }
+// Algunas capas de toponimia IGM devuelven el nombre en MAYÚSCULA SOSTENIDA ("ESPINALILLO"),
+// otras ya en formato normal ("Quebrada Los Chorrillos") -- inconsistencia de la fuente, no
+// del punto. Si el texto completo es mayúscula (y tiene alguna letra), se pasa a tipo título;
+// si ya viene mixto, se respeta tal cual para no arruinar una sigla o acrónimo legítimo.
+const TOPONIMO_MINUSCULA=new Set(['de','del','la','las','los','el','y','en']);
+function normalizarToponimo(texto){
+  const t=(texto||'').trim();
+  if(!t || t!==t.toUpperCase() || t===t.toLowerCase()) return t;
+  let primero=true;
+  return t.toLowerCase().replace(/[a-záéíóúñ]+/gi,w=>{
+    const cap=(!primero && TOPONIMO_MINUSCULA.has(w))?w:w.charAt(0).toUpperCase()+w.slice(1);
+    primero=false;
+    return cap;
+  });
+}
 // Topónimo IGM más cercano dentro de radioM (default 3 km). Falla en silencio (sin conexión,
 // servicio caído, nada dentro del radio) devolviendo null -- nunca bloquea la generación.
 async function toponimoCercano(lat,lon,radioM){
@@ -5880,7 +5895,7 @@ async function toponimoCercano(lat,lon,radioM){
       const r=await fetch(url); if(!r.ok)continue;
       const j=await r.json(); if(!j.features)continue;
       for(const f of j.features){
-        const texto=fixMojibake(f.attributes.texto); if(!texto)continue;
+        const texto=normalizarToponimo(fixMojibake(f.attributes.texto)); if(!texto)continue;
         const d=L.latLng(lat,lon).distanceTo(L.latLng(f.geometry.y,f.geometry.x));
         if(!mejor||d<mejor.distanciaM) mejor={texto,distanciaM:d,rumbo:rumboCardinal(bearingDeg(lat,lon,f.geometry.y,f.geometry.x))};
       }
@@ -6150,6 +6165,15 @@ const sinRango=s=>(s||'').replace(/\s*\([^)]*\)\s*$/,'').trim();
 // Detalle libre del geólogo entre paréntesis. Se le quita la puntuación final para no
 // producir "(biotita accesoria.)." cuando el texto ya venía cerrado con punto.
 const parentesis=s=>{const t=(s||'').trim().replace(/[.,;:]+$/,'');return t?' ('+t+')':'';};
+// Campo de texto libre del geólogo (DESCRIPCION_*, NOTA_AFLORAMIENTO) que se integra como
+// oración propia, sin comillas: es la observación del mismo autor del resto del párrafo, no
+// una cita ajena. Solo se le asegura mayúscula inicial y punto final, igual de tolerante con
+// mayúscula/puntuación que ya lo era NOTA_AFLORAMIENTO.
+const fraseLibre=s=>{
+  const t=(s||'').trim(); if(!t)return '';
+  const cap=t.charAt(0).toUpperCase()+t.slice(1);
+  return /[.!?…]$/.test(cap)?cap:cap+'.';
+};
 // Funde NOMBRE_ROCA + GRANULOMETRIA en un solo sujeto para la oración. GRANULOMETRIA es una
 // cascada de NOMBRE_ROCA, así que casi siempre el término ya empieza con el nombre de la
 // roca ("arenisca" → "arenisca media"): se reemplaza el nombre suelto por el término
@@ -6168,8 +6192,12 @@ function empiezaConPalabra(g,nombre){
 function sujetoLitologia(nombreRoca,tipoRoca,granulometria){
   const nombre=nombreRoca||tipoRoca||'la roca';
   const g=sinRango(granulometria);
+  // Depósito primero, ANTES del atajo "sin granulometría": NOMBRE_ROCA en Depósito es un
+  // adjetivo plural ("Aluviales", "Coluviales"...), nunca un sustantivo que pueda abrir la
+  // oración solo -- sin este chequeo antes del "if(!g) return nombre", un depósito sin
+  // granulometría cargada volvía a producir el mismo "Aluviales, de color..." roto.
+  if(tipoRoca==='Depósito') return 'Depósitos '+nombre.toLowerCase()+(g?' de '+g:'');
   if(!g) return nombre;
-  if(tipoRoca==='Depósito') return 'Depósitos '+nombre.toLowerCase()+' de '+g;
   // Los términos "conglomerado/brecha de X" vienen de la escala Udden-Wentworth, que las 9
   // rocas sedimentarias clásticas comparten completa (no solo Conglomerado y Brecha): se
   // reemplaza ese prefijo doble por el nombre real de la roca. Va ANTES del chequeo genérico
@@ -6297,16 +6325,32 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
   }
 
   // --- litologia: nombres distintos + unidades distintas (no solo la de la primera ficha) ---
-  const nombres=[...new Set(litos.map(l=>minuscula(l.NOMBRE_ROCA||l.TIPO_ROCA)).filter(Boolean))];
+  // Depósito (NOMBRE_ROCA = adjetivo plural, "Aluviales") necesita el mismo prefijo "depósitos"
+  // que ya usa sujetoLitologia() para el sujeto de la oración de detalle -- si no, esta oración
+  // resumen queda con un adjetivo suelto como sujeto ("Se reconoce aluviales...", sin sentido).
+  const nombreResumen=l=>{
+    const n=l.NOMBRE_ROCA||l.TIPO_ROCA; if(!n) return '';
+    return l.TIPO_ROCA==='Depósito' ? 'depósitos '+minuscula(n) : minuscula(n);
+  };
+  const nombres=[...new Set(litos.map(nombreResumen).filter(Boolean))];
   if(nombres.length){
     const unidades=[...new Set(litos.map(l=>l.UNIDAD_GEOLOGICA).filter(Boolean))];
-    frases.push('Se reconoce'+(nombres.length>1?'n':'')+' '+lista(nombres)
-      +(unidades.length?', asignable'+(nombres.length>1?'s':'')+' a la'+(unidades.length>1?'s unidades ':' unidad ')+lista(unidades):'')+'.');
+    // Plural también si el ÚNICO nombre ya es de por sí plural ("depósitos aluviales"), no
+    // solo cuando hay más de un nombre distinto en la lista (mismo criterio que esPlural(),
+    // ya usado en CONTACTO_VERBO para el mismo caso).
+    const pl=nombres.length>1||esPlural(nombres[0]);
+    frases.push('Se reconoce'+(pl?'n':'')+' '+lista(nombres)
+      +(unidades.length?', asignable'+(pl?'s':'')+' a la'+(unidades.length>1?'s unidades ':' unidad ')+lista(unidades):'')+'.');
   }
   // Detalle por litología individual (v62: composición, textura, selección, cemento,
   // alteración...). Una oración por roca que tenga algo más que decir; si son varias
   // litologías del mismo punto, cada una queda identificada por su propio nombre.
-  for(const l of litos){ const d=fraseLitologia(l); if(d) frases.push(d); }
+  // DESCRIPCION_LITOLOGIA (texto libre) va aparte, independiente de si hubo fragmentos
+  // estructurados: antes se perdía en silencio si la ficha no tenía nada más que decir.
+  for(const l of litos){
+    const d=fraseLitologia(l); if(d) frases.push(d);
+    const desc=fraseLibre(l.DESCRIPCION_LITOLOGIA); if(desc) frases.push(desc);
+  }
 
   // --- afloramiento (mesoescala): carácter del CONJUNTO, no de cada roca. Va después del
   // nombre de roca porque replica el paso (iii) del párrafo tipo de litología del corpus
@@ -6345,9 +6389,8 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     // 6) fábrica de clastos (solo depósitos gravosos)
     const fab=FABRICA_FRASE[afl.FABRICA_GRAVOSA];
     if(fab) frases.push(fab+'.');
-    // 7) La nota es texto del propio geólogo: se copia tal cual (solo se le cierra el punto).
-    const nota=(afl.NOTA_AFLORAMIENTO||'').trim();
-    if(nota) frases.push(/[.!?…]$/.test(nota)?nota:nota+'.');
+    // 7) La nota es texto del propio geólogo: se integra tal cual (ver fraseLibre).
+    const nota=fraseLibre(afl.NOTA_AFLORAMIENTO); if(nota) frases.push(nota);
   }
 
   // --- contactos: verbo de relación segun TIPO_CONTACTO (grada a/intruye a/discordancia...);
@@ -6359,6 +6402,7 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
       const verbo=CONTACTO_VERBO[c.TIPO_CONTACTO];
       const clausula=verbo?verbo(techo,base):('se observó un contacto'+(c.TIPO_CONTACTO?' '+minuscula(c.TIPO_CONTACTO):'')+' entre '+techo+' y '+base);
       frases.push(capitalizar(clausula)+'.');
+      const desc=fraseLibre(c.DESCRIPCION_CONTACTO); if(desc) frases.push(desc);
     }
   }
 
@@ -6383,13 +6427,27 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     });
     frases.push((desc.length>1?'Se midieron ':'Se midió ')+desc.length+' dato'+(desc.length>1?'s':'')
       +' estructural'+(desc.length>1?'es':'')+': '+lista(desc)+'.');
+    // DESCRIPCION_ESTRUCTURA (texto libre) va DESPUES del resumen de valores, una oración por
+    // registro que tenga algo escrito -- el resumen ya agrupa varios registros en una sola
+    // oración, así que aquí no hay dónde intercalarlas una por una sin romper esa oración.
+    for(const e of estr){ const d=fraseLibre(e.DESCRIPCION_ESTRUCTURA); if(d) frases.push(d); }
   }
 
-  // --- muestreo: cuantas y con que sigla, no solo que existen ---
+  // --- muestreo: cuantas, con que sigla y para que analisis, no solo que existen ---
   if(mues.length){
-    const siglas=mues.map(m=>m.ID_MUESTRA).filter(Boolean);
+    const item=m=>{
+      const props=multi(m.PROPOSITO_ANALISIS);
+      return (m.ID_MUESTRA||'(s/sigla)')+(props.length?', para '+lista(props.map(minuscula)):'');
+    };
+    const siglas=mues.map(item);
+    // Si algún ítem ya trae "X y Y" (varios propósitos), unir la lista con "y" además daría un
+    // "...y Z y W..." ambiguo -- mismo criterio que la sección de afloramiento: en ese caso se
+    // separa con ';' en vez de lista().
+    const siglasTxt=siglas.some(s=>/ y /.test(s))?siglas.join('; '):lista(siglas);
     frases.push((mues.length>1?'Se recolectaron ':'Se recolectó ')+mues.length+' muestra'+(mues.length>1?'s':'')
-      +(siglas.length?' ('+lista(siglas)+')':'')+'.');
+      +(siglas.length?' ('+siglasTxt+')':'')+'.');
+    // DESCRIPCION_MUESTRA (texto libre), mismo criterio que estructurales: una por registro.
+    for(const m of mues){ const d=fraseLibre(m.DESCRIPCION_MUESTRA); if(d) frases.push(d); }
   }
 
   return frases.join(' ').replace(/\s{2,}/g,' ').trim();
