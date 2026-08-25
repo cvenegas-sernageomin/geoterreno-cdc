@@ -1908,7 +1908,6 @@ const MODELO = {
         ],
         "Volcánica": [
           "Porfírica",
-          "Piroclástica",
           "Traquítica",
           "Intergranular",
           "Fluidal",
@@ -1916,33 +1915,32 @@ const MODELO = {
           "Felsítica",
           "Intersertal",
           "Hialopilítica",
-          "Eutaxítica",
           "Glomeroporfírica",
           "Brechosa",
           "Vesicular",
-          "Vitroclástica",
           "Afieltrada",
           "Esferulítica",
-          "Glomeroporfídica",
-          "Pumícea",
           "Vitrofírica",
           "Amigdaloidal",
           "Ocoítica",
           "Perlítica",
-          "Matriz-soportada",
           "Escoriácea",
-          "Clasto-soportada",
           "Microporfírica",
-          "Microporfídica",
           "Obliterada por alteración",
-          "Reomórfica",
           "Globulosa",
           "Litofisa (litofisae)",
           "Miarolítica",
           "Microbrechosa",
-          "Reticulada",
           "Variolítica",
-          "Indeterminada"
+          "Indeterminada",
+          "Piroclástica",
+          "Eutaxítica",
+          "Vitroclástica",
+          "Pumícea",
+          "Matriz-soportada",
+          "Clasto-soportada",
+          "Reomórfica",
+          "Reticulada"
         ],
         "Sedimentaria": [
           "Cristalina",
@@ -1972,7 +1970,7 @@ const MODELO = {
           "Clasto-soportada"
         ]
       },
-      "fuente": "Rama Volcánica: norma CDC 2016 Vol IV, campo 'TEXTURA DE ROCA' (dividido Lava/Piroclástica), verificado término por término 2026-08-21 tras encontrar que la versión anterior mezclaba por error TEXTURA MACROSCÓPICA + CRISTALINIDAD + GRANULOMETRÍA en la misma lista. El acotamiento por TIPO_VOLCANICA vive en TEXTURA_VOLCANICA/filtrarTexturaVolcanica() en index.html; esta lista es el fallback (unión) sin elegir Lava/Piroclástica/Tefra.",
+      "fuente": "Rama Volcánica: norma CDC 2016 Vol IV, campo 'TEXTURA DE ROCA' (dividido Lava/Piroclástica), verificado término por término 2026-08-21. Corrección 2026-08-25: la familia porfírica (Porfírica/Glomeroporfídica/Microporfídica) se sacó de 'Rocas piroclásticas' -- aunque la norma la lista ahí, el corpus RAG (41.598 chunks de Cartas) muestra 0 casos reales de 'toba/ignimbrita porfírica'; todos los usos reales describen un cuerpo lávico/intrusivo vecino o líticos individuales dentro del depósito, nunca la textura de la roca piroclástica misma. Se agregó Vitrofírica (5 hits reales: 'toba vitrofírica'). El acotamiento por TIPO_VOLCANICA vive en TEXTURA_VOLCANICA/filtrarTexturaVolcanica() en index.html; esta lista es el fallback (unión) sin elegir Lava/Piroclástica/Tefra.",
       "confirmar": true
     },
     "ESTRUCTURA_TIPO_ROCA": {
@@ -3190,7 +3188,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v86';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v87';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3923,6 +3921,18 @@ const ROCAS_VOLCANICAS = {
 // "Indeterminada" va SIEMPRE al final aunque sea frecuente en el corpus: es la respuesta
 // "no se", no una textura (por frecuencia pura quedaba 5ta en piroclasticas, sobre terminos
 // descriptivos reales).
+// CORRECCIÓN 2026-08-25 (reporte del usuario: "en piroclásticas hay texturas que no
+// corresponden, ej. porfírica"). La norma SÍ lista Porfírica/Glomeroporfídica/Microporfídica
+// bajo "Para rocas piroclásticas" (categoría "distribución de tamaño de fenocristales" —
+// pensada para describir cristalinidad de una roca COHERENTE), pero el corpus RAG (41.598
+// chunks de Cartas) muestra 0 casos reales de "toba/ignimbrita porfírica": las 78 menciones
+// en contexto piroclástico describen siempre un cuerpo lávico/intrusivo vecino ("granito
+// porfídico... intruye tobas") o líticos individuales dentro del depósito ("líticos
+// porfíricos"), nunca la textura de la roca piroclástica misma — dato de composición de
+// clastos, no de textura. Se sacaron los 3 términos de la familia porfírica de Piroclástica
+// (Lava no se toca: Porfírica sí tiene 268 usos reales directos ahí, "andesita porfírica").
+// Se agregó Vitrofírica (5 usos reales: "toba vitrofírica"), que estaba en la norma pero
+// faltaba en la lista curada. Ver modelo/corregir_textura_porfirica_piroclastica.py.
 const TEXTURA_VOLCANICA = {
   'Lava': ['Porfírica', 'Traquítica', 'Intergranular', 'Fluidal', 'Pilotaxítica',
     'Felsítica', 'Intersertal', 'Hialopilítica', 'Glomeroporfírica', 'Brechosa',
@@ -3930,9 +3940,9 @@ const TEXTURA_VOLCANICA = {
     'Ocoítica', 'Perlítica', 'Escoriácea', 'Microporfírica', 'Obliterada por alteración',
     'Globulosa', 'Litofisa (litofisae)', 'Miarolítica', 'Microbrechosa', 'Variolítica',
     'Indeterminada'],
-  'Rocas piroclásticas': ['Porfírica', 'Piroclástica', 'Eutaxítica', 'Brechosa', 'Vesicular',
-    'Vitroclástica', 'Glomeroporfídica', 'Pumícea', 'Amigdaloidal', 'Matriz-soportada',
-    'Escoriácea', 'Clasto-soportada', 'Microporfídica', 'Obliterada por alteración',
+  'Rocas piroclásticas': ['Piroclástica', 'Eutaxítica', 'Vitroclástica', 'Vitrofírica',
+    'Brechosa', 'Vesicular', 'Pumícea', 'Amigdaloidal', 'Matriz-soportada',
+    'Escoriácea', 'Clasto-soportada', 'Obliterada por alteración',
     'Reomórfica', 'Microbrechosa', 'Reticulada', 'Indeterminada'],
 };
 // Matriz/masa intersticial (MATRIZ_COMPOSICION) — Rocas piroclásticas Y Tefra (2026-08-25):
