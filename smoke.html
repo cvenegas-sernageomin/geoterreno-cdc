@@ -326,6 +326,22 @@ async function correr(){
       return 'sobrevive en dominio abierto (Fm. Abanico) y en dominio cerrado que cambió (Discordancia)';
     });
 
+    await prueba('El store "cartageo" (Cartas Geológicas offline) clona un Blob real', async () => {
+      // cartageo no es dato de usuario (no lleva prefijo P, no pasa por mio()/censo()) --
+      // se limpia a mano en el propio try/finally de esta prueba.
+      const id = 'smoke-carta-test';
+      try {
+        ok(await w.all('cartageo'), 'el store cartageo no existe o all() falló');
+        const blob = new w.Blob(['contenido de prueba'], {type:'image/webp'});
+        await w.put('cartageo', {id, titulo:'Carta de prueba', overlayBlob:blob, tamB:blob.size});
+        const rec = await w.get('cartageo', id);
+        ok(rec, 'el registro no volvió');
+        ok(rec.overlayBlob instanceof w.Blob, 'overlayBlob no es un Blob al releerlo (¿se serializó a string?)');
+        eq(rec.overlayBlob.size, blob.size, 'el Blob cambió de tamaño al pasar por IndexedDB');
+        return 'put/get con Blob nativo de ' + blob.size + ' bytes, tipo preservado';
+      } finally { await w.del('cartageo', id); }
+    });
+
     await prueba('El service worker no cachea los tiles del satelital (regresión v38-D)', async () => {
       const {cache} = await leerVersiones();
       const claves = (await caches.keys()).filter(k => k.startsWith('geoterreno-cdc-'));

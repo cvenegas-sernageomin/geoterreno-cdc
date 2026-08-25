@@ -3209,7 +3209,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v88';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v89';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3302,7 +3302,7 @@ function esDeProyecto(store,r,proyectoId,idsPuntos){
 function nombreArchivoProyecto(proyecto){return (proyecto&&proyecto.NOMBRE_PROYECTO||'proyecto').replace(/[\\/:*?"<>|]+/g,'_');}
 
 // ============================ IndexedDB ============================
-const DB='captura-terreno', VER=12;   // v12: COMPOSICION_MINERAL_PRINCIPAL (Intrusiva) migra a COMPOSICION_MINERAL_INTRUSIVA
+const DB='captura-terreno', VER=13;   // v13: + store 'cartageo' (cartas geológicas SERNAGEOMIN descargadas para terreno; no es del modelo canónico)
 let db;
 function openDB(){return new Promise((res,rej)=>{
   let done=false; const finish=(fn,v)=>{if(!done){done=true;fn(v);}};
@@ -3311,6 +3311,12 @@ function openDB(){return new Promise((res,rej)=>{
     const yaTeniaAflora=d.objectStoreNames.contains('aflora');
     STORES.concat(['fotomapa','linea','nota']).forEach(s=>{if(!d.objectStoreNames.contains(s)){const os=d.createObjectStore(s,{keyPath:'id'});
       if(s!=='proyecto')os.createIndex('parent','_parent',{unique:false});}});
+    // 'cartageo': caché de Cartas Geológicas SERNAGEOMIN descargadas para uso offline en
+    // terreno. NO es del modelo canónico (no pasa por STORE2TBL/campos(), no entra en
+    // buildBackupBlob()/importBackup() — un Blob ni siquiera sobrevive JSON.stringify) ni
+    // cuelga de punto/proyecto — sin índice 'parent'. Su id es el id del manifest remoto
+    // (ej. 'geo_F19_pichibelco'), no un uid().
+    if(!d.objectStoreNames.contains('cartageo')) d.createObjectStore('cartageo',{keyPath:'id'});
     // Migración v7: EXPOSICION_AFLORAMIENTO vivía en PUNTO_CONTROL; se traslada a
     // GRADO_EXPOSICION_AFLORAMIENTO en la ficha nueva 'aflora' (panel único). Se copia
     // automáticamente para no perder el dato ya capturado en campañas anteriores.
@@ -4622,6 +4628,298 @@ function georasterToJPG(gr,maxdim){
 }
 function b64ToBytes(b64){const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
 
+// ============================ Cartas Geológicas SERNAGEOMIN (offline-first) ============================
+// Capa de referencia con Cartas Geológicas oficiales ya georreferenciadas (piloto: 9 mapas de
+// geología básica de la Región del Maule, reusados de Geo_Repo_Maule_Sernageomin), hosteados en
+// un repo GitHub aparte y servidos por raw.githubusercontent.com (mismo patrón que la capa
+// "Mapas de peligro" de la PWA hermana remociones-en-masa). A diferencia de esa capa hermana
+// (que solo hace fetch on-demand y nunca guarda nada), esta SÍ permite descargar cada carta al
+// dispositivo (store IndexedDB 'cartageo') para verla sin conexión en terreno — esa es la razón
+// de ser de esta capa en una app de terreno. Prefijo `cg` (paralelo al `pel` de remociones).
+const CG_BASE = 'https://raw.githubusercontent.com/cvenegas-sernageomin/cartas-geologicas-sernageomin/main/';
+let cgOn=false, cgData=null, cgOverlay=null, cgOverlayObjUrl=null, cgActivoId=null,
+    cgOpacidad=1.0, cgCtrl=null, cgColapsado=false, cgVer='', cgFuenteManifest='red', cgDescargadasIds=new Set();
+const cgEsc = s => String(s==null?'':s).replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+function cgUrl(path){ return CG_BASE+encodeURI(String(path||''))+(cgVer?'?v='+encodeURIComponent(cgVer):''); }
+
+async function cgRefrescarDescargadas(){ cgDescargadasIds=new Set((await all('cartageo')).map(r=>r.id)); }
+
+// Fetch on-demand del manifest (nunca se precachea en el SW, igual criterio que remociones).
+// Si falla (sin red / repo no responde), arma la lista SOLO con lo ya descargado -- la capa
+// debe seguir sirviendo su propósito principal (terreno sin señal) aunque no haya catálogo fresco.
+async function cgCargarManifest(forzar){
+  if(cgData && !forzar) return cgData;
+  try{
+    const r=await fetch(CG_BASE+'manifest.json',{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    cgVer=String(j.version||'');
+    cgData=(j.mapas||[]).filter(m=>m&&m.bounds&&m.overlay);
+    cgFuenteManifest='red';
+    return cgData;
+  }catch(e){
+    const locales=await all('cartageo');
+    cgData=locales.map(r=>({id:r.id,titulo:r.titulo,region:r.region,fuente:r.fuente,anio:r.anio,
+      escala:r.escala,informe:r.informe,bounds:r.bounds,overlay:null,leyenda:null,opacidad:r.opacidad}));
+    cgFuenteManifest='local';
+    if(!cgData.length) throw e;
+    return cgData;
+  }
+}
+
+function cgQuitarOverlay(){
+  if(cgOverlay){ try{mapaVista.removeLayer(cgOverlay);}catch(e){} cgOverlay=null; }
+  if(cgOverlayObjUrl){ URL.revokeObjectURL(cgOverlayObjUrl); cgOverlayObjUrl=null; }
+}
+// Prioridad LOCAL primero (funciona sin conexión): si la carta está descargada usa el Blob del
+// dispositivo; si no, intenta la red; si no hay ninguna de las dos, pide descargarla antes.
+async function cgMostrar(id, fly){
+  const m=(cgData||[]).find(x=>x.id===id); if(!m||!mapaVista) return;
+  cgQuitarOverlay();
+  const rec=await get('cartageo', id);
+  let src;
+  if(rec && rec.overlayBlob){ src=URL.createObjectURL(rec.overlayBlob); cgOverlayObjUrl=src; }
+  else if(navigator.onLine && m.overlay){ src=cgUrl(m.overlay); }
+  else { toast('📥 Descarga esta carta antes de ir a terreno (sin conexión)'); return; }
+  const b=m.bounds, bounds=[[b.s,b.w],[b.n,b.e]];
+  if(m.opacidad!=null) cgOpacidad=m.opacidad;
+  cgOverlay=L.imageOverlay(src, bounds, {opacity:cgOpacidad, interactive:false});
+  cgOverlay.on('error', ()=>{ toast('⚠️ No se pudo cargar esta carta (¿sin conexión?)'); cgQuitarOverlay(); cgSyncPanel(); });
+  cgOverlay.addTo(mapaVista);
+  cgActivoId=id;
+  if(fly){ mapaVista.flyToBounds(bounds,{padding:[20,20],maxZoom:12,duration:.6}); cgColapsado=true; }
+  cgSyncPanel();
+}
+
+function cgFmtTam(b){ return b<1024*1024 ? Math.round(b/1024)+' KB' : (b/1024/1024).toFixed(1)+' MB'; }
+async function cgAvisoEspacio(){
+  if(!navigator.storage||!navigator.storage.estimate) return true;   // sin la API (ej. Safari viejo) -> no bloquea
+  try{
+    const {usage=0, quota=0} = await navigator.storage.estimate();
+    const libre=quota-usage;
+    if(quota && libre < 50*1024*1024)
+      return confirm('⚠️ Queda poco espacio libre en el dispositivo (~'+cgFmtTam(libre)+'). ¿Descargar de todas formas?');
+  }catch(e){ /* no bloquear si estimate() falla */ }
+  return true;
+}
+async function cgDescargar(id){
+  const m=(cgData||[]).find(x=>x.id===id); if(!m) return;
+  if(!navigator.onLine){ toast('Sin conexión: no se puede descargar ahora'); return; }
+  if(!(await cgAvisoEspacio())) return;
+  toast('Descargando '+(m.titulo||id)+'…');
+  try{
+    const overlayBlob=await (await fetch(cgUrl(m.overlay))).blob();
+    let leyendaBlob=null;
+    if(m.leyenda){ try{ leyendaBlob=await (await fetch(cgUrl(m.leyenda))).blob(); }catch(e){ console.warn('leyenda no descargada',e); } }
+    const rec={id:m.id, titulo:m.titulo, region:m.region, fuente:m.fuente, anio:m.anio, escala:m.escala,
+      informe:m.informe, bounds:m.bounds, opacidad:m.opacidad, overlayBlob, leyendaBlob,
+      manifestVer:cgVer, fechaDescarga:new Date().toISOString(), tamB:overlayBlob.size+(leyendaBlob?leyendaBlob.size:0)};
+    await put('cartageo', rec);
+    await cgRefrescarDescargadas();
+    toast('✓ Descargada ('+cgFmtTam(rec.tamB)+') · lista para terreno');
+    cgSyncPanel();
+  }catch(e){ console.warn('cgDescargar',e); toast('⚠️ No se pudo descargar (¿sin conexión?)'); }
+}
+async function cgDescargarRegion(region){
+  const pend=(cgData||[]).filter(m=>(m.region||'Sin región')===region && !cgDescargadasIds.has(m.id));
+  for(const m of pend) await cgDescargar(m.id);   // secuencial a propósito: no saturar datos móviles
+}
+async function cgBorrar(id){
+  if(!confirm('¿Borrar esta carta del dispositivo? Habrá que descargarla de nuevo para usarla sin conexión.')) return;
+  await del('cartageo', id);
+  await cgRefrescarDescargadas();
+  if(cgActivoId===id) cgQuitarOverlay();
+  toast('Carta borrada del dispositivo');
+  cgSyncPanel();
+}
+
+function cgBtnEstado(txt, activo){ const b=document.getElementById('btnCartasSG'); if(!b) return; b.textContent=txt; b.classList.toggle('active',!!activo); }
+
+function cgSyncPanel(){
+  if(!cgCtrl || !cgCtrl._panelEl) return;
+  const d=cgCtrl._panelEl;
+  d.querySelectorAll('.cg-item').forEach(el2=>{
+    const activo=el2.dataset.id===cgActivoId;
+    el2.classList.toggle('cg-item-activo',activo);
+    el2.style.background=activo?'#1f6feb':'transparent';
+    el2.style.color=activo?'#fff':'#e8edf2';
+    el2.style.fontWeight=activo?'600':'400';
+  });
+  const rng=d.querySelector('.cg-rng'); if(rng) rng.value=Math.round(cgOpacidad*100);
+  const body=d.querySelector('.cg-body'), toggle=d.querySelector('.cg-toggle'), titulo=d.querySelector('.cg-titulo-header');
+  if(body) body.style.display=cgColapsado?'none':'block';
+  if(toggle) toggle.textContent=cgColapsado?'▸':'▾';
+  if(titulo){ const activoMapa=(cgData||[]).find(m=>m.id===cgActivoId);
+    titulo.textContent='🗺️ '+(activoMapa?(activoMapa.titulo||activoMapa.id):'Elige una carta'); }
+}
+function cgCrearControl(){
+  const ctrl=L.control({position:'bottomleft'});
+  ctrl.onAdd=function(){
+    const d=L.DomUtil.create('div','cg-panel');
+    d.style.cssText='background:rgba(20,24,31,.92);color:#e8edf2;padding:8px 10px;border-radius:10px;font-size:.78rem;box-shadow:0 2px 8px rgba(0,0,0,.4);max-width:250px;max-height:min(60vh,420px);overflow-y:auto';
+    L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+    const multi=(cgData||[]).length>1;
+    const activoInicial=(cgData||[]).find(m=>m.id===cgActivoId)||null;
+    let html='<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">'
+      +`<div class="cg-titulo-header" style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🗺️ ${cgEsc(activoInicial?(activoInicial.titulo||activoInicial.id):'Elige una carta')}</div>`
+      +`<button class="cg-toggle" type="button" title="Contraer/expandir" aria-label="Contraer o expandir el panel de cartas"
+          style="flex:0 0 auto;background:none;border:none;color:#e8edf2;font-size:1rem;line-height:1;cursor:pointer;padding:2px 4px">${cgColapsado?'▸':'▾'}</button>`
+      +'</div>';
+    if(cgFuenteManifest==='local') html+='<div style="color:#ffb86b;font-size:.7rem;margin-top:4px">📴 Sin conexión — mostrando solo lo descargado</div>';
+    html+=`<div class="cg-body" style="display:${cgColapsado?'none':'block'};margin-top:6px">`;
+    const itemHtml = m => {
+      const desc=cgDescargadasIds.has(m.id);
+      return `<div style="display:flex;align-items:center;gap:4px;margin:2px 0">`
+        +`<div class="cg-item" data-id="${cgEsc(m.id)}" tabindex="0" role="button"
+            style="flex:1;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:.74rem;line-height:1.3">${cgEsc(m.titulo||m.id)}</div>`
+        +(desc
+          ? `<button class="cg-del" type="button" data-id="${cgEsc(m.id)}" title="Borrar del dispositivo" style="flex:0 0 auto;background:none;border:none;color:#ff6b6b;font-size:.9rem;cursor:pointer;padding:2px 6px">🗑</button>`
+          : (m.overlay ? `<button class="cg-dl" type="button" data-id="${cgEsc(m.id)}" title="Descargar para terreno" style="flex:0 0 auto;background:none;border:none;color:#5fb0ff;font-size:.9rem;cursor:pointer;padding:2px 6px">⬇</button>` : ''))
+        +'</div>';
+    };
+    if(multi){
+      const porRegion={};
+      cgData.forEach(m=>{ const r=m.region||'Sin región'; (porRegion[r]=porRegion[r]||[]).push(m); });
+      const regiones=Object.keys(porRegion).sort((a,b)=>a==='Sin región'?1:b==='Sin región'?-1:a.localeCompare(b,'es'));
+      html+=regiones.map(r=>{
+        const abierta=!!cgActivoId && porRegion[r].some(m=>m.id===cgActivoId);
+        const faltan=cgFuenteManifest==='red' && porRegion[r].some(m=>m.overlay && !cgDescargadasIds.has(m.id));
+        return `<details class="cg-region" ${abierta?'open':''} style="margin-bottom:2px">`
+          +`<summary style="cursor:pointer;padding:4px 2px;font-weight:600;color:#c9d4de">${cgEsc(r)} <span style="opacity:.6;font-weight:400">(${porRegion[r].length})</span></summary>`
+          +`<div style="padding-left:6px">${porRegion[r].map(itemHtml).join('')}</div>`
+          +(faltan?`<button class="cg-dl-region" type="button" data-region="${cgEsc(r)}" style="width:calc(100% - 6px);margin:4px 0 4px 6px;padding:4px;background:#1f3a5f;color:#9cc4ff;border:none;border-radius:6px;font-size:.7rem;cursor:pointer">⬇ Descargar todo (${r})</button>`:'')
+          +'</details>';
+      }).join('');
+    } else if((cgData||[])[0]){
+      html+=itemHtml(cgData[0]);
+    }
+    html+='<label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;margin-top:4px">Opacidad'
+      +`<input class="cg-rng" type="range" min="0" max="100" value="${Math.round(cgOpacidad*100)}" style="flex:1"></label>`;
+    html+='<button class="cg-leg" type="button" style="width:100%;padding:6px;background:#1f6feb;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;margin-bottom:4px">ⓘ Ver leyenda</button>';
+    html+=`<div class="cg-espacio" style="text-align:center;color:#9aa4ae;font-size:.68rem"></div>`;
+    html+='</div>';
+    d.innerHTML=html;
+    const rng=d.querySelector('.cg-rng'), leg=d.querySelector('.cg-leg'), toggle=d.querySelector('.cg-toggle');
+    d.querySelectorAll('.cg-item').forEach(el2=>el2.addEventListener('click',()=>cgMostrar(el2.dataset.id,true)));
+    d.querySelectorAll('.cg-dl').forEach(b=>b.addEventListener('click',ev=>{ev.stopPropagation();cgDescargar(b.dataset.id).then(()=>{ if(cgCtrl){mapaVista.removeControl(cgCtrl);cgCtrl=cgCrearControl();cgCtrl.addTo(mapaVista);} });}));
+    d.querySelectorAll('.cg-del').forEach(b=>b.addEventListener('click',ev=>{ev.stopPropagation();cgBorrar(b.dataset.id).then(()=>{ if(cgCtrl){mapaVista.removeControl(cgCtrl);cgCtrl=cgCrearControl();cgCtrl.addTo(mapaVista);} });}));
+    d.querySelectorAll('.cg-dl-region').forEach(b=>b.addEventListener('click',ev=>{ev.stopPropagation();cgDescargarRegion(b.dataset.region).then(()=>{ if(cgCtrl){mapaVista.removeControl(cgCtrl);cgCtrl=cgCrearControl();cgCtrl.addTo(mapaVista);} });}));
+    rng.addEventListener('input',()=>{ cgOpacidad=rng.value/100; if(cgOverlay) cgOverlay.setOpacity(cgOpacidad); });
+    leg.addEventListener('click',cgVerLeyenda);
+    toggle.addEventListener('click',()=>{ cgColapsado=!cgColapsado; cgSyncPanel(); });
+    ctrl._panelEl=d;
+    cgEspacioPie(d);
+    cgSyncPanel();
+    return d;
+  };
+  return ctrl;
+}
+async function cgEspacioPie(d){
+  const el3=d.querySelector('.cg-espacio'); if(!el3) return;
+  const locales=await all('cartageo');
+  const usoB=locales.reduce((s,r)=>s+(r.tamB||0),0);
+  let txt=locales.length?('💾 '+locales.length+' descargada'+(locales.length>1?'s':'')+' ('+cgFmtTam(usoB)+')'):'';
+  if(navigator.storage && navigator.storage.estimate){
+    try{ const {usage=0,quota=0}=await navigator.storage.estimate();
+      if(quota) txt+=(txt?' · ':'')+cgFmtTam(quota-usage)+' libres en el dispositivo'; }catch(e){}
+  }
+  el3.textContent=txt;
+}
+// Visor de leyenda con zoom táctil propio (mismo patrón que remociones-en-masa: el viewport
+// meta tiene user-scalable=no, así que el pellizco nativo no funciona, hay que implementarlo a
+// mano con Pointer Events). Prioridad local (leyendaBlob descargada) antes que red.
+async function cgVerLeyenda(){
+  if(!cgActivoId){ toast('Primero elige una carta de la lista'); return; }
+  const m=(cgData||[]).find(x=>x.id===cgActivoId);
+  const rec=await get('cartageo', cgActivoId);
+  let src=null;
+  if(rec && rec.leyendaBlob) src=URL.createObjectURL(rec.leyendaBlob);
+  else if(navigator.onLine && m && m.leyenda) src=cgUrl(m.leyenda);
+  if(!src){ toast(rec||!navigator.onLine ? 'Esta carta no tiene leyenda separada' : 'Sin conexión y sin leyenda descargada'); return; }
+  const esRevocable=!!(rec && rec.leyendaBlob);
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.85);display:flex;flex-direction:column;padding:12px';
+  ov.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;color:#fff;margin-bottom:8px;gap:10px">`
+    +`<b style="font-size:.85rem">Leyenda — ${cgEsc(m&&m.titulo||'')}</b>`
+    +`<button type="button" class="cg-leg-cerrar" style="padding:6px 12px;background:#e5534b;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;flex:0 0 auto">✕ Cerrar</button></div>`
+    +`<div class="cg-leg-viewport" style="flex:1;overflow:hidden;background:#fff;border-radius:8px;position:relative;touch-action:none;cursor:grab">`
+    +`<img class="cg-leg-img" src="${src}" style="position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none" alt="leyenda" draggable="false"></div>`
+    +`<div style="text-align:center;color:#c9d4de;font-size:.68rem;margin-top:6px">Pellizca o doble toca para hacer zoom · arrastra para mover</div>`;
+  document.body.appendChild(ov);
+  const cerrar=()=>{ ov.remove(); if(esRevocable) URL.revokeObjectURL(src); };
+  ov.querySelector('.cg-leg-cerrar').addEventListener('click',cerrar);
+  ov.addEventListener('click',e=>{ if(e.target===ov) cerrar(); });
+
+  const viewport=ov.querySelector('.cg-leg-viewport'), img=ov.querySelector('.cg-leg-img');
+  let natW=0,natH=0,minScale=1,maxScale=1,scale=1,tx=0,ty=0;
+  const apply=()=>{ img.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`; };
+  const clampPan=()=>{ const vw=viewport.clientWidth,vh=viewport.clientHeight,w=natW*scale,h=natH*scale;
+    tx=w<=vw?(vw-w)/2:Math.min(0,Math.max(vw-w,tx)); ty=h<=vh?(vh-h)/2:Math.min(0,Math.max(vh-h,ty)); };
+  const fit=()=>{ const vw=viewport.clientWidth,vh=viewport.clientHeight;
+    natW=img.naturalWidth||vw; natH=img.naturalHeight||vh;
+    minScale=Math.min(vw/natW,vh/natH); maxScale=minScale*5; scale=minScale;
+    img.style.width=natW+'px'; img.style.height=natH+'px';
+    tx=(vw-natW*scale)/2; ty=(vh-natH*scale)/2; apply(); };
+  const zoomAt=(localX,localY,newScale)=>{ newScale=Math.max(minScale,Math.min(maxScale,newScale));
+    const ratio=newScale/scale; tx=localX-(localX-tx)*ratio; ty=localY-(localY-ty)*ratio; scale=newScale; clampPan(); apply(); };
+  img.addEventListener('load',fit); if(img.complete && img.naturalWidth) fit();
+
+  const pts=new Map(); let panStart=null, lastDist=0, lastTap=0;
+  viewport.addEventListener('pointerdown',e=>{
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    try{ viewport.setPointerCapture(e.pointerId); }catch(err){}
+    if(pts.size===1) panStart={x:e.clientX-tx,y:e.clientY-ty};
+    else if(pts.size===2){ const [a,b]=[...pts.values()]; lastDist=Math.hypot(a.x-b.x,a.y-b.y); }
+  });
+  viewport.addEventListener('pointermove',e=>{
+    if(!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===1 && panStart){ tx=e.clientX-panStart.x; ty=e.clientY-panStart.y; clampPan(); apply(); }
+    else if(pts.size===2){ const [a,b]=[...pts.values()]; const dist=Math.hypot(a.x-b.x,a.y-b.y);
+      const rect=viewport.getBoundingClientRect(); const midLocal={x:(a.x+b.x)/2-rect.left,y:(a.y+b.y)/2-rect.top};
+      zoomAt(midLocal.x,midLocal.y,scale*(dist/lastDist)); lastDist=dist; }
+  });
+  const onPointerUp=e=>{
+    const eraDosDedos=pts.size>=2; pts.delete(e.pointerId);
+    if(pts.size===1){ const p=[...pts.values()][0]; panStart={x:p.x-tx,y:p.y-ty}; }
+    if(pts.size===0){ panStart=null;
+      if(!eraDosDedos){ const ahora=Date.now();
+        if(ahora-lastTap<300){ const rect=viewport.getBoundingClientRect();
+          if(scale>minScale*1.05) fit(); else zoomAt(e.clientX-rect.left,e.clientY-rect.top,minScale*2.5); }
+        lastTap=ahora; } }
+  };
+  viewport.addEventListener('pointerup',onPointerUp);
+  viewport.addEventListener('pointercancel',e=>{ pts.delete(e.pointerId); if(!pts.size) panStart=null; });
+  viewport.addEventListener('wheel',e=>{ e.preventDefault(); const rect=viewport.getBoundingClientRect();
+    zoomAt(e.clientX-rect.left,e.clientY-rect.top,scale*(e.deltaY<0?1.15:1/1.15)); },{passive:false});
+}
+async function cgToggle(){
+  if(!mapaVista) return;
+  if(cgOn){
+    cgOn=false; cgQuitarOverlay();
+    if(cgCtrl){ mapaVista.removeControl(cgCtrl); cgCtrl=null; }
+    cgBtnEstado('🗺️ Cartas SG', false);
+    return;
+  }
+  cgOn=true; cgBtnEstado('⏳ Cartas SG', true);
+  toast('Cargando Cartas Geológicas…');
+  try{
+    await cgRefrescarDescargadas();
+    await cgCargarManifest();
+    if(!cgData.length){ toast('No hay cartas disponibles'); cgOn=false; cgBtnEstado('🗺️ Cartas SG', false); return; }
+    cgActivoId=null; cgColapsado=false;
+    cgCtrl=cgCrearControl(); cgCtrl.addTo(mapaVista);
+    cgBtnEstado('🗺️ Cartas SG', true);
+    const modo=cgFuenteManifest==='local'?' (sin conexión, solo descargadas)':'';
+    toast('🗺️ '+cgData.length+' carta'+(cgData.length>1?'s':'')+' disponible'+(cgData.length>1?'s':'')+modo);
+  }catch(err){
+    console.warn('Cartas Geológicas:',err);
+    toast('⚠️ No se pudieron cargar las cartas (¿sin conexión y nada descargado?)');
+    cgOn=false; cgBtnEstado('🗺️ Cartas SG', false);
+    if(cgCtrl){ mapaVista.removeControl(cgCtrl); cgCtrl=null; }
+  }
+}
+
 // ============================ Clinómetro (plano + lineación) ============================
 // Mide rumbo/manteo (y trend/plunge de una línea) con los sensores del teléfono.
 // Muestrea 3 s, calcula el vector normal al plano (eje Z del teléfono) y el eje mayor (eje Y)
@@ -5376,6 +5674,7 @@ async function renderMapa(app){
     el('span',{class:'muted',style:'flex:1;align-self:center;font-size:11px'},conC.length+'/'+puntos.length+' pts'),
     el('button',{class:'btn sec mini',onclick:e=>toggleGPSLive(e.target)},'📡 GPS'),
     el('button',{class:'btn sec mini',onclick:descargarTilesConZoom},'⬇️ Tiles'),
+    el('button',{class:'btn sec mini',id:'btnCartasSG',onclick:cgToggle},'🗺️ Cartas SG'),
     el('button',{class:'btn sec mini',onclick:()=>nav({n:'home'})},'⌂'));
   setTimeout(()=>initMapaVista(conC),80);
 }
@@ -5569,6 +5868,10 @@ function legendaSimbologia(){
   ov.append(box);document.body.append(ov);
 }
 async function initMapaVista(puntos){
+  // initMapaVista destruye y reconstruye mapaVista (pasa al agregar/editar nota o línea) --
+  // hay que soltar el object URL del overlay de Cartas Geológicas ANTES de perder la
+  // referencia, si no se filtra (el mapa viejo se destruye igual, pero el blob: URL no).
+  if(cgOverlayObjUrl){ URL.revokeObjectURL(cgOverlayObjUrl); cgOverlayObjUrl=null; } cgOverlay=null;
   if(mapaVista){try{mapaVista.remove();}catch(e){}mapaVista=null;}
   mapaVista=L.map('projmap',{zoomControl:true});
   savetiles=capaSatelital(mapaVista);
@@ -5631,6 +5934,10 @@ async function initMapaVista(puntos){
   if(pts.length)mapaVista.fitBounds(pts,{padding:[46,46],maxZoom:17}); else mapaVista.setView([-33.45,-70.65],5);
   L.control.scale({position:'bottomleft',metric:true,imperial:false,maxWidth:120}).addTo(mapaVista);
   controlEscala(mapaVista);
+  // Reengancha la capa de Cartas Geológicas si estaba activa antes de que initMapaVista
+  // reconstruyera el mapa (ver comentario al inicio de esta función) -- reusa cgData/
+  // cgActivoId ya en memoria, sin volver a pedir el manifest ni la imagen a la red.
+  if(cgOn){ cgCtrl=cgCrearControl(); cgCtrl.addTo(mapaVista); if(cgActivoId) cgMostrar(cgActivoId,false); }
   setTimeout(()=>mapaVista.invalidateSize(),160);
 }
 // ---- iconos / simbología (SVG orientada por azimut; norte = arriba) ----
