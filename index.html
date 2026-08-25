@@ -221,7 +221,7 @@ const MODELO = {
           "nombre": "TIPO_VOLCANICA",
           "obligatorio": true,
           "dominio": "TIPO_VOLCANICA",
-          "nota": "solo aplica si TIPO_ROCA = Volcánica; acota la lista de NOMBRE_ROCA a lavas, piroclásticas o tefras"
+          "nota": "solo aplica si TIPO_ROCA = Volcánica; acota la lista de NOMBRE_ROCA a lavas o rocas piroclásticas"
         },
         {
           "nombre": "TIPO_DEPOSITO",
@@ -326,6 +326,43 @@ const MODELO = {
           "nota": "Depósitos y rocas sedimentarias clásticas."
         },
         {
+          "nombre": "ESFERICIDAD",
+          "obligatorio": false,
+          "dominio": "ESFERICIDAD",
+          "nota": "Depósitos y rocas sedimentarias clásticas (norma CDC 2016 Vol III, campo 'FORMA CLASTOS')."
+        },
+        {
+          "nombre": "COMPOSICION_CLASTICA",
+          "obligatorio": false,
+          "dominio": "COMPOSICION_CLASTICA",
+          "nota": "Composición de los granos/clastos (norma CDC 2016 Vol III, campo 'COMPOSICIÓN CLÁSTICA-ALOQUÍMICA DEL DEPÓSITO', sistema de Folk). Depósitos y rocas sedimentarias clásticas."
+        },
+        {
+          "nombre": "LITOLOGIA_CLASTOS",
+          "obligatorio": false,
+          "dominio": "LITOLOGIA_CLASTOS_GRAVA",
+          "multiple": true,
+          "nota": "Litología de los clastos de tamaño grava (>2 mm; norma CDC 2016 Vol III, campo 'LITOLOGIA DE LOS CLASTOS DE TAMAÑO DE GRAVA'). Solo Conglomerado/Brecha sedimentaria/Conglomerado megaclástico y Depósitos. Selección múltiple; porcentaje de cada tipo va en LITOLOGIA_CLASTOS_DETALLE."
+        },
+        {
+          "nombre": "LITOLOGIA_CLASTOS_DETALLE",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Texto libre: porcentaje de cada tipo de clasto de LITOLOGIA_CLASTOS."
+        },
+        {
+          "nombre": "FABRICA_CLASTOS",
+          "obligatorio": false,
+          "dominio": "FABRICA_CLASTOS",
+          "nota": "Solo cuando TEXTURA = 'Clástica (detrítica)'. Antes vivía (mal) dentro de TEXTURA."
+        },
+        {
+          "nombre": "COMPOSICION_CLASTICA_MATRIZ",
+          "obligatorio": false,
+          "dominio": "COMPOSICION_CLASTICA",
+          "nota": "Composición clástica de la matriz (norma CDC 2016 Vol III, campo 'COMPOSICION CLÁSTICA DEL MATRIZ', misma lista que COMPOSICION_CLASTICA). Solo cuando FABRICA_CLASTOS = 'Matriz-soportada'."
+        },
+        {
           "nombre": "CEMENTO",
           "obligatorio": false,
           "dominio": "CEMENTO",
@@ -336,20 +373,33 @@ const MODELO = {
           "obligatorio": false,
           "dominio": "MINERAL",
           "multiple": true,
-          "nota": "Rocas intrusivas y metamórficas. Selección múltiple; el porcentaje/hábito va en COMPOSICION_MINERAL_DETALLE."
+          "nota": "Solo rocas metamórficas (para Intrusiva, ver COMPOSICION_MINERAL_INTRUSIVA). Selección múltiple; el porcentaje/hábito va en COMPOSICION_MINERAL_DETALLE."
         },
         {
           "nombre": "COMPOSICION_MINERAL_DETALLE",
           "obligatorio": false,
           "dominio": null,
-          "nota": "Texto libre: % y hábito de los minerales de COMPOSICION_MINERAL_PRINCIPAL (ej. \"biotita 5%, cristales gruesos\")."
+          "nota": "Texto libre: % y hábito de los minerales de COMPOSICION_MINERAL_PRINCIPAL (ej. \"biotita 5%, cristales gruesos\"). Solo Metamórfica."
+        },
+        {
+          "nombre": "COMPOSICION_MINERAL_INTRUSIVA",
+          "obligatorio": false,
+          "dominio": "MINERAL_INTRUSIVA",
+          "multiple": true,
+          "nota": "Solo rocas intrusivas. Lista acotada a los 10 minerales más frecuentes en el corpus de Cartas Geológicas para contexto intrusivo/plutónico (Biotita, Piroxeno, Circón, Hornblenda, Cuarzo, Plagioclasa, Clorita, Feldespato potásico, Epidota); cualquier otro se anota en COMPOSICION_MINERAL_INTRUSIVA_DETALLE. Selección múltiple."
+        },
+        {
+          "nombre": "COMPOSICION_MINERAL_INTRUSIVA_DETALLE",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Texto libre: % y hábito de los minerales de COMPOSICION_MINERAL_INTRUSIVA."
         },
         {
           "nombre": "FENOCRISTALES_ESPECIE",
           "obligatorio": false,
-          "dominio": "MINERAL",
+          "dominio": "MINERAL_FENOCRISTAL",
           "multiple": true,
-          "nota": "Solo rocas volcánicas de tipo Lava (textura porfídica: cristales más grandes que la masa fundamental). Para rocas piroclásticas/tefra use CRISTALES_ESPECIE -- ahí los componentes cristalinos son fragmentos clásticos, no fenocristales. Selección múltiple; % y tamaño van en FENOCRISTALES_DETALLE."
+          "nota": "Solo rocas volcánicas de tipo Lava (textura porfídica: cristales más grandes que la masa fundamental). Lista acotada a los minerales más frecuentes como fenocristal en el corpus de Cartas Geológicas (Plagioclasa, Piroxeno, Biotita, Hornblenda, Cuarzo, +Olivino); cualquier otro se anota en FENOCRISTALES_DETALLE junto con % y tamaño. Selección múltiple."
         },
         {
           "nombre": "FENOCRISTALES_DETALLE",
@@ -373,7 +423,7 @@ const MODELO = {
           "nombre": "SOLDADURA",
           "obligatorio": false,
           "dominio": "SOLDADURA",
-          "nota": "Solo rocas piroclásticas (TIPO_VOLCANICA = Piroclástica)."
+          "nota": "Solo rocas piroclásticas (TIPO_VOLCANICA = Rocas piroclásticas)."
         },
         {
           "nombre": "GRADO_CONSOLIDACION",
@@ -386,31 +436,39 @@ const MODELO = {
           "obligatorio": false,
           "dominio": "MINERAL",
           "multiple": true,
-          "nota": "Rocas volcánicas piroclásticas y tefra: fragmentos cristalinos (cristaloclastos), no fenocristales -- la roca es clástica, no una lava coherente. Selección múltiple; % y tamaño van en CRISTALES_DETALLE."
+          "nota": "Rocas piroclásticas: fragmentos cristalinos (cristaloclastos), no fenocristales -- la roca es clástica, no una lava coherente. Selección múltiple; % y tamaño van en CRISTALES_DETALLE."
         },
         {
           "nombre": "CRISTALES_DETALLE",
           "obligatorio": false,
           "dominio": null,
-          "nota": "Texto libre: % y tamaño de los cristales de CRISTALES_ESPECIE. Solo Piroclástica/Tefra."
+          "nota": "Texto libre: % y tamaño de los cristales de CRISTALES_ESPECIE. Solo rocas piroclásticas."
+        },
+        {
+          "nombre": "COMPONENTE_PIROCLASTICO",
+          "obligatorio": false,
+          "dominio": "COMPONENTE_PIROCLASTICO",
+          "multiple": true,
+          "nota": "Componente(s) del depósito piroclástico (norma CDC 2016 Vol IV, campo 'VÍTREA, CRISTALINA O LÍTICA'). Selección múltiple: es común que coexistan (ej. 'ceniza vítrea y cristales'), no son excluyentes. Aplica a rocas piroclásticas (TIPO_VOLCANICA = Rocas piroclásticas) y a Tefra (NOMBRE_ROCA = 'Tefra, depósito volcánico')."
         },
         {
           "nombre": "MATRIZ_COMPOSICION",
           "obligatorio": false,
           "dominio": "MATRIZ_COMPOSICION",
-          "nota": "Solo rocas volcánicas piroclásticas o tefra (para Lava, ver CRISTALINIDAD)."
+          "multiple": true,
+          "nota": "Rocas piroclásticas y Tefra (para Lava, ver CRISTALINIDAD). Selección múltiple: la matriz suele combinar componentes (ej. vítrea y cristalina)."
         },
         {
           "nombre": "MATRIZ_DETALLE",
           "obligatorio": false,
           "dominio": null,
-          "nota": "Solo rocas volcánicas piroclásticas o tefra (para Lava, ver CRISTALINIDAD)."
+          "nota": "Texto libre: detalle adicional de la matriz. Rocas piroclásticas y Tefra."
         },
         {
           "nombre": "CRISTALINIDAD",
           "obligatorio": false,
           "dominio": "CRISTALINIDAD",
-          "nota": "Rocas volcánicas (Lava, Piroclástica o Tefra): grado de cristalinidad de la roca. Campo verbatim CDC 2016 Vol IV, tabla TBL_AF_DEP_IGNEO_VOLCANICO (compartida por lava y depósito piroclástico)."
+          "nota": "Rocas volcánicas (Lava o rocas piroclásticas): grado de cristalinidad de la roca. Campo verbatim CDC 2016 Vol IV, tabla TBL_AF_DEP_IGNEO_VOLCANICO."
         }
       ],
       "geometria": null,
@@ -1333,7 +1391,6 @@ const MODELO = {
           "Riolita",
           "Andesita basáltica",
           "Basalto",
-          "Tefra",
           "Brecha piroclástica",
           "Obsidiana",
           "Aglomerado volcánico",
@@ -1368,7 +1425,8 @@ const MODELO = {
           "Coluviales",
           "Glaciares",
           "Eólicos",
-          "Litorales"
+          "Litorales",
+          "Tefra, depósito volcánico"
         ]
       },
       "fuente": "Lista de Dominios.xlsx (+ piroclásticos propuestos)"
@@ -1810,9 +1868,26 @@ const MODELO = {
           "limo fino (0,016–0,008 mm)",
           "limo muy fino (0,008–0,004 mm)",
           "arcilla (<0,004 mm)"
+        ],
+        "Tefra, depósito volcánico": [
+          "Ceniza",
+          "Lapilli",
+          "Tefra de bloques",
+          "Tefra de bloques y ceniza",
+          "Tefra de bloques y lapilli",
+          "Tefra de bombas",
+          "Tefra de bombas y ceniza",
+          "Tefra de bombas y lapilli",
+          "Tefra de ceniza y bloques",
+          "Tefra de ceniza y bombas",
+          "Tefra de ceniza y lapilli",
+          "Tefra de lapilli y bloques",
+          "Tefra de lapilli y bombas",
+          "Tefra de lapilli y ceniza",
+          "Tefra indiferenciada"
         ]
       },
-      "fuente": "Udden-Wentworth extendido, escala 29 categorías macrolito–arcilla (siliciclásticos y sedimento no litificado). Ya no aplica a rocas volcánicas: los términos oficiales CDC de NOMBRE_ROCA para Piroclástica/Tefra (ver ROCAS_VOLCANICAS en index.html) ya llevan el tamaño de grano incorporado en el nombre (p. ej. 'Toba de ceniza', 'Tefra de bloques y lapilli').",
+      "fuente": "Udden-Wentworth extendido, escala 29 categorías macrolito–arcilla (siliciclásticos y sedimento no litificado). No aplica a rocas piroclásticas: los términos oficiales CDC de NOMBRE_ROCA ya llevan el tamaño de grano incorporado en el nombre (p. ej. 'Toba de ceniza'). Tefra pasó a ser un NOMBRE_ROCA de Depósito (2026-08-25): sus 15 términos GB_TEFRA viven ahora en GRANULOMETRIA['Tefra, depósito volcánico'].",
       "confirmar": false
     },
     "TEXTURA": {
@@ -1872,8 +1947,6 @@ const MODELO = {
         "Sedimentaria": [
           "Cristalina",
           "Micrítica",
-          "Matriz-soportada",
-          "Clasto-soportada",
           "Bioclástica",
           "Amorfa/precipitada",
           "Clástica (detrítica)",
@@ -2246,8 +2319,7 @@ const MODELO = {
       "tipo": "simple",
       "valores": [
         "Lava",
-        "Piroclástica",
-        "Tefra"
+        "Rocas piroclásticas"
       ],
       "fuente": "acota NOMBRE_ROCA para TIPO_ROCA = Volcánica (ver CONDICIONALES.TIPO_VOLCANICA y ROCAS_VOLCANICAS en index.html)"
     },
@@ -2842,14 +2914,14 @@ const MODELO = {
       "tipo": "simple",
       "valores": [
         "Vítrea",
-        "Cristalina",
-        "Lítica",
         "Desvitrificada",
+        "Lítica",
+        "Cristalina",
         "Silicificada",
-        "Carbonatizada",
-        "Cenizosa"
+        "Silícea",
+        "Félsica"
       ],
-      "fuente": "Corpus RAG Cartas SGB (campo 'Matriz' de Toba/Ignimbrita/Tufita: 'vítrea/ceniza/cristalina', 'vítrea/desvitrificada', 'carbonatizada'). No es un campo verbatim de la norma CDC -- no existe un campo CDC 1:1 equivalente de composición de matriz piroclástica (la norma lo desglosa en COLOR/PORCENTAJE/ALTERACIÓN DEL COMPONENTE VÍTREO por separado, demasiado granular para esta app). Solo Piroclástica/Tefra: para Lava, el eje de cristalinidad ahora es el campo CRISTALINIDAD (verbatim CDC)."
+      "fuente": "RAG ChromaDB 'prosa_geologica' (coleccion Generador de Cartas Geologicas, tipo=carta, 40.305 chunks): frecuencia real de cada termino en ventanas de texto alrededor de 'matriz' dentro de contexto piroclastico (±300 car. de toba/ignimbrita/lapilli/tefra/brecha piroclastica/aglomerado), 1.554 apariciones de 'matriz' analizadas, 2026-08-25. Vitrea 382, Desvitrificada 134, Litica 110, Cristalina 80, Silicificada 47, Silicea 19, Felsica 18 -- todos con ejemplos reales en oraciones completas ('matriz silicea de textura soldada', 'matriz felsica desvitrificada'). Se descartaron Carbonatizada/Cenizosa (0 ocurrencias reales) y adjetivos de alteracion (oxidada/argilizada/sericitizada/cloritizada, eje distinto ya cubierto por TIPO_ALTERACION_LITO) y de matriz volcanosedimentaria retrabajada (tobacea/arenosa, fuera de alcance -- Sedimentaria en este modelo, no Rocas piroclasticas primarias). Aplica a Rocas piroclasticas y a Tefra (NOMBRE_ROCA='Tefra, depósito volcánico') -- ambas comparten el mismo campo en la norma."
     },
     "CRISTALINIDAD": {
       "tipo": "simple",
@@ -2955,6 +3027,150 @@ const MODELO = {
         ]
       },
       "fuente": "Clasificación propia del usuario (no normativa CDC 2016)."
+    },
+    "MINERAL_FENOCRISTAL": {
+      "tipo": "simple",
+      "valores": [
+        "Plagioclasa",
+        "Piroxeno (clinopiroxeno)",
+        "Piroxeno (ortopiroxeno)",
+        "Biotita",
+        "Hornblenda",
+        "Cuarzo",
+        "Olivino"
+      ],
+      "fuente": "RAG ChromaDB 'prosa_geologica' (coleccion Generador de Cartas Geologicas, tipo=carta, 20.456 chunks): los 7 minerales con mas co-ocurrencia junto a 'fenocristal*' en el corpus real de Cartas SGB chilenas (Plagioclasa 647, Piroxeno-cpx 364, Piroxeno-opx 311, Biotita 283, Hornblenda 231, Cuarzo 198, Olivino 120 -- este ultimo agregado a pedido del usuario 2026-08-25 pese a quedar bajo el umbral de los 6 automaticos, es fenocristal tipico de basaltos). Subconjunto de MINERAL (25 especies), acotado SOLO para FENOCRISTALES_ESPECIE (lavas); un mineral fuera de esta lista se anota en FENOCRISTALES_DETALLE (texto libre)."
+    },
+    "COMPONENTE_PIROCLASTICO": {
+      "tipo": "simple",
+      "valores": [
+        "Lítica",
+        "Vítrea",
+        "Cristalina"
+      ],
+      "fuente": "Norma CDC 2016 Vol IV, campo verbatim 'VÍTREA, CRISTALINA O LÍTICA' (\"componentes mayores de los depósitos piroclásticos\"), citado en la norma tanto para Tefras como para Rocas volcánicas piroclásticas. Elegido sobre el eje alternativo juvenil/accesorio/accidental (campo GÉNESIS DEL FRAGMENTO O ENCLAVE, más interpretativo) tras comparar frecuencia real en el RAG 'prosa_geologica' (contexto piroclástico, ±200 car.): 3.058 ocurrencias de vítreo/cristalino/lítico vs. 287 de juvenil/accesorio/accidental/xenolito -- 10.7x más frecuente en la prosa real de Cartas SGB, 2026-08-25."
+    },
+    "ESFERICIDAD": {
+      "tipo": "simple",
+      "valores": [
+        "Esférico o equidimensional",
+        "Discoidal o tabular",
+        "Cilíndrico o elongado",
+        "Elipsoidal",
+        "Irregular",
+        "Heterogéneo"
+      ],
+      "fuente": "Norma CDC 2016 Vol III, campo verbatim 'FORMA CLASTOS' (\"esfericidad de los clastos\", clasificación de Zingg 1935). Se omiten los 6 términos combinados 'X a Y' de la norma (transición entre dos clases) para mantener el mismo nivel de detalle que SELECCION/REDONDEAMIENTO en esta app (5 categorías base, no la escala transicional completa)."
+    },
+    "COMPOSICION_CLASTICA": {
+      "tipo": "simple",
+      "valores": [
+        "Cuarcífera",
+        "Lítica",
+        "Polimíctica",
+        "Monomíctica",
+        "Volcanolítica",
+        "Arcósica",
+        "Oligomíctica",
+        "Subarcósica",
+        "Lítica y feldespática",
+        "Volcanolítica y feldespática",
+        "Fangolítica",
+        "Sublítica",
+        "Arcósica y lítica",
+        "Plutonolítica",
+        "Igneolítica",
+        "Filolítica",
+        "Sedimentolítica",
+        "Chertlítica",
+        "Arenolítica",
+        "Calcilítica",
+        "Monomíctica volcanolítica",
+        "Oligomíctica volcanolítica",
+        "Polimíctica volcanolítica",
+        "Monomíctica plutonolítica",
+        "Oligomíctica plutonolítica",
+        "Polimíctica plutonolítica",
+        "Monomíctica sedimentolítica",
+        "Oligomíctica sedimentolítica",
+        "Polimíctica sedimentolítica",
+        "Monomíctica filolítica",
+        "Oligomíctica filolítica",
+        "Polimíctica filolítica",
+        "No determinada"
+      ],
+      "fuente": "Norma CDC 2016 Vol III, campo verbatim 'COMPOSICIÓN CLÁSTICA-ALOQUÍMICA DEL DEPÓSITO' (sistema de Folk et al. 1970 y Folk 1980 para arenas/areniscas y depósitos gravosos/megaclásticos). Términos capitalizados (la norma los da en minúscula por ser adjetivos del nombre raíz). Orden por frecuencia real en el RAG 'prosa_geologica' (41.598 chunks, 2026-08-25): Cuarcífera 1928, Lítica 349, Polimíctica 133, Monomíctica 58, Volcanolítica 54, Arcósica 52... el resto sin señal real en el corpus, orden de la norma. Reusado también para el campo COMPOSICION_CLASTICA_MATRIZ (la norma indica usar la misma lista para la matriz)."
+    },
+    "LITOLOGIA_CLASTOS_GRAVA": {
+      "tipo": "simple",
+      "valores": [
+        "Clastos de calizas",
+        "Clastos de conglomerado",
+        "Clastos de brecha sedimentaria",
+        "Clastos de arenisca",
+        "Clastos de fangolita, limolita o arcillolita",
+        "Clastos de roca salina",
+        "Clastos de fosforita",
+        "Clastos de carbón",
+        "Clastos de chert o porcelanita",
+        "Clastos de roca sedimentaria indiferenciada",
+        "Clastos de basalto",
+        "Clastos de andesita",
+        "Clastos de dacita",
+        "Clastos de riolita",
+        "Clastos de toba basáltica",
+        "Clastos de toba andesítica",
+        "Clastos de toba dacítica",
+        "Clastos de toba riolítica",
+        "Clastos de toba indiferenciada",
+        "Clastos de roca volcánica o hipabisal máfica",
+        "Clastos de roca volcánica o hipabisal intermedia",
+        "Clastos de roca volcánica o hipabisal félsica",
+        "Clastos de roca volcánica o hipabisal indiferenciada",
+        "Clastos dioríticos",
+        "Clastos monzodioríticos",
+        "Clastos monzoníticos",
+        "Clastos tonalíticos",
+        "Clastos granodioríticos",
+        "Clastos graníticos",
+        "Clastos sieníticos",
+        "Clastos de roca plutónica máfica",
+        "Clastos de roca plutónica félsica",
+        "Clastos de roca plutónica indiferenciada",
+        "Clastos de roca ígnea indiferenciada",
+        "Clastos de filita",
+        "Clastos de esquisto",
+        "Clastos de gneis",
+        "Clastos de granofels",
+        "Clastos de migmatita",
+        "Clastos de roca metamórfica indiferenciada",
+        "Clastos indiferenciados"
+      ],
+      "fuente": "Norma CDC 2016 Vol III, campo verbatim 'LITOLOGIA DE LOS CLASTOS DE TAMAÑO DE GRAVA' (>2 mm), agrupados por origen (sedimentaria/ígnea volcánica/ígnea plutónica/metamórfica/piroclástico retrabajado/indiferenciado). Orden de la norma preservado -- la frecuencia de frase exacta en el RAG no dio señal confiable para reordenar (la prosa real prefiere \"líticos de X\"/\"clastos andesíticos\" en vez de la frase exacta \"clastos de X\")."
+    },
+    "FABRICA_CLASTOS": {
+      "tipo": "simple",
+      "valores": [
+        "Matriz-soportada",
+        "Clasto-soportada"
+      ],
+      "fuente": "Norma CDC 2016 Vol III. Antes vivía como 2 opciones sueltas dentro de TEXTURA.mapa.Sedimentaria, al mismo nivel que 'Clástica (detrítica)' -- error de jerarquía reportado por el usuario (fábrica matriz/clasto-soportada es una SUBCLASIFICACIÓN de la textura clástica, no una alternativa a ella). Campo nuevo, visible solo cuando TEXTURA='Clástica (detrítica)'."
+    },
+    "MINERAL_INTRUSIVA": {
+      "tipo": "simple",
+      "valores": [
+        "Biotita",
+        "Piroxeno (clinopiroxeno)",
+        "Piroxeno (ortopiroxeno)",
+        "Circón",
+        "Hornblenda",
+        "Cuarzo",
+        "Plagioclasa",
+        "Clorita",
+        "Feldespato potásico (ortoclasa/microclina)",
+        "Epidota"
+      ],
+      "fuente": "RAG ChromaDB 'prosa_geologica' (41.598 chunks, 2026-08-25): los 10 minerales con más co-ocurrencia en ventanas de contexto intrusivo/plutónico (granito, granodiorita, diorita, tonalita, monzonita, gabro, sienita, plutón, batolito, intrusivo; 19.697 ventanas). Biotita 7717, Piroxeno-cpx 2665, Piroxeno-opx 2318, Circón 2189, Hornblenda 1807, Cuarzo 929, Plagioclasa 773, Clorita 382, Feldespato potásico 301, Epidota 278 -- caída clara frente a Muscovita (223) en 11vo lugar. Subconjunto de MINERAL (25 especies), acotado SOLO para COMPOSICION_MINERAL_INTRUSIVA; un mineral fuera de esta lista se anota en COMPOSICION_MINERAL_INTRUSIVA_DETALLE (texto libre)."
     }
   },
   "avisos": [
@@ -2970,12 +3186,11 @@ const MODELO = {
     "LV_FUENTE_COORDENADA: poblada desde diagrama v3 / estandar (CONFIRMAR).",
     "TIPO_DEPOSITO: poblada desde diagrama v3 / estandar (CONFIRMAR)."
   ]
-}
-;
+};
 </script>
 <script>
 "use strict";
-const APP_VER = 'v78';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v86';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3068,7 +3283,7 @@ function esDeProyecto(store,r,proyectoId,idsPuntos){
 function nombreArchivoProyecto(proyecto){return (proyecto&&proyecto.NOMBRE_PROYECTO||'proyecto').replace(/[\\/:*?"<>|]+/g,'_');}
 
 // ============================ IndexedDB ============================
-const DB='captura-terreno', VER=9;   // v9: MATRIZ_COMPOSICION de lavas migra a CRISTALINIDAD (campo nuevo)
+const DB='captura-terreno', VER=12;   // v12: COMPOSICION_MINERAL_PRINCIPAL (Intrusiva) migra a COMPOSICION_MINERAL_INTRUSIVA
 let db;
 function openDB(){return new Promise((res,rej)=>{
   let done=false; const finish=(fn,v)=>{if(!done){done=true;fn(v);}};
@@ -3144,6 +3359,78 @@ function openDB(){return new Promise((res,rej)=>{
           li.CRISTALINIDAD = valor;
           try{ noAbortar(txM.objectStore('litologia').put(li)); }
           catch(e){ console.warn('Migración v9: no se pudo migrar la litología',li.id,e); }
+        });
+      };
+    }
+    // Migración v10 (2026-08-25): Tefra deja de ser una rama de TIPO_VOLCANICA (roca) y pasa
+    // a ser un NOMBRE_ROCA de Depósito -- una tefra es un depósito piroclástico NO CONSOLIDADO,
+    // no una roca (a pedido del usuario, misma lógica que ya trataba Aluviales/Coluviales/etc.
+    // como Depósito). "Piroclástica" se renombra a "Rocas piroclásticas" (a secas confundía roca
+    // vs. proceso). Ver modelo/mover_tefra_a_deposito.py para el cambio de dominio.
+    {
+      const txM=r.transaction;
+      const noAbortar=req=>{req.onerror=ev=>{ev.preventDefault();console.warn('Migración v10: registro omitido',req.error);};return req;};
+      const q=noAbortar(txM.objectStore('litologia').getAll());
+      q.onsuccess=ev=>{
+        (ev.target.result||[]).forEach(li=>{
+          if(!li || li.TIPO_ROCA!=='Volcánica') return;
+          if(li.TIPO_VOLCANICA==='Tefra'){
+            // El NOMBRE_ROCA guardado (uno de los 15 términos GB_TEFRA, p. ej. "Ceniza",
+            // "Tefra de bloques") pasa íntegro a GRANULOMETRIA -- no se pierde ningún dato,
+            // solo cambia de campo (mismo patrón que Aluviales/Coluviales: NOMBRE_ROCA -> GRANULOMETRIA).
+            if(li.NOMBRE_ROCA && !li.GRANULOMETRIA) li.GRANULOMETRIA = li.NOMBRE_ROCA;
+            li.TIPO_ROCA = 'Depósito';
+            li.NOMBRE_ROCA = 'Tefra, depósito volcánico';
+            if(!li.TIPO_DEPOSITO) li.TIPO_DEPOSITO = 'Volcanoclástico';
+            delete li.TIPO_VOLCANICA;   // ya no aplica: TIPO_ROCA=Depósito, no Volcánica
+            try{ noAbortar(txM.objectStore('litologia').put(li)); }
+            catch(e){ console.warn('Migración v10: no se pudo migrar la litología (Tefra)',li.id,e); }
+          } else if(li.TIPO_VOLCANICA==='Piroclástica'){
+            // Renombre puro: NOMBRE_ROCA/TEXTURA/MATRIZ_COMPOSICION/CRISTALES_ESPECIE/SOLDADURA
+            // no cambian de valor, solo la etiqueta de TIPO_VOLCANICA que los acota.
+            li.TIPO_VOLCANICA = 'Rocas piroclásticas';
+            try{ noAbortar(txM.objectStore('litologia').put(li)); }
+            catch(e){ console.warn('Migración v10: no se pudo migrar la litología (Piroclástica)',li.id,e); }
+          }
+        });
+      };
+    }
+    // Migración v11 (2026-08-25): "Matriz-soportada"/"Clasto-soportada" salen de TEXTURA
+    // (donde vivían mal, al mismo nivel que "Clástica (detrítica)" -- bug de jerarquía
+    // reportado por el usuario) y pasan al campo nuevo FABRICA_CLASTOS. El valor original en
+    // TEXTURA NO se borra (dato viejo, solo deja de mostrarse ahí; preservarValor() lo
+    // conserva si se reabre el registro).
+    {
+      const txM=r.transaction;
+      const noAbortar=req=>{req.onerror=ev=>{ev.preventDefault();console.warn('Migración v11: registro omitido',req.error);};return req;};
+      const FABRICA=new Set(['Matriz-soportada','Clasto-soportada']);
+      const q=noAbortar(txM.objectStore('litologia').getAll());
+      q.onsuccess=ev=>{
+        (ev.target.result||[]).forEach(li=>{
+          if(!li || li.TIPO_ROCA!=='Sedimentaria' || !FABRICA.has(li.TEXTURA) || li.FABRICA_CLASTOS) return;
+          li.FABRICA_CLASTOS = li.TEXTURA;
+          try{ noAbortar(txM.objectStore('litologia').put(li)); }
+          catch(e){ console.warn('Migración v11: no se pudo migrar la litología',li.id,e); }
+        });
+      };
+    }
+    // Migración v12 (2026-08-25): COMPOSICION_MINERAL_PRINCIPAL pasa a ser solo-Metamórfica
+    // (antes compartido con Intrusiva) -- lo ya capturado en litologías Intrusiva se copia a
+    // COMPOSICION_MINERAL_INTRUSIVA/DETALLE para que no quede invisible. El dato original en
+    // COMPOSICION_MINERAL_PRINCIPAL NO se borra (mismo criterio de siempre: dato viejo, solo
+    // deja de mostrarse para Intrusiva). Un mineral fuera de las 10 especies nuevas sobrevive
+    // como chip huérfano (preservarValor multiselect).
+    {
+      const txM=r.transaction;
+      const noAbortar=req=>{req.onerror=ev=>{ev.preventDefault();console.warn('Migración v12: registro omitido',req.error);};return req;};
+      const q=noAbortar(txM.objectStore('litologia').getAll());
+      q.onsuccess=ev=>{
+        (ev.target.result||[]).forEach(li=>{
+          if(!li || li.TIPO_ROCA!=='Intrusiva' || !li.COMPOSICION_MINERAL_PRINCIPAL || li.COMPOSICION_MINERAL_INTRUSIVA) return;
+          li.COMPOSICION_MINERAL_INTRUSIVA = li.COMPOSICION_MINERAL_PRINCIPAL;
+          if(li.COMPOSICION_MINERAL_DETALLE) li.COMPOSICION_MINERAL_INTRUSIVA_DETALLE = li.COMPOSICION_MINERAL_DETALLE;
+          try{ noAbortar(txM.objectStore('litologia').put(li)); }
+          catch(e){ console.warn('Migración v12: no se pudo migrar la litología',li.id,e); }
         });
       };
     }
@@ -3592,22 +3879,23 @@ function hideField(store,n){
 }
 
 // Nombres de roca volcánica por origen — única fuente de verdad para acotar NOMBRE_ROCA según
-// TIPO_VOLCANICA (ver filtrarNombreRocaVolcanica más abajo). Piroclástica y Tefra son los
-// términos oficiales del Comité de Estándares CDC 2016 (csv_litologia: GB_RXVOLC_PIROCLASTICA
-// y GB_TEFRA) — ya incluyen el tamaño de grano en el nombre (p. ej. "Toba de ceniza", "Tefra
-// de bloques y lapilli"), por eso GRANULOMETRIA ya no aplica a rocas volcánicas (ver abajo).
+// TIPO_VOLCANICA (ver filtrarNombreRocaVolcanica más abajo). "Rocas piroclásticas" son los
+// términos oficiales del Comité de Estándares CDC 2016 (csv_litologia: GB_RXVOLC_PIROCLASTICA)
+// — ya incluyen el tamaño de grano en el nombre (p. ej. "Toba de ceniza"), por eso GRANULOMETRIA
+// ya no aplica a rocas volcánicas (ver abajo). Tefra (GB_TEFRA) NO es una rama de aquí desde
+// 2026-08-25: una tefra es un depósito NO CONSOLIDADO (piroclastos sueltos), no una roca — se
+// movió a NOMBRE_ROCA.Depósito="Tefra, depósito volcánico" con sus 15 términos en la cascada
+// GRANULOMETRIA (ver modelo/mover_tefra_a_deposito.py), mismo tratamiento que Aluviales/
+// Coluviales/etc. "Piroclástica" se renombró a "Rocas piroclásticas" (a secas confundía roca
+// vs. proceso).
 const ROCAS_VOLCANICAS = {
   'Lava': ['Basalto', 'Andesita basáltica', 'Andesita (intermedia/silícea)', 'Dacita', 'Riolita', 'Taquilita', 'Obsidiana'],
-  'Piroclástica': ['Aglomerado', 'Aglomerado tobáceo de bombas y ceniza', 'Aglomerado tobáceo de bombas y lapilli',
+  'Rocas piroclásticas': ['Aglomerado', 'Aglomerado tobáceo de bombas y ceniza', 'Aglomerado tobáceo de bombas y lapilli',
     'Brecha piroclástica', 'Brecha tobácea de bloques y ceniza', 'Brecha tobácea de bloques y lapilli',
     'Toba aglomerática de ceniza y bombas', 'Toba aglomerática de lapilli y bombas',
     'Toba brechosa de ceniza y bloques', 'Toba brechosa de lapilli y bloques',
     'Toba de ceniza', 'Toba de ceniza y lapilli', 'Toba de lapilli', 'Toba de lapilli y ceniza',
     'Roca piroclástica indiferenciada'],
-  'Tefra': ['Ceniza', 'Lapilli', 'Tefra de bloques', 'Tefra de bloques y ceniza', 'Tefra de bloques y lapilli',
-    'Tefra de bombas', 'Tefra de bombas y ceniza', 'Tefra de bombas y lapilli', 'Tefra de ceniza y bloques',
-    'Tefra de ceniza y bombas', 'Tefra de ceniza y lapilli', 'Tefra de lapilli y bloques',
-    'Tefra de lapilli y bombas', 'Tefra de lapilli y ceniza', 'Tefra indiferenciada'],
 };
 // Textura por origen volcánico — mismo mecanismo que ROCAS_VOLCANICAS/filtrarNombreRocaVolcanica
 // (más abajo), pero para el campo TEXTURA en vez de NOMBRE_ROCA: una Andesita y una Toba no pueden
@@ -3615,8 +3903,7 @@ const ROCAS_VOLCANICAS = {
 // sin distinguir Lava de Piroclástica). Fuente: norma CDC 2016 Vol IV, campo "TEXTURA DE ROCA", que
 // divide el dominio en "para rocas lávicas" / "para rocas piroclásticas" (curado al nivel de
 // detalle de terreno de esta app; se excluye "Soldada"/"No soldada" porque ya es el campo propio
-// SOLDADURA, v62, con una escala graduada más útil que un sí/no). Tefra reusa la lista de
-// Piroclástica: es su equivalente no litificado, la norma no da un dominio de textura aparte.
+// SOLDADURA, v62, con una escala graduada más útil que un sí/no).
 // Verificado término por término contra el texto de la norma CDC 2016 Vol IV (campo "TEXTURA
 // DE ROCA", 2026-08-21) tras encontrar que la versión anterior mezclaba por error TRES campos
 // oficiales distintos en una sola lista: TEXTURA MACROSCÓPICA DE LA ROCA (Afírica/Afanítica
@@ -3643,24 +3930,24 @@ const TEXTURA_VOLCANICA = {
     'Ocoítica', 'Perlítica', 'Escoriácea', 'Microporfírica', 'Obliterada por alteración',
     'Globulosa', 'Litofisa (litofisae)', 'Miarolítica', 'Microbrechosa', 'Variolítica',
     'Indeterminada'],
-  'Piroclástica': ['Porfírica', 'Piroclástica', 'Eutaxítica', 'Brechosa', 'Vesicular',
+  'Rocas piroclásticas': ['Porfírica', 'Piroclástica', 'Eutaxítica', 'Brechosa', 'Vesicular',
     'Vitroclástica', 'Glomeroporfídica', 'Pumícea', 'Amigdaloidal', 'Matriz-soportada',
     'Escoriácea', 'Clasto-soportada', 'Microporfídica', 'Obliterada por alteración',
     'Reomórfica', 'Microbrechosa', 'Reticulada', 'Indeterminada'],
 };
-TEXTURA_VOLCANICA['Tefra'] = TEXTURA_VOLCANICA['Piroclástica'];
-// Matriz/masa intersticial — solo Piroclástica/Tefra ahora: Lava usa el campo propio
-// CRISTALINIDAD, verbatim de la norma (ver CONDICIONALES más abajo). MATRIZ_COMPOSICION
-// nunca fue verbatim CDC: no hay un campo 1:1 equivalente en la norma para composición de
-// matriz piroclástica (la norma lo desglosa en COLOR/PORCENTAJE/ALTERACIÓN DEL COMPONENTE
-// VÍTREO por separado, demasiado granular para esta app) — vocabulario del corpus SGB
-// ("matriz vítrea de tamaño ceniza", "matriz de ceniza vítrea", "carbonatizada"). Tefra
-// reusa la lista de Piroclástica (su equivalente no litificado).
-const MATRIZ_VOLCANICA = {
-  'Piroclástica': ['Vítrea', 'Cristalina', 'Lítica', 'Desvitrificada', 'Silicificada',
-    'Carbonatizada', 'Cenizosa'],
-};
-MATRIZ_VOLCANICA['Tefra'] = MATRIZ_VOLCANICA['Piroclástica'];
+// Matriz/masa intersticial (MATRIZ_COMPOSICION) — Rocas piroclásticas Y Tefra (2026-08-25):
+// Lava usa el campo propio CRISTALINIDAD, verbatim de la norma. Ya no hay dict de narrowing
+// por TIPO_VOLCANICA aquí (existió hasta v83 como MATRIZ_VOLCANICA/filtrarMatrizVolcanica()):
+// al pasar el campo a selección múltiple (v84, "a veces es vítrea Y con cristales o líticos" —
+// no son excluyentes) el widget de chips ya no es un <select> que se pueda re-poblar con
+// innerHTML/<option>, así que la función de narrowing quedó incompatible con el nuevo widget.
+// Como Rocas piroclásticas y Tefra ya comparten exactamente los mismos 7 valores (no hay nada
+// que angostar entre ellas, a diferencia de NOMBRE_ROCA/TEXTURA que sí difieren por origen),
+// se eliminó sin pérdida: el campo usa directo el dominio completo del modelo en ambos casos.
+// Lista re-verificada contra frecuencia real en el RAG "prosa_geologica" 2026-08-25 (ver
+// revisar_matriz_piroclastica.py): se sacaron Carbonatizada/Cenizosa (0 ocurrencias reales en
+// 1.554 apariciones de "matriz" en contexto piroclástico) y se agregaron Silícea/Félsica
+// (ejemplos reales: "matriz silícea de textura soldada", "matriz félsica desvitrificada").
 
 // Campos condicionales: se muestran/habilitan solo si se cumple la regla; si no, se limpian.
 //  modo 'bloquear' = se deshabilita y atenúa · modo 'ocultar' = se esconde por completo.
@@ -3670,6 +3957,9 @@ MATRIZ_VOLCANICA['Tefra'] = MATRIZ_VOLCANICA['Piroclástica'];
 const SEDIMENTARIA_CLASTICA = ['Arcillolita', 'Arenisca', 'Brecha sedimentaria', 'Conglomerado',
   'Conglomerado megaclástico', 'Fangolita', 'Limolita', 'Lutita',
   'Sedimentita siliciclástica indiferenciada'];
+// Subconjunto de tamaño GRAVA (>2 mm) de SEDIMENTARIA_CLASTICA -- para LITOLOGIA_CLASTOS
+// (norma CDC 2016 Vol III: "Debe limitar la descripción a los clastos >2 mm de diámetro").
+const SEDIMENTARIA_GRAVOSA = ['Conglomerado', 'Brecha sedimentaria', 'Conglomerado megaclástico'];
 // Clases de afloramiento sin arquitectura en capas: la "arquitectura en capas" (arreglo de
 // estratos, gradación interna, espesor, geometría/extensión del cuerpo, base) no aplica a un
 // cuerpo intrusivo, metamórfico o una tectonita. Volcánico se deja AFUERA a propósito: incluye
@@ -3680,10 +3970,11 @@ const CLASE_AFL_NO_ESTRATIFICADA = new Set(['Intrusivo', 'Metamórfico', 'Roca d
 const CONDICIONALES = {
   // Una litología es roca O depósito: TIPO_DEPOSITO solo con TIPO_ROCA = "Depósito".
   TIPO_DEPOSITO: {modo:'bloquear', regla: v => v['TIPO_ROCA']==='Depósito'},
-  // Lava/Piroclástica/Tefra solo aplica a rocas volcánicas (acota NOMBRE_ROCA, ver filtrarNombreRocaVolcanica).
+  // Lava/Rocas piroclásticas solo aplica a rocas volcánicas (acota NOMBRE_ROCA, ver filtrarNombreRocaVolcanica).
   TIPO_VOLCANICA: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
-  // Granulometría solo para: (1) todos los depósitos, (2) rocas sedimentarias siliciclásticas.
-  // Ya no aplica a volcánicas: los nombres oficiales de Piroclástica/Tefra ya llevan el tamaño de grano incorporado.
+  // Granulometría solo para: (1) todos los depósitos (incluida "Tefra, depósito volcánico",
+  // 2026-08-25), (2) rocas sedimentarias siliciclásticas. No aplica a rocas piroclásticas: los
+  // nombres oficiales ya llevan el tamaño de grano incorporado.
   GRANULOMETRIA: {modo:'ocultar', regla: v => {
     const tipo = v['TIPO_ROCA'];
     if (tipo === 'Depósito') return true;
@@ -3695,7 +3986,7 @@ const CONDICIONALES = {
   SELECCION: {modo:'ocultar', regla: v => {
     const tipo = v['TIPO_ROCA'];
     if (tipo === 'Depósito') return true;
-    if (tipo === 'Volcánica') return v['TIPO_VOLCANICA'] === 'Piroclástica';
+    if (tipo === 'Volcánica') return v['TIPO_VOLCANICA'] === 'Rocas piroclásticas';
     if (tipo === 'Sedimentaria') return SEDIMENTARIA_CLASTICA.includes(v['NOMBRE_ROCA']);
     return false;
   }},
@@ -3705,34 +3996,80 @@ const CONDICIONALES = {
     if (tipo === 'Sedimentaria') return SEDIMENTARIA_CLASTICA.includes(v['NOMBRE_ROCA']);
     return false;
   }},
+  // Esfericidad (norma CDC Vol III "FORMA CLASTOS"): mismo criterio que REDONDEAMIENTO --
+  // depósitos y sedimentarias clásticas, el mismo trío grano/clasto (2026-08-25).
+  ESFERICIDAD: {modo:'ocultar', regla: v => {
+    const tipo = v['TIPO_ROCA'];
+    if (tipo === 'Depósito') return true;
+    if (tipo === 'Sedimentaria') return SEDIMENTARIA_CLASTICA.includes(v['NOMBRE_ROCA']);
+    return false;
+  }},
+  // Composición de granos (norma CDC Vol III "COMPOSICIÓN CLÁSTICA-ALOQUÍMICA", sistema de
+  // Folk): mismo alcance que REDONDEAMIENTO/ESFERICIDAD -- NO aplica a rocas piroclásticas
+  // (esas usan COMPONENTE_PIROCLASTICO, un eje distinto).
+  COMPOSICION_CLASTICA: {modo:'ocultar', regla: v => {
+    const tipo = v['TIPO_ROCA'];
+    if (tipo === 'Depósito') return true;
+    if (tipo === 'Sedimentaria') return SEDIMENTARIA_CLASTICA.includes(v['NOMBRE_ROCA']);
+    return false;
+  }},
+  // Litología de clastos tamaño grava (norma CDC Vol III): solo depósitos y sedimentarias
+  // GRAVOSAS (Conglomerado/Brecha sedimentaria/Conglomerado megaclástico) -- una Arenisca no
+  // tiene clastos >2 mm por definición.
+  LITOLOGIA_CLASTOS: {modo:'ocultar', regla: v =>
+    v['TIPO_ROCA']==='Depósito' || (v['TIPO_ROCA']==='Sedimentaria' && SEDIMENTARIA_GRAVOSA.includes(v['NOMBRE_ROCA']))},
+  LITOLOGIA_CLASTOS_DETALLE: {modo:'ocultar', regla: v =>
+    v['TIPO_ROCA']==='Depósito' || (v['TIPO_ROCA']==='Sedimentaria' && SEDIMENTARIA_GRAVOSA.includes(v['NOMBRE_ROCA']))},
+  // Fábrica matriz/clasto-soportada (2026-08-25, corrige bug de jerarquía reportado por el
+  // usuario): antes vivía como 2 opciones sueltas DENTRO de TEXTURA, al mismo nivel que
+  // "Clástica (detrítica)" -- es una subclasificación de esa textura, no una alternativa.
+  // Campo nuevo, visible solo cuando ya se eligió TEXTURA='Clástica (detrítica)'.
+  FABRICA_CLASTOS: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Sedimentaria' && v['TEXTURA']==='Clástica (detrítica)'},
+  // Composición de la matriz: solo tiene sentido si la fábrica es matriz-soportada (norma CDC:
+  // "se describe la matriz aparte... de depósitos sedimentarios mal seleccionados").
+  COMPOSICION_CLASTICA_MATRIZ: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Sedimentaria' && v['FABRICA_CLASTOS']==='Matriz-soportada'},
   CEMENTO: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Sedimentaria' || v['TIPO_ROCA']==='Depósito'},
-  // Composición mineral (plutónicas/metamórficas) y fenocristales (SOLO lavas) son conceptos
-  // distintos del CSV de referencia — no comparten campo. "Fenocristal" implica textura
-  // porfídica de una roca ígnea coherente (cristal mayor que la masa fundamental que lo
-  // rodea); en una piroclástica los componentes cristalinos son fragmentos clásticos
-  // (cristaloclastos), no fenocristales — ver CRISTALES_ESPECIE. El detalle de texto libre de
-  // cada uno se oculta junto con su lista de minerales.
-  COMPOSICION_MINERAL_PRINCIPAL: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Intrusiva' || v['TIPO_ROCA']==='Metamórfica'},
-  COMPOSICION_MINERAL_DETALLE:   {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Intrusiva' || v['TIPO_ROCA']==='Metamórfica'},
+  // Composición mineral: Intrusiva y Metamórfica tienen ensambles minerales distintos (índices
+  // metamórficos como granate/estaurolita/sillimanita casi no aparecen en intrusivas -- RAG,
+  // 2026-08-25), así que dejaron de compartir campo (2026-08-25, mismo criterio que
+  // FENOCRISTALES_ESPECIE/CRISTALES_ESPECIE): COMPOSICION_MINERAL_PRINCIPAL (25 especies) queda
+  // solo para Metamórfica; Intrusiva usa COMPOSICION_MINERAL_INTRUSIVA (10 especies, acotado por
+  // frecuencia real). Fenocristales (SOLO lavas) sigue siendo un concepto distinto — "fenocristal"
+  // implica textura porfídica de una roca ígnea coherente, ver CRISTALES_ESPECIE para piroclásticas.
+  COMPOSICION_MINERAL_PRINCIPAL: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Metamórfica'},
+  COMPOSICION_MINERAL_DETALLE:   {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Metamórfica'},
+  COMPOSICION_MINERAL_INTRUSIVA: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Intrusiva'},
+  COMPOSICION_MINERAL_INTRUSIVA_DETALLE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Intrusiva'},
   FENOCRISTALES_ESPECIE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Lava'},
   FENOCRISTALES_DETALLE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Lava'},
-  CRISTALES_ESPECIE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && (v['TIPO_VOLCANICA']==='Piroclástica' || v['TIPO_VOLCANICA']==='Tefra')},
-  CRISTALES_DETALLE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && (v['TIPO_VOLCANICA']==='Piroclástica' || v['TIPO_VOLCANICA']==='Tefra')},
-  // Matriz: solo Piroclástica/Tefra (Lava usa el campo propio CRISTALINIDAD, verbatim CDC —
+  CRISTALES_ESPECIE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas'},
+  CRISTALES_DETALLE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas'},
+  // Componente dominante (Vítrea/Cristalina/Lítica, norma CDC "VÍTREA, CRISTALINA O LÍTICA"):
+  // aplica a rocas piroclásticas Y a Tefra (2026-08-25) -- la norma cita el mismo campo para
+  // ambas (litificado=roca piroclástica / no litificado=tefra), igual que CRISTALINIDAD.
+  COMPONENTE_PIROCLASTICO: {modo:'ocultar', regla: v =>
+    (v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas') ||
+    (v['TIPO_ROCA']==='Depósito' && v['NOMBRE_ROCA']==='Tefra, depósito volcánico')},
+  // Matriz: solo rocas piroclásticas (Lava usa el campo propio CRISTALINIDAD, verbatim CDC —
   // ver más abajo. MATRIZ_COMPOSICION nunca fue un campo verbatim de la norma, es aproximación
   // del corpus SGB, así que no se extendió a Lava tras la corrección del 2026-08-21).
-  MATRIZ_COMPOSICION: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && (v['TIPO_VOLCANICA']==='Piroclástica' || v['TIPO_VOLCANICA']==='Tefra')},
-  MATRIZ_DETALLE:     {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && (v['TIPO_VOLCANICA']==='Piroclástica' || v['TIPO_VOLCANICA']==='Tefra')},
-  // Cristalinidad: Lava, Piroclástica o Tefra por igual. Campo verbatim CDC 2016 Vol IV, tabla
-  // TBL_AF_DEP_IGNEO_VOLCANICO ("DDA Descripción de Depósitos Volcánicos") — es UNA sola tabla
-  // compartida por lava y depósito piroclástico (litificado=roca piroclástica / no litificado=
-  // tefra); el texto del campo no restringe su uso a lava. La primera corrección (2026-08-21)
-  // lo dejó "solo Lava" por decisión propia sin verificarla contra la norma como el resto —
-  // corregido tras pregunta del usuario ("¿aplicaste esto a tefras?").
+  // Matriz: Rocas piroclásticas Y Tefra (2026-08-25) -- mismo patrón dual que
+  // COMPONENTE_PIROCLASTICO arriba, la norma cita el mismo campo para ambas.
+  MATRIZ_COMPOSICION: {modo:'ocultar', regla: v =>
+    (v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas') ||
+    (v['TIPO_ROCA']==='Depósito' && v['NOMBRE_ROCA']==='Tefra, depósito volcánico')},
+  MATRIZ_DETALLE: {modo:'ocultar', regla: v =>
+    (v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas') ||
+    (v['TIPO_ROCA']==='Depósito' && v['NOMBRE_ROCA']==='Tefra, depósito volcánico')},
+  // Cristalinidad: Lava o Rocas piroclásticas por igual. Campo verbatim CDC 2016 Vol IV, tabla
+  // TBL_AF_DEP_IGNEO_VOLCANICO ("DDA Descripción de Depósitos Volcánicos") — el texto del campo
+  // no restringe su uso a lava. La primera corrección (2026-08-21) lo dejó "solo Lava" por
+  // decisión propia sin verificarla contra la norma como el resto — corregido tras pregunta
+  // del usuario. Tefra ya no aplica aquí (2026-08-25): es Depósito, no Volcánica.
   CRISTALINIDAD: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica'},
   MASA_FUNDAMENTAL: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Lava'},
   TEXTURA_DUNHAM:   {modo:'ocultar', regla: v => v['NOMBRE_ROCA']==='Caliza'},
-  SOLDADURA:        {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Piroclástica'},
+  SOLDADURA:        {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas'},
   GRADO_CONSOLIDACION: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Depósito'},
   // Tipo de falla solo cuando la estructura medida es una falla (formulario de punto).
   TIPO_FALLA: {modo:'ocultar', regla: v => v['TIPO_ESTRUCTURA']==='Estructura falla'},
@@ -3959,23 +4296,9 @@ function formulario(store, reg, ctx){
     else if(esBuild){ preservarValor(iTX, actual); iTX.value=actual; }
     else iTX.value='';
   }
-  // Idéntico a filtrarTexturaVolcanica(), para MATRIZ_COMPOSICION (Lava/Piroclástica/Tefra).
-  function filtrarMatrizVolcanica(esBuild){
-    const iTV=inputs['TIPO_VOLCANICA'], iMZ=inputs['MATRIZ_COMPOSICION'];
-    if(!iTV||!iMZ)return;
-    const subset = iTV.value ? MATRIZ_VOLCANICA[iTV.value] : null;
-    if(!subset)return;
-    const actual=iMZ.value;
-    iMZ.innerHTML='';iMZ.append(el('option',{value:''},'— seleccionar —'));
-    subset.forEach(v=>iMZ.append(el('option',{value:v},v)));
-    if(subset.includes(actual)) iMZ.value=actual;
-    else if(esBuild){ preservarValor(iMZ, actual); iMZ.value=actual; }
-    else iMZ.value='';
-  }
   aplicarCondicionales();
   filtrarNombreRocaVolcanica(true);
   filtrarTexturaVolcanica(true);
-  filtrarMatrizVolcanica(true);
   aplicarCondicionales();
 
   // cascadas: al cambiar el padre, repoblar hijos (y nietos)
@@ -3983,11 +4306,12 @@ function formulario(store, reg, ctx){
     const changed=e.target.name; if(!changed)return;
     repoblarHijosDe(changed, e.target.value);
     aplicarCondicionales();
-    // TIPO_VOLCANICA no es un padre de cascada genérico: solo recorta NOMBRE_ROCA/TEXTURA/
-    // MATRIZ_COMPOSICION cuando el cambio viene de TIPO_ROCA o del propio TIPO_VOLCANICA (no
-    // en cada tecleo de otro campo).
+    // TIPO_VOLCANICA no es un padre de cascada genérico: solo recorta NOMBRE_ROCA/TEXTURA
+    // cuando el cambio viene de TIPO_ROCA o del propio TIPO_VOLCANICA (no en cada tecleo de
+    // otro campo). MATRIZ_COMPOSICION ya no se recorta aquí (v84): pasó a multiselect y
+    // Rocas piroclásticas/Tefra comparten el mismo dominio completo, sin nada que angostar.
     if(changed==='TIPO_ROCA'||changed==='TIPO_VOLCANICA'){
-      filtrarNombreRocaVolcanica(false); filtrarTexturaVolcanica(false); filtrarMatrizVolcanica(false);
+      filtrarNombreRocaVolcanica(false); filtrarTexturaVolcanica(false);
       aplicarCondicionales();
     }
     // dominio abierto "agregar nuevo"
@@ -6196,6 +6520,12 @@ function sujetoLitologia(nombreRoca,tipoRoca,granulometria){
   // adjetivo plural ("Aluviales", "Coluviales"...), nunca un sustantivo que pueda abrir la
   // oración solo -- sin este chequeo antes del "if(!g) return nombre", un depósito sin
   // granulometría cargada volvía a producir el mismo "Aluviales, de color..." roto.
+  // Caso especial "Tefra, depósito volcánico" (2026-08-25): a diferencia de los demás
+  // (adjetivos plurales que califican "depósitos"), sus 15 términos GB_TEFRA de
+  // GRANULOMETRIA ya SON el nombre completo del depósito ("Tefra de bloques", "Ceniza",
+  // "Tefra indiferenciada" -- verbatim norma CDC), no un modificador a fusionar. Prefijar
+  // "Depósitos" duplicaría la palabra ("Depósitos tefra, depósito volcánico").
+  if(nombre==='Tefra, depósito volcánico') return g ? g.charAt(0).toUpperCase()+g.slice(1) : 'Tefra';
   if(tipoRoca==='Depósito') return 'Depósitos '+nombre.toLowerCase()+(g?' de '+g:'');
   if(!g) return nombre;
   // Los términos "conglomerado/brecha de X" vienen de la escala Udden-Wentworth, que las 9
@@ -6218,6 +6548,13 @@ const REDONDEAMIENTO_FRASE={
   'Anguloso':'angulosos','Subanguloso':'subangulosos','Subredondeado':'subredondeados',
   'Redondeado':'redondeados','Muy redondeado':'muy redondeados',
 };
+// Esfericidad (norma CDC Vol III "FORMA CLASTOS", Zingg 1935) -- adjetivo plural para fundirse
+// con SELECCION_FRASE/REDONDEAMIENTO_FRASE en "de clastos X, Y y Z" (2026-08-25).
+const ESFERICIDAD_FRASE={
+  'Esférico o equidimensional':'esféricos o equidimensionales','Discoidal o tabular':'discoidales o tabulares',
+  'Cilíndrico o elongado':'cilíndricos o elongados','Elipsoidal':'elipsoidales',
+  'Irregular':'irregulares','Heterogéneo':'heterogéneos',
+};
 const CEMENTO_FRASE={
   'Calcáreo':'con cemento calcáreo','Silíceo':'con cemento silíceo','Ferruginoso':'con cemento ferruginoso',
   'Yesífero':'con cemento yesífero','Sin cementar':'sin cementar',
@@ -6230,6 +6567,13 @@ const CONSOLIDACION_FRASE={
   'No consolidado':'de carácter no consolidado','Semiconsolidado':'de carácter semiconsolidado',
   'Consolidado / litificado':'de carácter consolidado',
 };
+// Componente(s) del depósito piroclástico (Rocas piroclásticas + Tefra). Selección múltiple
+// desde v84 ("a veces es vítrea Y con cristales o líticos" -- no son excluyentes, el corpus real
+// los combina: "ceniza vítrea y cristales"). Mapa de ADJETIVOS (no frase completa) para unir
+// varios con lista(); "componente" (masc.) como sustantivo ancla evita concordar género con el
+// nombre de la roca (Toba/Brecha fem., Aglomerado/Depósito masc.) -- mismo criterio que
+// SOLDADURA_FRASE.
+const COMPONENTE_PIROCLASTICO_ADJ={'Vítrea':'vítreo','Cristalina':'cristalino','Lítica':'lítico'};
 function prosaPunto(pt,datos,toponimo,anterior,umbral){
   const {litos,aflora,estr,cont,geomorf,mues}=datos;
   // Afloramiento es panel unico (0..1): se toma la primera ficha si existe.
@@ -6253,30 +6597,44 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
       if(l.COLOR_METEORIZADO && l.COLOR_METEORIZADO!==l.COLOR_FRESCO) c+=', que meteoriza a '+minuscula(l.COLOR_METEORIZADO);
       frag.push(c);
     }
+    // FABRICA_CLASTOS (matriz/clasto-soportada) es subclasificación de TEXTURA='Clástica
+    // (detrítica)' desde v85 -- se agrega entre paréntesis a la misma cláusula de textura.
+    const fabrica=l.FABRICA_CLASTOS?' ('+minuscula(l.FABRICA_CLASTOS)+')':'';
     if(l.TEXTURA && l.TEXTURA_DUNHAM) frag.push('de textura '+minuscula(l.TEXTURA)+' ('+minuscula(l.TEXTURA_DUNHAM)+')');
     else if(l.TEXTURA_DUNHAM) frag.push('de textura '+minuscula(l.TEXTURA_DUNHAM));
-    else if(l.TEXTURA) frag.push('de textura '+minuscula(l.TEXTURA));
+    else if(l.TEXTURA) frag.push('de textura '+minuscula(l.TEXTURA)+fabrica);
     if(l.MASA_FUNDAMENTAL) frag.push('con masa fundamental '+minuscula(l.MASA_FUNDAMENTAL));
     if(l.CRISTALINIDAD) frag.push(minuscula(l.CRISTALINIDAD));
-    if(l.MATRIZ_COMPOSICION) frag.push('con matriz '+minuscula(l.MATRIZ_COMPOSICION)+parentesis(l.MATRIZ_DETALLE));
+    const matriz=multi(l.MATRIZ_COMPOSICION);
+    if(matriz.length) frag.push('con matriz '+lista(matriz.map(minuscula))+parentesis(l.MATRIZ_DETALLE));
     const fenos=multi(l.FENOCRISTALES_ESPECIE);
     if(fenos.length) frag.push('con fenocristales de '+lista(fenos.map(minuscula))+parentesis(l.FENOCRISTALES_DETALLE));
     // cristaloclastos (piroclásticas/tefra): distinto de fenocristales, ver CONDICIONALES.
     const cristales=multi(l.CRISTALES_ESPECIE);
     if(cristales.length) frag.push('con cristales de '+lista(cristales.map(minuscula))+parentesis(l.CRISTALES_DETALLE));
-    // clastos: selección y redondeamiento se funden en un solo adjetivo plural, igual que el
-    // corpus ("clastos mal seleccionados y subredondeados"), no dos fragmentos sueltos.
-    const clastos=[SELECCION_FRASE[l.SELECCION],REDONDEAMIENTO_FRASE[l.REDONDEAMIENTO]].filter(Boolean);
-    if(clastos.length) frag.push('de clastos '+clastos.join(' y '));
+    const componentes=multi(l.COMPONENTE_PIROCLASTICO);
+    if(componentes.length) frag.push('con componente '+lista(componentes.map(c=>COMPONENTE_PIROCLASTICO_ADJ[c]||minuscula(c))));
+    // clastos: selección, redondeamiento y esfericidad se funden en un solo adjetivo plural,
+    // igual que el corpus ("clastos mal seleccionados y subredondeados"), no fragmentos sueltos.
+    // lista() (no join(' y ')) porque ahora pueden ser 3 adjetivos ("X, Y y Z").
+    const clastos=[SELECCION_FRASE[l.SELECCION],REDONDEAMIENTO_FRASE[l.REDONDEAMIENTO],ESFERICIDAD_FRASE[l.ESFERICIDAD]].filter(Boolean);
+    if(clastos.length) frag.push('de clastos '+lista(clastos));
+    if(l.COMPOSICION_CLASTICA) frag.push('de composición '+minuscula(l.COMPOSICION_CLASTICA));
+    const litoClastos=multi(l.LITOLOGIA_CLASTOS);
+    if(litoClastos.length) frag.push('con clastos de '+lista(litoClastos.map(c=>minuscula(c.replace(/^Clastos de(l)? /i,'').replace(/^Clastos /i,''))))+parentesis(l.LITOLOGIA_CLASTOS_DETALLE));
+    if(l.COMPOSICION_CLASTICA_MATRIZ) frag.push('con matriz de composición '+minuscula(l.COMPOSICION_CLASTICA_MATRIZ));
     if(l.CEMENTO) frag.push(CEMENTO_FRASE[l.CEMENTO]||('con cemento '+minuscula(l.CEMENTO)));
     if(l.SOLDADURA) frag.push(SOLDADURA_FRASE[l.SOLDADURA]||minuscula(l.SOLDADURA));
     if(l.GRADO_CONSOLIDACION) frag.push(CONSOLIDACION_FRASE[l.GRADO_CONSOLIDACION]||minuscula(l.GRADO_CONSOLIDACION));
     if(l.ESTRUCTURA_TIPO_ROCA) frag.push('con '+minuscula(l.ESTRUCTURA_TIPO_ROCA));
     // composición mineral: participio concuerda en género con el nombre de la roca
     // ("conformada"/"conformado"/"conformados"), no queda fijo en femenino.
-    const compMin=multi(l.COMPOSICION_MINERAL_PRINCIPAL);
+    // Metamórfica (COMPOSICION_MINERAL_PRINCIPAL) e Intrusiva (COMPOSICION_MINERAL_INTRUSIVA)
+    // son mutuamente excluyentes por TIPO_ROCA desde v86 -- misma cláusula, distinto origen.
+    const compMin=multi(l.COMPOSICION_MINERAL_PRINCIPAL||l.COMPOSICION_MINERAL_INTRUSIVA);
+    const compMinDetalle=l.COMPOSICION_MINERAL_PRINCIPAL?l.COMPOSICION_MINERAL_DETALLE:l.COMPOSICION_MINERAL_INTRUSIVA_DETALLE;
     if(compMin.length) frag.push(CONFORMAR[generoRoca(l.NOMBRE_ROCA)]+' por '+lista(compMin.map(minuscula))
-      +parentesis(l.COMPOSICION_MINERAL_DETALLE));
+      +parentesis(compMinDetalle));
     if(l.TIPO_ALTERACION_LITO){
       // los valores del dominio TIPO_ALTERACION ya son sustantivos ("Silicificación",
       // "Argilización"...): "con alteración silicificación" apilaba dos sustantivos.
@@ -6330,6 +6688,9 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
   // resumen queda con un adjetivo suelto como sujeto ("Se reconoce aluviales...", sin sentido).
   const nombreResumen=l=>{
     const n=l.NOMBRE_ROCA||l.TIPO_ROCA; if(!n) return '';
+    // "Tefra, depósito volcánico" ya contiene la palabra "depósito" -- mismo caso especial
+    // que sujetoLitologia() (2026-08-25), evita "depósitos tefra, depósito volcánico".
+    if(n==='Tefra, depósito volcánico') return 'tefra';
     return l.TIPO_ROCA==='Depósito' ? 'depósitos '+minuscula(n) : minuscula(n);
   };
   const nombres=[...new Set(litos.map(nombreResumen).filter(Boolean))];
