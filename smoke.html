@@ -427,6 +427,27 @@ async function correr(){
       return urls.length + ' entradas, todas del mismo origen';
     });
 
+    // Borrido de proyecto al final: las pruebas de arriba usan el dataset de `sembrar()` y
+    // dependen de que existan sus puntos/foto-mapas. Esta prueba los destruye, así que va
+    // después de todas.
+    await prueba('Borrar un proyecto entero limpia todo su árbol (v96)', async () => {
+      await borrarMios(w); await sembrar(w);
+      const antesProyectos=(await w.all('proyecto')).length;   // incluye P+'pr'
+      const info=await w.borrarProyecto(P+'pr');
+      eq(info.puntos, 2, 'no se contaron/borraron los 2 puntos');
+      eq((await w.all('proyecto')).filter(x=>x.id===P+'pr').length, 0, 'el proyecto sigue existiendo');
+      eq((await w.all('punto')).filter(mio).length, 0, 'quedaron puntos de Terreno smoke-');
+      eq((await w.all('punto_gabinete')).filter(mio).length, 0, 'quedaron puntos de Gabinete smoke-');
+      eq((await w.all('linea')).filter(mio).length, 0, 'quedaron lineas de Terreno smoke-');
+      eq((await w.all('linea_gabinete')).filter(mio).length, 0, 'quedaron lineas de Gabinete smoke-');
+      eq((await w.all('nota')).filter(mio).length, 0, 'quedaron notas smoke-');
+      eq((await w.all('litologia')).filter(mio).length, 0, 'quedaron litologías smoke-');
+      eq((await w.all('fotomapa')).filter(mio).length, 0, 'quedaron foto-mapas smoke-');
+      eq((await w.all('aflora')).filter(mio).length, 0, 'quedaron afloramientos smoke-');
+      eq((await w.all('proyecto')).length, antesProyectos - 1, 'no se borró exactamente el proyecto smoke (¿se tocó un ajeno?)');
+      return 'puntos, líneas, notas, foto-mapas y proyecto limpios';
+    });
+
   } finally {
     await borrarMios(w);
     await prueba('No quedó basura ni se tocaron datos ajenos', async () => {

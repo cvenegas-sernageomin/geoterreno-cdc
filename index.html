@@ -3265,7 +3265,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v95';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v96';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -5394,7 +5394,22 @@ async function renderProyecto(app){
       // pero opera sobre la COLECCION ACTIVA. Estaba restringido a Gabinete, que es la
       // coleccion de planificacion: los puntos que de verdad van a la libreta se capturan en
       // Terreno, asi que en la practica no habia forma de generarles la prosa.
-      el('button',{class:'btn sec mini',onclick:()=>generarProsaProyecto()},'🏔️ Generar prosa de terreno'));
+      el('button',{class:'btn sec mini',onclick:()=>generarProsaProyecto()},'🏔️ Generar prosa de terreno'),
+      el('button',{class:'btn del mini',title:'Eliminar este proyecto y todos sus datos',
+        onclick:async()=>{
+          if(bloqueoGabineteActivo())return;
+          // cuenta antes de confirmar, para advertir cuánto se pierde
+          const ids=await idsPuntosProyecto(curProyecto.id);
+          const lin=(await all('linea')).filter(x=>x._parent===curProyecto.id).length
+                  +(await all('linea_gabinete')).filter(x=>x._parent===curProyecto.id).length;
+          const not=(await all('nota')).filter(x=>x._parent===curProyecto.id).length;
+          const msg=ids.size?
+            `¿Eliminar este proyecto y sus ${ids.size} punto(s) (${lin} línea(s), ${not} nota(s))?\nEsta acción es irreversible.` :
+            '¿Eliminar este proyecto (sin datos)?\nEsta acción es irreversible.';
+          if(!confirm(msg))return;
+          if((await borrarProyecto(curProyecto.id))===false)return;
+          toast('Proyecto eliminado'); nav({n:'home'});
+        }},'🗑'));
   head.append(el('h2',{},'Proyecto'),barra);
   app.append(head);
   // ---- Puntos de control: lista + modo selección para mover a otro proyecto ----
@@ -5777,9 +5792,30 @@ function bloqueEsquema(reg){
 
 async function borrarPunto(id){
   if(bloqueoGabineteActivo())return false;
+  return borrarPuntoEn(storeActivo(),id);
+}
+// Borra un punto y TODO su arbol (HIJAS + fotomapa) en el store indicado. Separado de
+// borrarPunto porque el borrado masivo de un proyecto recorre AMBAS colecciones y no puede
+// depender de storeActivo() (que es la pestana activa, no necesariamente donde vive el punto).
+async function borrarPuntoEn(store,id){
   for(const h of HIJAS){const its=await childrenOf(h.store,id);for(const it of its)await del(h.store,it.id);}
   for(const fm of await fotomapasRaiz(id)) await borrarFotomapaArbol(fm.id);
-  await del(storeActivo(),id);
+  await del(store,id);
+}
+// Borra un proyecto y TODOS sus datos: puntos de ambas colecciones (con sus hijas y fotomapas),
+// lineas, notas y finalmente el proyecto. Solo borra lo que cuelga de `proyectoId`; no toca el
+// caché global de cartas ('cartageo') ni otros proyectos. Devuelve {puntos,lineas,notas} borrados.
+async function borrarProyecto(proyectoId){
+  if(bloqueoGabineteActivo())return false;
+  let puntos=0,lineas=0,notas=0;
+  for(const store of ['punto','punto_gabinete']){
+    for(const p of await childrenOf(store,proyectoId)){await borrarPuntoEn(store,p.id);puntos++;}
+  }
+  for(const store of ['linea','linea_gabinete','nota']){
+    for(const r of await childrenOf(store,proyectoId)){await del(store,r.id);lineas+=(store==='linea'||store==='linea_gabinete')?1:0;notas+=(store==='nota')?1:0;}
+  }
+  await del('proyecto',proyectoId);
+  return {puntos,lineas,notas};
 }
 
 // ============================ Foto-mapa (image basemap anidado, estilo StraboSpot) ============================
