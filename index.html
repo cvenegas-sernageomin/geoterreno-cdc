@@ -3209,7 +3209,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v90';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v91';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -6672,7 +6672,10 @@ const EXPO_FRASE={
 // esPlural: heurística acotada a "Depósitos..." (plural), el caso real más común en la
 // nomenclatura chilena de unidades cuaternarias (el propio corpus lo usa así: "Depósitos
 // Aluviales del Pleistoceno afloran..."); el resto de nombres de unidad son singulares.
-const esPlural=s=>/^dep[oó]sitos\b/i.test((s||'').trim());
+// También cuenta el artículo plural inicial: UNIDAD_TECHO/UNIDAD_BASE son texto libre y el
+// geólogo escribe "Los depósitos aluviales", no el nombre pelado -- con el patrón anterior,
+// anclado en "Depósitos", esa forma caía al singular y salía "Los depósitos … se dispone".
+const esPlural=s=>{const t=(s||'').trim(); return /^(los|las)\s/i.test(t)||/^dep[oó]sitos\b/i.test(t);};
 const CONTACTO_VERBO={
   'Gradual':(t,b)=>t+(esPlural(t)?' gradan a ':' grada a ')+b,
   'Nítido':(t,b)=>'se observó un contacto nítido entre '+t+' y '+b,
@@ -6894,6 +6897,10 @@ function generoRoca(nombreRoca){
   return /a$/i.test(nucleo) ? 'f' : 'm';
 }
 const CONFORMAR={f:'conformada',m:'conformado',mpl:'conformados'};
+// Mismo criterio de concordancia para la cláusula de componentes cuantificados (v88), que
+// estaba fija en femenino: sirve para "la toba" y "la ignimbrita", pero no para un depósito
+// piroclástico masculino o plural ("los depósitos de tefra compuesta de…").
+const COMPUESTO={f:'compuesta',m:'compuesto',mpl:'compuestos'};
 // "arenisca media (0,5–0,25 mm)" → "arenisca media": en prosa no se escribe el rango entre
 // paréntesis (el corpus tampoco lo hace: "arenisca gruesa", nunca "arenisca gruesa (1-0,5mm)").
 const sinRango=s=>(s||'').replace(/\s*\([^)]*\)\s*$/,'').trim();
@@ -6978,8 +6985,66 @@ const CONSOLIDACION_FRASE={
   'No consolidado':'de carácter no consolidado','Semiconsolidado':'de carácter semiconsolidado',
   'Consolidado / litificado':'de carácter consolidado',
 };
+// ---- Exposición del CONTACTO (dominio EXPOSICION_AFLORAMIENTO reusado en TBL_CONTACTO) ----
+// Mismos 3 valores que el afloramiento, pero el sujeto es el contacto: "con exposición de
+// afloramiento parcial" no dice nada de la traza del contacto, que es lo que importa acá.
+const EXPO_CONTACTO_FRASE={
+  'Tapado (1)':'con su traza cubierta',
+  'Parcial (2)':'con su traza parcialmente expuesta',
+  'Excelente (3)':'con su traza bien expuesta',
+};
+// ---- Confianza (GRADO_CONFIANZA: ALTA/MEDIA/BAJA) ----
+// Solo BAJA aporta texto. El corpus SGB marca explícitamente lo dudoso ("tentativamente",
+// 324 apariciones en 122.537 chunks; "asignado tentativamente", "probablemente corresponde")
+// y CALLA lo seguro: no existe la Carta que escriba "de identificación segura" en cada roca.
+// MEDIA tampoco aporta -- es el punto medio del campo, no una duda declarada. Sin esto, el
+// geólogo marcaba BAJA en terreno y la prosa entregaba el dato al informe como si fuera firme.
+const CONFIANZA_LITO_FRASE={BAJA:'de identificación tentativa'};
+const CONFIANZA_ESTR_FRASE={BAJA:'medida tentativa'};
+// Artículo definido por género de la roca. Hasta v90 la oración de detalle abría con el
+// sustantivo pelado ("Arenisca media, de color gris verdoso…"), que se lee como entrada de
+// ficha, no como prosa: el corpus SGB siempre lleva artículo ("La matriz es…", "Las rocas
+// de…", "La base de…"). Reusa generoRoca(), el mismo criterio que ya elige "conformada"
+// vs. "conformado", así que no hay dos reglas de género conviviendo.
+const ARTICULO_ROCA={f:'La ',m:'El ',mpl:'Los '};
+// Rumbos en palabra completa para la prosa. rumboCardinal() devuelve la abreviatura (NE, SO)
+// porque también rotula el mapa y la ficha, donde el espacio manda; en un párrafo destinado a
+// un informe el corpus escribe la palabra ("al noroeste de la ciudad de Calama").
+const RUMBO_PALABRA={N:'norte',NE:'noreste',E:'este',SE:'sureste',S:'sur',SO:'suroeste',O:'oeste',NO:'noroeste'};
+const rumboTexto=r=>RUMBO_PALABRA[r]||r;
+// CONTEXTO_GEOMORFOLOGICO: los valores del dominio son etiquetas de lista, no español corrido
+// ("Fondo quebrada", "Corte camino"). Encajarlos a la fuerza en "en un sector de X" producía
+// "en un sector de fondo quebrada". Cada valor trae acá su cláusula completa; un valor nuevo
+// del dominio cae al respaldo genérico de siempre, no desaparece.
+const CONTEXTO_FRASE={
+  'Ladera':'en un sector de ladera',
+  'Cima':'en la cima de un cerro',
+  'Planicie':'en un sector de planicie',
+  'acantilado':'en un acantilado',
+  'Corte camino':'en un corte de camino',
+  'Filo / Divisoria de aguas':'en un filo o divisoria de aguas',
+  'Fondo quebrada':'en el fondo de una quebrada',
+};
+// Actitud de un plano (rumbo/manteo) en la MISMA notación que ya usa la sección de datos
+// estructurales de esta prosa ("N208/64"): dos convenciones distintas para el mismo tipo de
+// medida dentro del mismo párrafo obligarían al lector del informe a traducir. Tolera que
+// venga un solo extremo (el corpus también escribe solo el manteo: "un manteo ca. 50° S").
+function actitudFrase(rumbo,manteo){
+  const r=parseFloat(rumbo), m=parseFloat(manteo);
+  const okR=!isNaN(r), okM=!isNaN(m);
+  if(okR&&okM) return 'de actitud N'+Math.round(r)+'/'+Math.round(m);
+  if(okR) return 'de rumbo N'+Math.round(r);
+  if(okM) return 'con manteo de '+Math.round(m)+'°';
+  return '';
+}
 function prosaPunto(pt,datos,toponimo,anterior,umbral){
   const {litos,aflora,estr,cont,geomorf,mues}=datos;
+  // ¿La unidad geológica se declara en la oración-resumen o en cada litología? Se resuelve más
+  // abajo (necesita la lista completa de fichas) y fraseLitologia lo lee por cierre: si TODAS
+  // las rocas del punto llevan unidad, va una sola vez en el resumen; si solo algunas la
+  // llevan, el resumen decía "asignables a la unidad X" de un conjunto donde X valía para una
+  // sola roca -- una atribución falsa que el informe habría heredado tal cual.
+  let unidadEnResumen=false;
   // Afloramiento es panel unico (0..1): se toma la primera ficha si existe.
   const afl=(aflora&&aflora[0])||null;
   const frases=[];
@@ -7023,7 +7088,7 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     // en cláusula aparte porque es un eje distinto (clasto- vs. matriz-soportada).
     const comp=[['LITICOS_PCT','líticos'],['POMEZ_PCT','pómez'],['CRISTALES_PCT','cristales']]
       .filter(([c])=>l[c]).map(([c,n])=>l[c]+'% '+n);
-    let fraseComp=comp.length?'compuesta de '+lista(comp):'';
+    let fraseComp=comp.length?COMPUESTO[generoRoca(l.NOMBRE_ROCA)]+' de '+lista(comp):'';
     if(l.MATRIZ_PCT){
       const m='una matriz que constituye el '+l.MATRIZ_PCT+'% de la roca';
       fraseComp=fraseComp?fraseComp+', con '+m:'con '+m;
@@ -7058,14 +7123,39 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
       a+=parentesis(l.DISTRIBUCION_ALTERACION);
       frag.push(a);
     }
+    // Confianza al final de la oración, que es donde el corpus pone la salvedad ("… y la asignó
+    // tentativamente al Devónico-Carbonífero"), no delante del nombre de la roca.
+    if(l.UNIDAD_GEOLOGICA && !unidadEnResumen)
+      frag.push((generoRoca(l.NOMBRE_ROCA||l.TIPO_ROCA)==='mpl'?'asignables':'asignable')
+        +' a la unidad '+l.UNIDAD_GEOLOGICA);
+    const conf=CONFIANZA_LITO_FRASE[l.GRADO_CONFIANZA_LITO]; if(conf) frag.push(conf);
     // La granulometría ya va fundida en "sujeto" (no es un fragmento más): si es el ÚNICO
     // dato extra, sujeto ya difiere del nombre desnudo y hay que decirlo igual (antes se
     // perdía en silencio: "Se reconoce brecha sedimentaria." sin más, sin la granulometría).
     const nombre=l.NOMBRE_ROCA||l.TIPO_ROCA||'la roca';
-    // el sujeto abre la oración: el respaldo "la roca" (registro sin NOMBRE_ROCA) venía en minúscula
-    const Sujeto=sujeto.charAt(0).toUpperCase()+sujeto.slice(1);
+    // el sujeto abre la oración: el respaldo "la roca" (registro sin NOMBRE_ROCA) venía en
+    // minúscula y YA trae artículo, así que en ese caso no se le antepone otro.
+    const gen=generoRoca(l.NOMBRE_ROCA||l.TIPO_ROCA);
+    const art=(l.NOMBRE_ROCA||l.TIPO_ROCA) ? ARTICULO_ROCA[gen] : '';
+    const Sujeto=art ? art+minuscula(sujeto) : sujeto.charAt(0).toUpperCase()+sujeto.slice(1);
     if(!frag.length) return sujeto===nombre ? '' : Sujeto+'.';
-    return Sujeto+', '+frag.join(', ')+'.';
+    // Verbo explícito. Con el artículo delante, la lista de complementos sin verbo ("La arenisca
+    // media, de color gris verdoso, con cemento calcáreo.") deja de ser una entrada telegráfica
+    // de ficha y pasa a ser una oración ROTA, que el redactor del informe tiene que rehacer.
+    // El verbo lo decide la preposición del PRIMER fragmento, porque el orden de los fragmentos
+    // depende de qué campos cargó el geólogo y no está garantizado:
+    //   "de color…", "de textura…", adjetivo suelto -> ser        ("es de color gris")
+    //   "compuesta de…", "conformado por…"           -> estar     ("está conformado por")
+    //   "con fenocristales…", "con cemento…"         -> presentar ("presenta fenocristales")
+    //   "sin cementar", "sin soldadura"              -> presentarse ("se presenta sin cementar")
+    // Los fragmentos siguientes se leen igual con cualquiera de los cuatro: son adjuntos.
+    const mpl=gen==='mpl';
+    let primero=frag[0], verbo;
+    if(/^(compuest|conformad)/.test(primero)) verbo=mpl?'están ':'está ';
+    else if(/^con /.test(primero)){ verbo=mpl?'presentan ':'presenta '; primero=primero.slice(4); }
+    else if(/^sin /.test(primero)) verbo=mpl?'se presentan ':'se presenta ';
+    else verbo=mpl?'son ':'es ';
+    return Sujeto+' '+verbo+[primero].concat(frag.slice(1)).join(', ')+'.';
   };
 
   // --- ubicacion (encadena con el punto anterior si estan en el mismo sector) ---
@@ -7076,25 +7166,60 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     const lat=parseFloat(pt[inLat]),lon=parseFloat(pt[inLon]);
     const dist=L.latLng(lat,lon).distanceTo(L.latLng(latA,lonA));
     mismoSector=dist<=umbral;
-    if(mismoSector) ubic.push('A '+Math.round(dist)+' m al '+rumboCardinal(bearingDeg(latA,lonA,lat,lon))
+    if(mismoSector) ubic.push('A '+Math.round(dist)+' m al '+rumboTexto(rumboCardinal(bearingDeg(latA,lonA,lat,lon)))
       +' del punto anterior'+(anterior.pt.ID_PUNTO_CONTROL?' ('+anterior.pt.ID_PUNTO_CONTROL+')':''));
   }
-  if(!mismoSector) ubic.push(toponimo?('El punto se localiza al '+toponimo.rumbo+' de '+toponimo.texto):'El punto se localiza');
-  if(pt.CONTEXTO_GEOMORFOLOGICO) ubic.push('en un sector de '+minuscula(pt.CONTEXTO_GEOMORFOLOGICO));
+  // NOMBRE_LOCALIDAD es el nombre que el geólogo le pone al lugar (el que va a usar después en
+  // el informe, "quebrada Los Loros"); el topónimo IGM es una referencia automática al accidente
+  // más cercano. No son lo mismo y hasta v90 el escrito solo llevaba el segundo: la localidad
+  // quedaba únicamente en la ficha, así que el redactor del informe tenía que volver a buscarla
+  // punto por punto. El corpus abre justamente así ("En el sector de …", 764 apariciones).
+  if(!mismoSector){
+    const loc=(pt.NOMBRE_LOCALIDAD||'').trim();
+    let base=toponimo?('El punto se localiza al '+rumboTexto(toponimo.rumbo)+' de '+toponimo.texto):'El punto se localiza';
+    if(loc) base = toponimo ? base+', en '+loc : 'El punto se localiza en '+loc;
+    ubic.push(base);
+  }
+  if(pt.CONTEXTO_GEOMORFOLOGICO) ubic.push(CONTEXTO_FRASE[pt.CONTEXTO_GEOMORFOLOGICO]
+    ||('en un sector de '+minuscula(pt.CONTEXTO_GEOMORFOLOGICO)));
+  // Cota: "m s.n.m." es la forma del corpus (1.831 apariciones; "msnm" solo 12). Se descartan
+  // valores no numéricos y absurdos para la cordillera chilena en vez de imprimirlos crudos.
+  const cota=parseFloat(pt.COTA);
+  if(!isNaN(cota)&&cota>-100&&cota<7000) ubic.push('a '+Math.round(cota).toLocaleString('es-CL')+' m s.n.m.');
   // La exposicion vive en la ficha Afloramiento desde v60; el fallback a pt.EXPOSICION_AFLORAMIENTO
   // cubre puntos de respaldos viejos que aun no pasaron por la migracion (si no, la clausula
   // desaparecia en silencio de la prosa ya generada).
   const expo=(afl&&afl.GRADO_EXPOSICION_AFLORAMIENTO)||pt.EXPOSICION_AFLORAMIENTO;
   if(expo) ubic.push(EXPO_FRASE[expo]
     ||('con exposición de afloramiento '+minuscula(String(expo).replace(/\s*\(\d\)\s*$/,''))));
-  frases.push(ubic.join(', ')+'.');
+  // Sin topónimo (sin señal, o nada del IGM dentro del radio) la apertura queda en "El punto se
+  // localiza" pelado, y unirlo con coma daba "El punto se localiza, en un corte de camino": la
+  // coma separaba el verbo de su propio complemento. En ese caso el segundo fragmento se pega
+  // con espacio. Y el cierre chequea el punto que ya trae "m s.n.m." (daba "…m s.n.m..").
+  let oracionUbic;
+  if(ubic[0]==='El punto se localiza'&&ubic.length>1) oracionUbic=ubic[0]+' '+ubic.slice(1).join(', ');
+  else oracionUbic=ubic.join(', ');
+  frases.push(/\.$/.test(oracionUbic)?oracionUbic:oracionUbic+'.');
 
   // --- geomorfologia (TBL_GEOMORFOLOGIA -- rasgos puntuales, distinto de CONTEXTO_GEOMORFOLOGICO
   // de arriba, que es el entorno general del punto) ---
   if(geomorf.length){
-    const rasgos=geomorf.map(g=>minuscula(g.GEOFORMA||g.CATEGORIA_GEOMORF)).filter(Boolean);
+    // El AZIMUT del rasgo (dirección de una morrena, un abanico, una terraza) se capturaba y no
+    // llegaba a ninguna parte del escrito: es el dato que orienta el rasgo en el mapa.
+    // Artículo indefinido por género del sustantivo núcleo (mismo criterio que generoRoca): sin
+    // él quedaba "Se reconoce morrena lateral", que no es una oración que nadie escriba.
+    const rasgos=geomorf.map(g=>{
+      const crudo=g.GEOFORMA||g.CATEGORIA_GEOMORF; if(!crudo) return '';
+      const n=(generoRoca(crudo)==='m'?'un ':'una ')+minuscula(crudo);
+      const az=parseFloat(g.AZIMUT);
+      return isNaN(az)?n:n+' de orientación N'+Math.round(az);
+    }).filter(Boolean);
     if(rasgos.length) frases.push('Se reconoce'+(rasgos.length>1?'n':'')+' '+lista(rasgos)+' como rasgo'
       +(rasgos.length>1?'s':'')+' geomorfológico'+(rasgos.length>1?'s':'')+'.');
+    // DESCRIPCION_GEOMORFOLOGIA era el único texto libre del modelo que la prosa NO recogía
+    // (litología, afloramiento, contacto, estructura y muestra sí): lo escrito en terreno sobre
+    // el rasgo desaparecía del borrador del informe sin aviso.
+    for(const g of geomorf){ const d=fraseLibre(g.DESCRIPCION_GEOMORFOLOGIA); if(d) frases.push(d); }
   }
 
   // --- litologia: nombres distintos + unidades distintas (no solo la de la primera ficha) ---
@@ -7108,24 +7233,71 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     if(n==='Tefra, depósito volcánico') return 'tefra';
     return l.TIPO_ROCA==='Depósito' ? 'depósitos '+minuscula(n) : minuscula(n);
   };
+  // Referencia corta a la litología asociada por ID_LITOLOGIA (estructurales y muestras la
+  // guardan desde siempre y ningún export en prosa la usaba). Devuelve '' con una sola
+  // litología en el punto: ahí la referencia no desambigua nada y solo alarga la oración.
+  // TIPO_MUESTRA (Roca/Depósito) queda deliberadamente fuera: cuando hay ficha de litología
+  // el nombre de la roca dice lo mismo y más; cuando no la hay, "muestra de roca" no agrega
+  // nada que el redactor del informe no vaya a mirar igual en la tabla.
+  const litoRef=id=>{
+    if(!id||litos.length<2) return '';
+    const l=litos.find(x=>x.id===id); if(!l) return '';
+    const n=nombreResumen(l); if(!n) return '';
+    // sinRango() saca el paréntesis del propio término del dominio ("andesita (intermedia/
+    // silícea)" -> "andesita"): dentro de una enumeración que ya usa paréntesis para el tipo de
+    // falla y la confianza, un tercero anidado vuelve la oración ilegible.
+    return (ARTICULO_ROCA[generoRoca(l.NOMBRE_ROCA||l.TIPO_ROCA)]||'la ').toLowerCase()+sinRango(n);
+  };
   const nombres=[...new Set(litos.map(nombreResumen).filter(Boolean))];
-  if(nombres.length){
-    const unidades=[...new Set(litos.map(l=>l.UNIDAD_GEOLOGICA).filter(Boolean))];
+  const unidades=[...new Set(litos.map(l=>l.UNIDAD_GEOLOGICA).filter(Boolean))];
+  unidadEnResumen=unidades.length>0 && litos.every(l=>l.UNIDAD_GEOLOGICA);
+  // Con UNA sola litología, que además se describe en la oración siguiente y no está asignada a
+  // ninguna unidad, esta oración-resumen no aporta nada: "Se reconoce una toba. La toba de
+  // lapilli presenta cristales de…" dice dos veces lo mismo. Con dos o más rocas, o cuando hay
+  // unidad que declarar, el resumen sí ordena el párrafo y se mantiene.
+  const detalleUnico=litos.length===1&&!unidadEnResumen&&!!fraseLitologia(litos[0]);
+  if(nombres.length&&!detalleUnico){
+    // Artículo indefinido, salvo en los nombres ya plurales ("depósitos aluviales"), donde
+    // "unos depósitos aluviales" no es como se escribe. Mismo criterio de género que el resto.
+    const conArt=litos.map(l=>{
+      const n=nombreResumen(l); if(!n) return '';
+      const g=generoRoca(l.NOMBRE_ROCA||l.TIPO_ROCA);
+      return g==='mpl'||esPlural(n) ? n : (g==='m'?'un ':'una ')+n;
+    }).filter(Boolean);
+    const unicos=[...new Set(conArt)];
     // Plural también si el ÚNICO nombre ya es de por sí plural ("depósitos aluviales"), no
     // solo cuando hay más de un nombre distinto en la lista (mismo criterio que esPlural(),
     // ya usado en CONTACTO_VERBO para el mismo caso).
     const pl=nombres.length>1||esPlural(nombres[0]);
-    frases.push('Se reconoce'+(pl?'n':'')+' '+lista(nombres)
-      +(unidades.length?', asignable'+(pl?'s':'')+' a la'+(unidades.length>1?'s unidades ':' unidad ')+lista(unidades):'')+'.');
+    frases.push('Se reconoce'+(pl?'n':'')+' '+lista(unicos)
+      +(unidadEnResumen?', asignable'+(pl?'s':'')+' a la'+(unidades.length>1?'s unidades ':' unidad ')+lista(unidades):'')+'.');
   }
   // Detalle por litología individual (v62: composición, textura, selección, cemento,
   // alteración...). Una oración por roca que tenga algo más que decir; si son varias
   // litologías del mismo punto, cada una queda identificada por su propio nombre.
   // DESCRIPCION_LITOLOGIA (texto libre) va aparte, independiente de si hubo fragmentos
   // estructurados: antes se perdía en silencio si la ficha no tenía nada más que decir.
+  // Conector para la segunda litología en adelante: con dos o más rocas descritas, una detrás de
+  // otra y las dos abriendo con su propio nombre, el párrafo se leía como una lista de fichas y
+  // no como una descripción. El corpus enlaza exactamente así ("Por otra parte," 313 apariciones;
+  // "Por su parte," 107; "Asimismo," 151). Se rota entre tres para que 4 litologías no repitan la
+  // misma muletilla, y solo se aplica cuando la oración de detalle existe (si la roca no tenía
+  // nada más que decir, un "Por su parte," suelto quedaría colgando del texto libre siguiente).
+  const CONECTOR_LITO=['Por su parte, ','Por otra parte, ','Asimismo, '];
+  let nDetalle=0;
   for(const l of litos){
-    const d=fraseLitologia(l); if(d) frases.push(d);
+    let d=fraseLitologia(l);
+    if(d){
+      if(nDetalle>0) d=CONECTOR_LITO[(nDetalle-1)%CONECTOR_LITO.length]+d.charAt(0).toLowerCase()+d.slice(1);
+      frases.push(d); nDetalle++;
+    }
     const desc=fraseLibre(l.DESCRIPCION_LITOLOGIA); if(desc) frases.push(desc);
+    // OBSERVACION y RELACION_LITOLOGIA_ESTRUCTURA son dos campos de texto libre de la ficha de
+    // litología que nunca llegaron al escrito (auditoría de prosa vs. corpus, 2026-08-26). El
+    // segundo es justamente el tipo de frase que después cuesta reconstruir en gabinete: cómo se
+    // relaciona esa roca con la estructura que se midió al lado.
+    const rel=fraseLibre(l.RELACION_LITOLOGIA_ESTRUCTURA); if(rel) frases.push(rel);
+    const obs=fraseLibre(l.OBSERVACION); if(obs) frases.push(obs);
   }
 
   // --- afloramiento (mesoescala): carácter del CONJUNTO, no de cada roca. Va después del
@@ -7177,7 +7349,16 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
       const techo=c.UNIDAD_TECHO||'la unidad superior', base=c.UNIDAD_BASE||'la unidad inferior';
       const verbo=CONTACTO_VERBO[c.TIPO_CONTACTO];
       const clausula=verbo?verbo(techo,base):('se observó un contacto'+(c.TIPO_CONTACTO?' '+minuscula(c.TIPO_CONTACTO):'')+' entre '+techo+' y '+base);
-      frases.push(capitalizar(clausula)+'.');
+      // La ficha de contacto pide rumbo y manteo del plano y su grado de exposición, y hasta v90
+      // NADA de eso salía en el escrito: la orientación de un contacto es dato de mapa (con ella
+      // se traza el límite entre unidades) y se perdía igual que si no se hubiera medido.
+      const extras=[actitudFrase(c.RUMBO_CONTACTO,c.MANTEO_CONTACTO),
+                    EXPO_CONTACTO_FRASE[c.EXPOSICION_CONTACTO]].filter(Boolean);
+      frases.push(capitalizar(clausula)+(extras.length?', '+extras.join(', '):'')+'.');
+      // La confianza baja va en oración propia y no como cláusula colgada al final: pegada a
+      // "…con su traza parcialmente expuesta" repetía la palabra traza y dejaba el adjetivo
+      // sin sujeto claro (¿inferido el contacto, o la unidad de la que se venía hablando?).
+      if(c.GRADO_CONFIANZA_CONTACTO==='BAJA') frases.push('Se trata de un contacto inferido.');
       const desc=fraseLibre(c.DESCRIPCION_CONTACTO); if(desc) frases.push(desc);
     }
   }
@@ -7198,11 +7379,24 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
       // define la cinemática de la falla. Notación estándar: el plano N208/64, la línea 115/32.
       const tr=parseFloat(e.TREND), pg=parseFloat(e.PLUNGE);
       if(!isNaN(tr)&&!isNaN(pg)) s+=(isNaN(az)||isNaN(mz)?' ':' con lineación ')+Math.round(tr)+'/'+Math.round(pg);
-      if(e.TIPO_FALLA) s+=' ('+minuscula(e.TIPO_FALLA)+')';
+      // En qué roca se midió: solo cuando el punto tiene MÁS DE UNA litología. Con una sola es
+      // información redundante ("estratificación N120/30 en la arenisca", si la arenisca es lo
+      // único descrito); con dos o más, sin esta referencia el informe no puede saber cuál de
+      // las dos lleva la medida, y el vínculo ya está guardado en ID_LITOLOGIA.
+      const ref=litoRef(e.ID_LITOLOGIA); if(ref) s+=' en '+ref;
+      // Tipo de falla y confianza comparten UN paréntesis: encadenar dos seguidos ("(falla
+      // normal) (medida tentativa)") es la forma más rápida de que el redactor del informe
+      // reescriba la oración entera en vez de aprovecharla.
+      const paren=[]; if(e.TIPO_FALLA) paren.push(minuscula(e.TIPO_FALLA));
+      const cf=CONFIANZA_ESTR_FRASE[e.GRADO_CONFIANZA_ESTRUCTURA]; if(cf) paren.push(cf);
+      if(paren.length) s+=' ('+paren.join(', ')+')';
       return s;
     });
-    frases.push((desc.length>1?'Se midieron ':'Se midió ')+desc.length+' dato'+(desc.length>1?'s':'')
-      +' estructural'+(desc.length>1?'es':'')+': '+lista(desc)+'.');
+    // "Se midió 1 dato estructural": el numeral en cifra para el singular es de planilla, no de
+    // informe (el corpus escribe la palabra). Desde 2 se mantiene la cifra, que sí se usa.
+    frases.push(desc.length>1
+      ? 'Se midieron '+desc.length+' datos estructurales: '+lista(desc)+'.'
+      : 'Se midió un dato estructural: '+desc[0]+'.');
     // DESCRIPCION_ESTRUCTURA (texto libre) va DESPUES del resumen de valores, una oración por
     // registro que tenga algo escrito -- el resumen ya agrupa varios registros en una sola
     // oración, así que aquí no hay dónde intercalarlas una por una sin romper esa oración.
@@ -7213,14 +7407,24 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
   if(mues.length){
     const item=m=>{
       const props=multi(m.PROPOSITO_ANALISIS);
-      return (m.ID_MUESTRA||'(s/sigla)')+(props.length?', para '+lista(props.map(minuscula)):'');
+      // De qué roca se sacó (mismo criterio que los estructurales: solo si hay varias) y si la
+      // muestra va orientada -- dato que decide si sirve o no para paleomagnetismo/microtectónica
+      // y que no se puede recuperar en el laboratorio si no quedó escrito.
+      // Contracción de+el: litoRef() devuelve la referencia CON artículo ("el granito", "la
+      // arenisca", "los depósitos aluviales") y concatenarla cruda daba "de el granito".
+      const ref=litoRef(m.ID_LITOLOGIA);
+      const deRef=ref ? (/^el /.test(ref) ? ' del '+ref.slice(3) : ' de '+ref) : '';
+      const orient=(m.ORIENTACION_MUESTRA||'').trim();
+      return (m.ID_MUESTRA||'(s/sigla)')+deRef
+        +(orient?', orientada '+orient:'')
+        +(props.length?', para '+lista(props.map(minuscula)):'');
     };
     const siglas=mues.map(item);
     // Si algún ítem ya trae "X y Y" (varios propósitos), unir la lista con "y" además daría un
     // "...y Z y W..." ambiguo -- mismo criterio que la sección de afloramiento: en ese caso se
     // separa con ';' en vez de lista().
     const siglasTxt=siglas.some(s=>/ y /.test(s))?siglas.join('; '):lista(siglas);
-    frases.push((mues.length>1?'Se recolectaron ':'Se recolectó ')+mues.length+' muestra'+(mues.length>1?'s':'')
+    frases.push((mues.length>1?'Se recolectaron '+mues.length+' muestras':'Se recolectó una muestra')
       +(siglas.length?' ('+siglasTxt+')':'')+'.');
     // DESCRIPCION_MUESTRA (texto libre), mismo criterio que estructurales: una por registro.
     for(const m of mues){ const d=fraseLibre(m.DESCRIPCION_MUESTRA); if(d) frases.push(d); }

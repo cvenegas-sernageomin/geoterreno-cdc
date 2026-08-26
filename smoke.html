@@ -342,6 +342,40 @@ async function correr(){
       } finally { await w.del('cartageo', id); }
     });
 
+    await prueba('La prosa de terreno arma oraciones completas, no fichas (v91)', async () => {
+      // prosaPunto() es lo único que viaja de terreno al informe cuando el punto tiene prosa: el
+      // PDF de la libreta REEMPLAZA las tablas por este párrafo. Un cambio en los mapas de frases
+      // puede romper la concordancia sin que ninguna otra prueba lo note. No toca IndexedDB.
+      const pt = {id:'smoke-prosa', ID_PUNTO_CONTROL:'smoke-1', COTA:'1842',
+                  NOMBRE_LOCALIDAD:'quebrada de prueba', CONTEXTO_GEOMORFOLOGICO:'Fondo quebrada'};
+      pt[w.inLat] = -35.6; pt[w.inLon] = -71.0;
+      const datos = {
+        litos:[{id:'sl1', TIPO_ROCA:'Sedimentaria', NOMBRE_ROCA:'Arenisca', COLOR_FRESCO:'Gris verdoso',
+                CEMENTO:'Calcáreo', UNIDAD_GEOLOGICA:'Formación de prueba'},
+               {id:'sl2', TIPO_ROCA:'Intrusiva', NOMBRE_ROCA:'Granito',
+                COMPOSICION_MINERAL_INTRUSIVA:'Cuarzo; Biotita', GRADO_CONFIANZA_LITO:'BAJA'}],
+        aflora:[], geomorf:[], cont:[],
+        estr:[{TIPO_ESTRUCTURA:'Estructura sedimentaria', TIPO_MEDIDA_ESTRUCTURAL:'Estratificación (S0)',
+               AZIMUT:'120', MANTEO_BUZAMIENTO:'35', ID_LITOLOGIA:'sl1'}],
+        mues:[{ID_MUESTRA:'SMK-1', ID_LITOLOGIA:'sl2', PROPOSITO_ANALISIS:'Petrografía',
+               ORIENTACION_MUESTRA:'N120/40'}],
+      };
+      const p = w.prosaPunto(pt, datos, null, null, 500);
+      ok(/quebrada de prueba/.test(p), 'NOMBRE_LOCALIDAD no llegó a la prosa');
+      ok(/1\.842 m s\.n\.m\./.test(p), 'la cota no llegó a la prosa');
+      ok(!/m s\.n\.m\.\./.test(p), 'punto duplicado tras "m s.n.m."');
+      ok(/La arenisca es de color gris verdoso/.test(p), 'falta artículo o verbo en la litología');
+      // segunda litología: va tras el conector ("Por su parte, el granito…"), por eso en minúscula
+      ok(/el granito está conformado por/.test(p), 'participio con el verbo equivocado (¿"es conformado"?)');
+      ok(/Por su parte, /.test(p), 'la segunda litología no se enlazó con conector');
+      ok(/de identificación tentativa/.test(p), 'GRADO_CONFIANZA_LITO=BAJA no se narró');
+      ok(/en la arenisca/.test(p), 'el dato estructural no dice en qué litología se midió');
+      ok(/SMK-1 del granito/.test(p), 'la muestra no dice de qué litología salió');
+      ok(/orientada N120\/40/.test(p), 'ORIENTACION_MUESTRA no llegó a la prosa');
+      ok(!/,\s*\./.test(p) && !/\s{2,}/.test(p), 'quedó puntuación suelta o espacios dobles');
+      return p.split('. ').length + ' oraciones, concordancia y campos enlazados correctos';
+    });
+
     await prueba('El service worker no cachea los tiles del satelital (regresión v38-D)', async () => {
       const {cache} = await leerVersiones();
       const claves = (await caches.keys()).filter(k => k.startsWith('geoterreno-cdc-'));
