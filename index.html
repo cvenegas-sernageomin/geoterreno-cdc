@@ -3209,7 +3209,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v89';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v90';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -4702,15 +4702,32 @@ async function cgAvisoEspacio(){
   }catch(e){ /* no bloquear si estimate() falla */ }
   return true;
 }
+// Baja un archivo del repo VERIFICANDO que la respuesta sea buena. fetch() NO rechaza ante un
+// 404/500: resuelve con ok=false y .blob() entrega el cuerpo del error ("404: Not Found", 14
+// bytes, text/plain) — sin este chequeo una entrada mal escrita del manifest se guardaba como
+// "✓ Descargada · lista para terreno" y recién fallaba en terreno, sin señal para re-bajarla.
+async function cgBajarBlob(path){
+  const r=await fetch(cgUrl(path));
+  if(!r.ok) throw new Error('HTTP '+r.status+' al bajar '+path);
+  const b=await r.blob();
+  // segunda red: un repo/CDN mal configurado puede responder 200 con una página HTML de error.
+  if(!b.size || /^text\/(html|plain)/.test(b.type||'')) throw new Error('respuesta no es una imagen ('+(b.type||'sin tipo')+', '+b.size+' B) al bajar '+path);
+  return b;
+}
 async function cgDescargar(id){
-  const m=(cgData||[]).find(x=>x.id===id); if(!m) return;
+  const m=(cgData||[]).find(x=>x.id===id); if(!m||!m.overlay) return;
   if(!navigator.onLine){ toast('Sin conexión: no se puede descargar ahora'); return; }
   if(!(await cgAvisoEspacio())) return;
   toast('Descargando '+(m.titulo||id)+'…');
+  // Se separan los dos fallos posibles: bajar (red) y guardar (almacenamiento). Antes un solo
+  // catch reportaba todo como "¿sin conexión?", así que quedarse sin espacio -- justo lo que
+  // cgAvisoEspacio() intenta prevenir -- mandaba al usuario a revisar la señal en vez del disco.
+  let overlayBlob, leyendaBlob=null;
   try{
-    const overlayBlob=await (await fetch(cgUrl(m.overlay))).blob();
-    let leyendaBlob=null;
-    if(m.leyenda){ try{ leyendaBlob=await (await fetch(cgUrl(m.leyenda))).blob(); }catch(e){ console.warn('leyenda no descargada',e); } }
+    overlayBlob=await cgBajarBlob(m.overlay);
+    if(m.leyenda){ try{ leyendaBlob=await cgBajarBlob(m.leyenda); }catch(e){ console.warn('leyenda no descargada',e); } }
+  }catch(e){ console.warn('cgDescargar (red)',e); toast('⚠️ No se pudo descargar «'+(m.titulo||id)+'» (¿sin conexión?)'); return; }
+  try{
     const rec={id:m.id, titulo:m.titulo, region:m.region, fuente:m.fuente, anio:m.anio, escala:m.escala,
       informe:m.informe, bounds:m.bounds, opacidad:m.opacidad, overlayBlob, leyendaBlob,
       manifestVer:cgVer, fechaDescarga:new Date().toISOString(), tamB:overlayBlob.size+(leyendaBlob?leyendaBlob.size:0)};
@@ -4718,7 +4735,9 @@ async function cgDescargar(id){
     await cgRefrescarDescargadas();
     toast('✓ Descargada ('+cgFmtTam(rec.tamB)+') · lista para terreno');
     cgSyncPanel();
-  }catch(e){ console.warn('cgDescargar',e); toast('⚠️ No se pudo descargar (¿sin conexión?)'); }
+  }catch(e){ console.warn('cgDescargar (guardar)',e);
+    toast(e && e.name==='QuotaExceededError' ? '⚠️ Sin espacio en el dispositivo: borra cartas o fotos y reintenta'
+                                             : '⚠️ No se pudo guardar la carta en el dispositivo'); }
 }
 async function cgDescargarRegion(region){
   const pend=(cgData||[]).filter(m=>(m.region||'Sin región')===region && !cgDescargadasIds.has(m.id));
@@ -4728,7 +4747,10 @@ async function cgBorrar(id){
   if(!confirm('¿Borrar esta carta del dispositivo? Habrá que descargarla de nuevo para usarla sin conexión.')) return;
   await del('cartageo', id);
   await cgRefrescarDescargadas();
-  if(cgActivoId===id) cgQuitarOverlay();
+  // Soltar también cgActivoId, no solo el overlay: si queda apuntando a la carta borrada el
+  // panel la sigue mostrando resaltada y con su título en la cabecera (como si estuviera
+  // puesta), y al reconstruirse el mapa el reenganche de initMapaVista la vuelve a pedir a la red.
+  if(cgActivoId===id){ cgQuitarOverlay(); cgActivoId=null; }
   toast('Carta borrada del dispositivo');
   cgSyncPanel();
 }
@@ -4752,7 +4774,22 @@ function cgSyncPanel(){
   if(titulo){ const activoMapa=(cgData||[]).find(m=>m.id===cgActivoId);
     titulo.textContent='🗺️ '+(activoMapa?(activoMapa.titulo||activoMapa.id):'Elige una carta'); }
 }
-function cgCrearControl(){
+// Reconstruye el panel conservando lo que el usuario tenía abierto y su scroll. Descargar o
+// borrar cambia los botones de CADA fila (⬇ ↔ 🗑) y el pie de espacio usado, así que el panel
+// se rehace entero; hacerlo a ciegas cerraba el <details> de la región en cada descarga —
+// justo en el flujo principal (bajar varias cartas antes de salir a terreno, sin ninguna
+// carta activa todavía, que es cuando `abierta` da false), obligando a reabrirlo una y otra vez.
+function cgRefrescarPanel(){
+  if(!cgCtrl||!mapaVista) return;
+  const d=cgCtrl._panelEl;
+  const abiertas=d?[...d.querySelectorAll('.cg-region')].filter(x=>x.open).map(x=>x.dataset.region):[];
+  const scroll=d?d.scrollTop:0;
+  try{ mapaVista.removeControl(cgCtrl); }catch(e){}
+  cgCtrl=cgCrearControl(abiertas);
+  cgCtrl.addTo(mapaVista);
+  if(cgCtrl._panelEl) cgCtrl._panelEl.scrollTop=scroll;
+}
+function cgCrearControl(abiertasPrevias){
   const ctrl=L.control({position:'bottomleft'});
   ctrl.onAdd=function(){
     const d=L.DomUtil.create('div','cg-panel');
@@ -4782,12 +4819,13 @@ function cgCrearControl(){
       cgData.forEach(m=>{ const r=m.region||'Sin región'; (porRegion[r]=porRegion[r]||[]).push(m); });
       const regiones=Object.keys(porRegion).sort((a,b)=>a==='Sin región'?1:b==='Sin región'?-1:a.localeCompare(b,'es'));
       html+=regiones.map(r=>{
-        const abierta=!!cgActivoId && porRegion[r].some(m=>m.id===cgActivoId);
+        const abierta=(!!cgActivoId && porRegion[r].some(m=>m.id===cgActivoId))
+                      || (abiertasPrevias||[]).includes(r);
         const faltan=cgFuenteManifest==='red' && porRegion[r].some(m=>m.overlay && !cgDescargadasIds.has(m.id));
-        return `<details class="cg-region" ${abierta?'open':''} style="margin-bottom:2px">`
+        return `<details class="cg-region" data-region="${cgEsc(r)}" ${abierta?'open':''} style="margin-bottom:2px">`
           +`<summary style="cursor:pointer;padding:4px 2px;font-weight:600;color:#c9d4de">${cgEsc(r)} <span style="opacity:.6;font-weight:400">(${porRegion[r].length})</span></summary>`
           +`<div style="padding-left:6px">${porRegion[r].map(itemHtml).join('')}</div>`
-          +(faltan?`<button class="cg-dl-region" type="button" data-region="${cgEsc(r)}" style="width:calc(100% - 6px);margin:4px 0 4px 6px;padding:4px;background:#1f3a5f;color:#9cc4ff;border:none;border-radius:6px;font-size:.7rem;cursor:pointer">⬇ Descargar todo (${r})</button>`:'')
+          +(faltan?`<button class="cg-dl-region" type="button" data-region="${cgEsc(r)}" style="width:calc(100% - 6px);margin:4px 0 4px 6px;padding:4px;background:#1f3a5f;color:#9cc4ff;border:none;border-radius:6px;font-size:.7rem;cursor:pointer">⬇ Descargar todo (${cgEsc(r)})</button>`:'')
           +'</details>';
       }).join('');
     } else if((cgData||[])[0]){
@@ -4801,9 +4839,9 @@ function cgCrearControl(){
     d.innerHTML=html;
     const rng=d.querySelector('.cg-rng'), leg=d.querySelector('.cg-leg'), toggle=d.querySelector('.cg-toggle');
     d.querySelectorAll('.cg-item').forEach(el2=>el2.addEventListener('click',()=>cgMostrar(el2.dataset.id,true)));
-    d.querySelectorAll('.cg-dl').forEach(b=>b.addEventListener('click',ev=>{ev.stopPropagation();cgDescargar(b.dataset.id).then(()=>{ if(cgCtrl){mapaVista.removeControl(cgCtrl);cgCtrl=cgCrearControl();cgCtrl.addTo(mapaVista);} });}));
-    d.querySelectorAll('.cg-del').forEach(b=>b.addEventListener('click',ev=>{ev.stopPropagation();cgBorrar(b.dataset.id).then(()=>{ if(cgCtrl){mapaVista.removeControl(cgCtrl);cgCtrl=cgCrearControl();cgCtrl.addTo(mapaVista);} });}));
-    d.querySelectorAll('.cg-dl-region').forEach(b=>b.addEventListener('click',ev=>{ev.stopPropagation();cgDescargarRegion(b.dataset.region).then(()=>{ if(cgCtrl){mapaVista.removeControl(cgCtrl);cgCtrl=cgCrearControl();cgCtrl.addTo(mapaVista);} });}));
+    d.querySelectorAll('.cg-dl').forEach(b=>b.addEventListener('click',ev=>{ev.stopPropagation();cgDescargar(b.dataset.id).then(cgRefrescarPanel);}));
+    d.querySelectorAll('.cg-del').forEach(b=>b.addEventListener('click',ev=>{ev.stopPropagation();cgBorrar(b.dataset.id).then(cgRefrescarPanel);}));
+    d.querySelectorAll('.cg-dl-region').forEach(b=>b.addEventListener('click',ev=>{ev.stopPropagation();cgDescargarRegion(b.dataset.region).then(cgRefrescarPanel);}));
     rng.addEventListener('input',()=>{ cgOpacidad=rng.value/100; if(cgOverlay) cgOverlay.setOpacity(cgOpacidad); });
     leg.addEventListener('click',cgVerLeyenda);
     toggle.addEventListener('click',()=>{ cgColapsado=!cgColapsado; cgSyncPanel(); });
@@ -4835,7 +4873,11 @@ async function cgVerLeyenda(){
   let src=null;
   if(rec && rec.leyendaBlob) src=URL.createObjectURL(rec.leyendaBlob);
   else if(navigator.onLine && m && m.leyenda) src=cgUrl(m.leyenda);
-  if(!src){ toast(rec||!navigator.onLine ? 'Esta carta no tiene leyenda separada' : 'Sin conexión y sin leyenda descargada'); return; }
+  // El motivo real de no poder mostrarla: o la carta no tiene leyenda aparte (m.leyenda null en
+  // el manifest), o sí la tiene pero no está descargada y no hay red. La condición anterior
+  // mezclaba los dos casos al revés y decía "Sin conexión" estando en línea.
+  if(!src){ toast(m && m.leyenda ? 'Sin conexión: descarga esta carta para ver su leyenda'
+                                 : 'Esta carta no tiene leyenda separada'); return; }
   const esRevocable=!!(rec && rec.leyendaBlob);
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.85);display:flex;flex-direction:column;padding:12px';
@@ -5937,7 +5979,11 @@ async function initMapaVista(puntos){
   // Reengancha la capa de Cartas Geológicas si estaba activa antes de que initMapaVista
   // reconstruyera el mapa (ver comentario al inicio de esta función) -- reusa cgData/
   // cgActivoId ya en memoria, sin volver a pedir el manifest ni la imagen a la red.
-  if(cgOn){ cgCtrl=cgCrearControl(); cgCtrl.addTo(mapaVista); if(cgActivoId) cgMostrar(cgActivoId,false); }
+  // cgBtnEstado tambien: renderMapa crea el boton del FAB de cero en cada entrada al mapa, asi
+  // que sin esto quedaba con aspecto de apagado mientras la capa seguia encendida -- y el
+  // primer toque, que parecia encenderla, en realidad la apagaba.
+  if(cgOn){ cgCtrl=cgCrearControl(); cgCtrl.addTo(mapaVista); cgBtnEstado('🗺️ Cartas SG',true);
+            if(cgActivoId) cgMostrar(cgActivoId,false); }
   setTimeout(()=>mapaVista.invalidateSize(),160);
 }
 // ---- iconos / simbología (SVG orientada por azimut; norte = arriba) ----
@@ -7350,7 +7396,12 @@ function toggleBloqueoGabinete() {
 const READONLY_EXENTOS = [
   'input[name="coleccion-toggle"]',
   '#backup-modal input', '#backup-modal textarea', '#backup-modal select',
-  '#kmz-file-input'
+  '#kmz-file-input',
+  // El panel de Cartas Geológicas es capa de REFERENCIA (no dato capturado): el bloqueo de
+  // Gabinete protege lo que el geólogo levantó en terreno, no la transparencia de un mapa de
+  // consulta. Sin esta excepción el slider de opacidad quedaba deshabilitado y atenuado al
+  // bloquear la colección — mismo patrón que ya obligó a exentar el toggle de colección.
+  '.cg-panel input'
 ].join(',');
 
 // Actualiza el botón "Llevar a terreno"/"Desbloquear" del header (visible solo en
