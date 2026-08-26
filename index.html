@@ -1199,6 +1199,18 @@ const MODELO = {
           "nota": "Numérico, centímetros."
         },
         {
+          "nombre": "ESPESOR_DEPOSITO_MIN_M",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Numerico, metros. Espesor MINIMO del deposito (capa en consideracion) descrito en este afloramiento. Norma CDC 2016 Vol III, TBL_AF_DEP_SEDIMENTARIO, campo 'ESPESOR MINIMO DEL DEPOSITO' (bloque 'rasgos macroscopicos de la capa en consideracion'). Es el espesor de la CAPA/DEPOSITO concreta, NO del afloramiento completo ni del promedio de su estratificacion (eso es ESPESOR_MIN_CM/ESPESOR_MAX_CM, escala de Ingram)."
+        },
+        {
+          "nombre": "ESPESOR_DEPOSITO_MAX_M",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Numerico, metros. Espesor MAXIMO del deposito (capa en consideracion) descrito en este afloramiento. Norma CDC 2016 Vol III, TBL_AF_DEP_SEDIMENTARIO, campo 'ESPESOR MAXIMO DEL DEPOSITO' (bloque 'rasgos macroscopicos de la capa en consideracion'). La prosa lo escribe 'alcanza un espesor de X a Y m' (verbo del corpus SGB)."
+        },
+        {
           "nombre": "GEOMETRIA_CUERPO",
           "obligatorio": false,
           "dominio": "GEOMETRIA_CUERPO",
@@ -3253,7 +3265,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v94';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v95';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3981,6 +3993,10 @@ function etiquetaCampo(n){
   return String(n)
     .replace(/_PCT$/,' %')
     .replace(/_(MM|CM)$/,(m,u)=>' ('+u.toLowerCase()+')')
+    // Sufijo _M para campos en metros (p.ej. ESPESOR_DEPOSITO_MAX_M). Convención del proyecto:
+    // todo campo nuevo terminado en _M se mostrará como "(m)". Hoy solo lo usan los dos campos
+    // de espesor del depósito; si algún futuro _M significara otra cosa, habrá que mapear explícito.
+    .replace(/_(M)$/,' (m)')
     .replace(/_TAM_MAX\b/,' tamaño máx.')
     .replace(/_/g,' ');
 }
@@ -4258,8 +4274,10 @@ const CONDICIONALES = {
   // --- TBL_AFLORAMIENTO: ver CLASE_AFL_NO_ESTRATIFICADA arriba.
   ARREGLO_ESTRATOS:     {modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
   GRADACION_INTERNA:    {modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
-  ESPESOR_MIN_CM:       {modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
-  ESPESOR_MAX_CM:       {modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
+ESPESOR_MIN_CM:       {modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
+ESPESOR_MAX_CM:       {modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
+ESPESOR_DEPOSITO_MIN_M:{modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
+ESPESOR_DEPOSITO_MAX_M:{modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
   GEOMETRIA_CUERPO:     {modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
   EXTENSION_LATERAL:    {modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
   TIPO_LIMITE_INFERIOR: {modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA.has(v['CLASE_AFLORAMIENTO'])},
@@ -7019,6 +7037,24 @@ function espesorFrase(min,max){
   const rango = lo===hi ? num(conv(lo)) : num(conv(lo))+' a '+num(conv(hi));
   return 'en '+sust+' de '+rango+' '+unidad+' de espesor';
 }
+// Espesor del DEPÓSITO (capa en consideración), en metros. Campo de la norma CDC 2016
+// Vol III (TBL_AF_DEP_SEDIMENTARIO, "espesor maximo/minimo del deposito"). Distinto de
+// espesorFrase (arriba), que es el promedio de estratificación del afloramiento (escala
+// de Ingram, cm): este mide el espesor TOTAL de la capa/depósito concreta. Plantilla
+// verificada en el corpus SGB (2026-08-26): "N m de espesor" es la forma dominante
+// (1465 ventanas) y el verbo es "alcanza un espesor de" (verbatim: "alcanzando un
+// espesor de 15 m", "alcanza un espesor máximo de unos 500 m"). Coma decimal aceptada
+// (un valor importado en Excel en español llega como "0,5" y parseFloat cortaría en 0).
+function espesorDepositoFrase(minM,maxM){
+  const p=x=>parseFloat(String(x).replace(',','.'));
+  const a=p(minM), b=p(maxM);
+  const okA=!isNaN(a)&&a>0, okB=!isNaN(b)&&b>0;
+  if(!okA&&!okB) return '';
+  const lo=okA&&okB?Math.min(a,b):(okA?a:b), hi=okA&&okB?Math.max(a,b):(okA?a:b);
+  const num= v=>v.toLocaleString('es-CL',{maximumFractionDigits:2});
+  const rango= lo===hi ? num(lo) : num(lo)+' a '+num(hi);
+  return 'La capa alcanza un espesor de '+rango+' m';
+}
 // Tamaño máximo de cristales (fenocristales o cristaloclastos), en mm. Plantilla verificada en
 // el corpus SGB (2026-08-26): "de hasta N mm de largo" — "de hasta" es el conector dominante
 // (4.215 apariciones) y "de largo" le gana a "de diámetro" en los dos casos (fenocristales 205
@@ -7564,6 +7600,10 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     // enumera solo con comas, que además es como escriben las cartas.
     if(cl.length) frases.push('El afloramiento se presenta '
       +(cl.some(s=>/ y /.test(s)) ? cl.join(', ') : lista(cl))+'.');
+    // 1b) espesor del depósito/capa en consideración (m, norma CDC Vol III) — distinto del
+    // promedio de estratificación arriba; el corpus lo escribe "alcanza un espesor de N m".
+    const ed=espesorDepositoFrase(afl.ESPESOR_DEPOSITO_MIN_M,afl.ESPESOR_DEPOSITO_MAX_M);
+    if(ed) frases.push(ed+'.');
     // 2) arreglo secuencial de los estratos (tendencia de espesor)
     const arr=ARREGLO_FRASE[afl.ARREGLO_ESTRATOS];
     if(arr) frases.push('El depósito corresponde a '+arr+'.');

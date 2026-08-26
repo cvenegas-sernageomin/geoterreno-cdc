@@ -405,6 +405,13 @@ async function correr(){
       eq(w.esClastico({TIPO_ROCA:'Sedimentaria', NOMBRE_ROCA:'Caliza'}), false, 'una caliza no es clástica');
       eq(w.esClastico({TIPO_ROCA:'Volcánica', TIPO_VOLCANICA:'Rocas piroclásticas'}), true, 'una piroclástica es clástica');
       eq(w.esClastico({TIPO_ROCA:'Volcánica', TIPO_VOLCANICA:'Lava'}), false, 'una lava no es clástica');
+      // espesor del depósito/capa en consideración (m, v95)
+      const aflEsp = w.prosaPunto(pt, Object.assign({}, datos, {aflora:[{CLASE_AFLORAMIENTO:'Sedimentario',
+        ESPESOR_DEPOSITO_MIN_M:'20', ESPESOR_DEPOSITO_MAX_M:'35'}]}), null, null, 500);
+      ok(/La capa alcanza un espesor de 20 a 35 m/.test(aflEsp), 'el espesor del depósito (m) no llegó a la prosa');
+      const aflVacio = w.prosaPunto(pt, Object.assign({}, datos, {aflora:[{}]}), null, null, 500);
+      ok(!/alcanza un espesor/.test(aflVacio), 'sin espesor de depósito no debe aparecer la oración');
+      eq(w.etiquetaCampo('ESPESOR_DEPOSITO_MAX_M'), 'ESPESOR DEPOSITO MAX (m)', 'etiqueta _M no muestra (m)');
       ok(!/,\s*\./.test(p) && !/\s{2,}/.test(p), 'quedó puntuación suelta o espacios dobles');
       return p.split('. ').length + ' oraciones, concordancia y campos enlazados correctos';
     });
