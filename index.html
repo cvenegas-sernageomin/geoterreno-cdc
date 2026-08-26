@@ -402,10 +402,16 @@ const MODELO = {
           "nota": "Solo rocas volcánicas de tipo Lava (textura porfídica: cristales más grandes que la masa fundamental). Lista acotada a los minerales más frecuentes como fenocristal en el corpus de Cartas Geológicas (Plagioclasa, Piroxeno, Biotita, Hornblenda, Cuarzo, +Olivino); cualquier otro se anota en FENOCRISTALES_DETALLE junto con % y tamaño. Selección múltiple."
         },
         {
+          "nombre": "FENOCRISTALES_TAM_MAX_MM",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Tamano MAXIMO de los fenocristales, en milimetros (el eje mayor del cristal mas grande observado). Solo Lava, mismo alcance que FENOCRISTALES_ESPECIE. La prosa lo escribe como 'de hasta N mm de largo', plantilla verificada en el RAG de Cartas SGB 2026-08-26 ('fenocristales de plagioclasa (10-30%), de hasta 6 mm de largo'; 'de largo' 205 apariciones vs. 38 de 'de diametro'). Se registra solo el maximo, no un rango: es la forma dominante del corpus y la mas rapida de anotar en terreno; el rango detallado por especie sigue cabiendo en FENOCRISTALES_DETALLE."
+        },
+        {
           "nombre": "FENOCRISTALES_DETALLE",
           "obligatorio": false,
           "dominio": null,
-          "nota": "Texto libre: % y tamaño de los fenocristales de FENOCRISTALES_ESPECIE. Solo Lava."
+          "nota": "Texto libre: % de cada especie de FENOCRISTALES_ESPECIE, y cualquier matiz de tamano que el maximo de FENOCRISTALES_TAM_MAX_MM no capture (rango por especie, habito). Solo Lava."
         },
         {
           "nombre": "MASA_FUNDAMENTAL",
@@ -439,10 +445,16 @@ const MODELO = {
           "nota": "Rocas piroclásticas: fragmentos cristalinos (cristaloclastos), no fenocristales -- la roca es clástica, no una lava coherente. Selección múltiple; % y tamaño van en CRISTALES_DETALLE."
         },
         {
+          "nombre": "CRISTALES_TAM_MAX_MM",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Tamano MAXIMO de los cristaloclastos, en milimetros. Rocas piroclasticas y Tefra, mismo alcance que CRISTALES_ESPECIE. Equivalente de FENOCRISTALES_TAM_MAX_MM para roca clastica: aca los cristales son fragmentos sueltos, no fenocristales de una lava coherente. Misma plantilla de prosa ('de hasta N mm de largo')."
+        },
+        {
           "nombre": "CRISTALES_DETALLE",
           "obligatorio": false,
           "dominio": null,
-          "nota": "Texto libre: % y tamaño de los cristales de CRISTALES_ESPECIE. Solo rocas piroclásticas."
+          "nota": "Texto libre: % de cada especie de CRISTALES_ESPECIE, y cualquier matiz de tamano que el maximo de CRISTALES_TAM_MAX_MM no capture. Solo rocas piroclasticas y Tefra."
         },
         {
           "nombre": "LITICOS_PCT",
@@ -3209,7 +3221,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v91';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v92';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3884,11 +3896,24 @@ function tipoWidget(campo){
   const n=campo.nombre;
   if(campo.dominio) return 'select';
   if(/^(LAT|LONG)/.test(n)||/Lat$|Long$/.test(n)) return 'number';
-  if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|RUMBO|ORIENTACION|TREND|PLUNGE|ESPESOR|_PCT$/.test(n)) return 'number';
+  if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|RUMBO|ORIENTACION|TREND|PLUNGE|ESPESOR|_PCT$|_MM$/.test(n)) return 'number';
   if(n==='FECHA') return 'date';
   if(n==='HORA') return 'time';
   if(/DESCRIPCION|OBSERVACION|COMENTARIO|RELACION_LITOLOGIA|DISTRIBUCION|TEXTO|PROSA/.test(n)) return 'textarea';
   return 'text';
+}
+// Etiqueta VISIBLE de un campo. El nombre canónico lleva la unidad como letras al final
+// (LITICOS_PCT, ESPESOR_MIN_CM, FENOCRISTALES_TAM_MAX_MM) porque así viaja a los exports
+// —CSV, GPKG, GDB— donde el nombre de columna es el contrato con ArcGIS y NO se toca.
+// En pantalla eso se leía "LITICOS PCT": el símbolo % es lo que el geólogo espera ver sobre
+// una casilla donde va a escribir 15 (a pedido del usuario, 2026-08-26). Las unidades de
+// longitud van entre paréntesis por la misma razón. Solo cosmético: nunca toca el dato.
+function etiquetaCampo(n){
+  return String(n)
+    .replace(/_PCT$/,' %')
+    .replace(/_(MM|CM)$/,(m,u)=>' ('+u.toLowerCase()+')')
+    .replace(/_TAM_MAX\b/,' tamaño máx.')
+    .replace(/_/g,' ');
 }
 const esPK = (store,n)=> n===pkDe(store);
 const esFK = n => ['ID_PUNTO_CONTROL','ID_PROYECTO','ID_LITOLOGIA','ID_ESQUEMA','ID_FOTOGRAFIA','ID_FOTOGRAFIA_ASOCIADA'].includes(n);
@@ -4078,6 +4103,9 @@ const CONDICIONALES = {
   COMPOSICION_MINERAL_INTRUSIVA: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Intrusiva'},
   COMPOSICION_MINERAL_INTRUSIVA_DETALLE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Intrusiva'},
   FENOCRISTALES_ESPECIE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Lava'},
+  // Tamaño máximo del fenocristal, en mm (2026-08-26): mismo alcance que la especie, no uno
+  // propio -- un campo de tamaño visible donde no hay fenocristales que medir es ruido.
+  FENOCRISTALES_TAM_MAX_MM: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Lava'},
   FENOCRISTALES_DETALLE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Lava'},
   // BUG encontrado y corregido 2026-08-25 (al agregar LITICOS_PCT/etc. y probar Tefra en el
   // navegador): esta regla quedó viva desde v67 con SOLO 'Rocas piroclásticas' y nunca se
@@ -4087,6 +4115,11 @@ const CONDICIONALES = {
   // invisibles para Tefra pese a que la nota del campo dice "rocas piroclásticas: fragmentos
   // cristalinos" y Tefra es justo el equivalente no litificado. Mismo alcance dual que el resto.
   CRISTALES_ESPECIE: {modo:'ocultar', regla: v =>
+    (v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas') ||
+    (v['TIPO_ROCA']==='Depósito' && v['NOMBRE_ROCA']==='Tefra, depósito volcánico')},
+  // Alcance DUAL desde el origen (Rocas piroclásticas + Tefra), la lección de la corrección
+  // de arriba: un campo hermano nuevo no hereda solo el alcance del viejo.
+  CRISTALES_TAM_MAX_MM: {modo:'ocultar', regla: v =>
     (v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas') ||
     (v['TIPO_ROCA']==='Depósito' && v['NOMBRE_ROCA']==='Tefra, depósito volcánico')},
   CRISTALES_DETALLE: {modo:'ocultar', regla: v =>
@@ -4175,7 +4208,7 @@ function formulario(store, reg, ctx){
   cs.forEach(campo=>{
     const n=campo.nombre;
     const fld=el('div',{class:'fld'});
-    const lab=el('label',{},n.replace(/_/g,' '));
+    const lab=el('label',{},etiquetaCampo(n));
     if(campo.obligatorio) lab.append(el('span',{class:'req'},'*'));
     fld.append(lab);
     let inp;
@@ -4381,7 +4414,7 @@ function formulario(store, reg, ctx){
     // dominio abierto "agregar nuevo"
     if(e.target.tagName==='SELECT' && e.target.value==='__add__'){
       const campo=cs.find(c=>c.nombre===e.target.name);
-      const nv=prompt('Nuevo valor para '+e.target.name.replace(/_/g,' ')+':');
+      const nv=prompt('Nuevo valor para '+etiquetaCampo(e.target.name)+':');
       if(nv){dominio(campo.dominio).valores.push(nv);
         abiertosAdd(campo.dominio,nv);   // sobrevive a la recarga (MODELO se reinyecta en cada build)
         const opt=el('option',{value:nv},nv);e.target.insertBefore(opt,e.target.querySelector('option[value="__add__"]'));e.target.value=nv;}
@@ -6870,6 +6903,23 @@ function espesorFrase(min,max){
   const rango = lo===hi ? num(conv(lo)) : num(conv(lo))+' a '+num(conv(hi));
   return 'en '+sust+' de '+rango+' '+unidad+' de espesor';
 }
+// Tamaño máximo de cristales (fenocristales o cristaloclastos), en mm. Plantilla verificada en
+// el corpus SGB (2026-08-26): "de hasta N mm de largo" — "de hasta" es el conector dominante
+// (4.215 apariciones) y "de largo" le gana a "de diámetro" en los dos casos (fenocristales 205
+// vs. 38; cristales 439 vs. 125). Ejemplo verbatim: "abundantes fenocristales de plagioclasa
+// (10-30%), de hasta 6 mm de largo". Sobre 10 mm se pasa a cm, como escribe el propio corpus
+// ("fenocristales de feldespato de potasio de hasta 1-2 cm de largo"): "de hasta 15 mm" no lo
+// escribe nadie. Devuelve '' con un valor vacío, no numérico o absurdo (un fenocristal de
+// medio metro es un dedazo en el teclado, no una observación).
+function tamFrase(mm){
+  // Coma decimal: el <input type="number"> del formulario entrega punto, pero un valor
+  // importado (CSV/KMZ armado en Excel en español) llega como "0,5" y parseFloat corta en la
+  // coma -> 0 -> la cláusula desaparecía en silencio. 0,5 mm es un tamaño de cristal normal.
+  const v=parseFloat(String(mm).replace(',','.'));
+  if(isNaN(v)||v<=0||v>500) return '';
+  const num=x=>x.toLocaleString('es-CL',{maximumFractionDigits:2});
+  return v>=10 ? ', de hasta '+num(v/10)+' cm de largo' : ', de hasta '+num(v)+' mm de largo';
+}
 // ---- Litología (TBL_LITOLOGIA): detalle de CADA roca/depósito individual, distinto del
 // carácter del afloramiento como conjunto (arriba). Calibrado contra un ejemplo VERBATIM
 // del corpus (Fm. Moctezuma, Carta Calama, Tomlinson et al. 2018, p.43-44):
@@ -7077,17 +7127,27 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     const matriz=multi(l.MATRIZ_COMPOSICION);
     if(matriz.length) frag.push('con matriz '+lista(matriz.map(minuscula))+parentesis(l.MATRIZ_DETALLE));
     const fenos=multi(l.FENOCRISTALES_ESPECIE);
-    if(fenos.length) frag.push('con fenocristales de '+lista(fenos.map(minuscula))+parentesis(l.FENOCRISTALES_DETALLE));
+    if(fenos.length) frag.push('con fenocristales de '+lista(fenos.map(minuscula))
+      +tamFrase(l.FENOCRISTALES_TAM_MAX_MM)+parentesis(l.FENOCRISTALES_DETALLE));
     // cristaloclastos (piroclásticas/tefra): distinto de fenocristales, ver CONDICIONALES.
     const cristales=multi(l.CRISTALES_ESPECIE);
-    if(cristales.length) frag.push('con cristales de '+lista(cristales.map(minuscula))+parentesis(l.CRISTALES_DETALLE));
+    if(cristales.length) frag.push('con cristales de '+lista(cristales.map(minuscula))
+      +tamFrase(l.CRISTALES_TAM_MAX_MM)+parentesis(l.CRISTALES_DETALLE));
+    // Tamaño sin especie cargada: el número igual se dice, con el sustantivo genérico que
+    // corresponda. Perderlo por no haber marcado la especie sería tirar una medición real.
+    else if(!fenos.length&&(l.FENOCRISTALES_TAM_MAX_MM||l.CRISTALES_TAM_MAX_MM))
+      frag.push(l.FENOCRISTALES_TAM_MAX_MM
+        ? 'con fenocristales'+tamFrase(l.FENOCRISTALES_TAM_MAX_MM)
+        : 'con cristales'+tamFrase(l.CRISTALES_TAM_MAX_MM));
     // Componentes cuantificados (líticos/pómez/cristales, % de los CLASTOS) -- reemplaza el
     // COMPONENTE_PIROCLASTICO cualitativo (2026-08-25, a pedido del usuario: la clasificación
     // real de una toba se basa en la proporción de estos 3, no en una sola etiqueta). Solo se
     // listan los que el geólogo cargó; MATRIZ_PCT (% de matriz respecto al TOTAL de la roca) va
     // en cláusula aparte porque es un eje distinto (clasto- vs. matriz-soportada).
     const comp=[['LITICOS_PCT','líticos'],['POMEZ_PCT','pómez'],['CRISTALES_PCT','cristales']]
-      .filter(([c])=>l[c]).map(([c,n])=>l[c]+'% '+n);
+      // "5% de líticos", no "5% líticos": es la forma del corpus ("compuesta de 1-3% de
+      // cristales…", "incluyen de 2-5% de clastos redondeados…") y la del español corriente.
+      .filter(([c])=>l[c]).map(([c,n])=>l[c]+'% de '+n);
     let fraseComp=comp.length?COMPUESTO[generoRoca(l.NOMBRE_ROCA)]+' de '+lista(comp):'';
     if(l.MATRIZ_PCT){
       const m='una matriz que constituye el '+l.MATRIZ_PCT+'% de la roca';
@@ -7506,7 +7566,7 @@ async function exportPDF(proyectoId){
 function tablaRegs(store,regs){
   if(!regs.length)return '<p class="lbl" style="font-size:8.5pt">—</p>';
   const cs=campos(store).map(c=>c.nombre).filter(n=>!esFK(n)&&n!==pkDe(store));
-  let h='<table><tr>'+cs.map(c=>'<th>'+esc(c.replace(/_/g,' '))+'</th>').join('')+'</tr>';
+  let h='<table><tr>'+cs.map(c=>'<th>'+esc(etiquetaCampo(c))+'</th>').join('')+'</tr>';
   regs.forEach(r=>{h+='<tr>'+cs.map(c=>'<td>'+esc(r[c]||'')+'</td>').join('')+'</tr>';});
   return h+'</table>';
 }
