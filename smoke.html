@@ -390,6 +390,21 @@ async function correr(){
       eq(w.fmtValorNumerado(pv.valor, pv.nums), 'Piroxeno (clinopiroxeno) (3%, 2 mm)', 'el formato no es idempotente');
       eq(w.parseValorNumerado('Piroxeno (clinopiroxeno)').valor, 'Piroxeno (clinopiroxeno)',
          'un valor SIN números no debe perder su paréntesis propio');
+      // clastos (v94): tamaño del mayor + % por litología, en TODA roca o depósito clástico
+      const dep = w.prosaPunto(pt, Object.assign({}, datos, {litos:[{id:'sd', TIPO_ROCA:'Depósito',
+        NOMBRE_ROCA:'Aluviales', SELECCION:'Mala', CLASTOS_TAM_MAX_CM:'45',
+        LITOLOGIA_CLASTOS:'Clastos de andesita (55%); Clastos de arenisca (40%)'}],
+        estr:[], mues:[]}), null, null, 500);
+      ok(/de hasta 45 cm de diámetro/.test(dep), 'el tamaño del clasto mayor no llegó a la prosa');
+      ok(/compuestos por andesita \(55%\) y arenisca \(40%\)/.test(dep),
+         'el % por litología de clasto no llegó, o repite la palabra clastos');
+      // el mismo campo debe servir para una arenisca (mm) y no aparecer en una caliza
+      eq(w.tamClastoFrase('0,4'), 'de hasta 4 mm de diámetro', 'bajo 1 cm debe pasar a mm');
+      eq(w.tamClastoFrase('150'), 'de hasta 1,5 m de diámetro', 'sobre 1 m debe pasar a metros');
+      eq(w.esClastico({TIPO_ROCA:'Sedimentaria', NOMBRE_ROCA:'Arenisca'}), true, 'una arenisca es clástica');
+      eq(w.esClastico({TIPO_ROCA:'Sedimentaria', NOMBRE_ROCA:'Caliza'}), false, 'una caliza no es clástica');
+      eq(w.esClastico({TIPO_ROCA:'Volcánica', TIPO_VOLCANICA:'Rocas piroclásticas'}), true, 'una piroclástica es clástica');
+      eq(w.esClastico({TIPO_ROCA:'Volcánica', TIPO_VOLCANICA:'Lava'}), false, 'una lava no es clástica');
       ok(!/,\s*\./.test(p) && !/\s{2,}/.test(p), 'quedó puntuación suelta o espacios dobles');
       return p.split('. ').length + ' oraciones, concordancia y campos enlazados correctos';
     });

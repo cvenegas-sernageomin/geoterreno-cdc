@@ -339,6 +339,12 @@ const MODELO = {
           "nota": "Depósitos y rocas sedimentarias clásticas (norma CDC 2016 Vol III, campo 'FORMA CLASTOS')."
         },
         {
+          "nombre": "CLASTOS_TAM_MAX_CM",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Tamano del CLASTO MAYOR observado, en centimetros (eje mayor). Aplica a toda roca o deposito clastico: depositos, rocas sedimentarias siliciclasticas y rocas piroclasticas -- no solo a los gravosos. Un solo numero, el maximo: es la forma dominante del corpus SGB ('clastos de hasta 40 cm'; 332+397 apariciones del maximo contra 207 de rangos) y la mas rapida de anotar en terreno; el rango fino va en la descripcion. La prosa lo escribe 'de hasta N cm de diametro' -- para clastos el corpus usa DIAMETRO (416) y no largo (15), al reves que los fenocristales -- y cambia sola de unidad bajo 1 cm (mm) y sobre 1 m (m, escala megaclastica de Terry y Goff 2014 que adopta la norma CDC Vol III). Distinto de GRANULOMETRIA, que es la clase promedio del deposito: aca importa el clasto mas grande, que es lo que no se puede reconstruir despues en gabinete."
+        },
+        {
           "nombre": "COMPOSICION_CLASTICA",
           "obligatorio": false,
           "dominio": "COMPOSICION_CLASTICA",
@@ -349,13 +355,20 @@ const MODELO = {
           "obligatorio": false,
           "dominio": "LITOLOGIA_CLASTOS_GRAVA",
           "multiple": true,
-          "nota": "Litología de los clastos de tamaño grava (>2 mm; norma CDC 2016 Vol III, campo 'LITOLOGIA DE LOS CLASTOS DE TAMAÑO DE GRAVA'). Solo Conglomerado/Brecha sedimentaria/Conglomerado megaclástico y Depósitos. Selección múltiple; porcentaje de cada tipo va en LITOLOGIA_CLASTOS_DETALLE."
+          "nota": "Litologia de los clastos de tamano grava (>2 mm; norma CDC 2016 Vol III, campo 'LITOLOGIA DE LOS CLASTOS DE TAMANO DE GRAVA'). Solo Conglomerado/Brecha sedimentaria/Conglomerado megaclastico y Depositos. Seleccion multiple; cada litologia marcada admite su PORCENTAJE junto al valor -- 'Clastos de andesita (55%); Clastos de arenisca (40%)' -- que es el campo PORCENTAJE DE LOS CLASTOS de la norma ('el porcentaje estimado del tipo de clastos indicado en el campo LITOLOGIA CLASTO').",
+          "numeros": [
+            {
+              "suf": "%",
+              "ph": "%",
+              "max": 100
+            }
+          ]
         },
         {
           "nombre": "LITOLOGIA_CLASTOS_DETALLE",
           "obligatorio": false,
           "dominio": null,
-          "nota": "Texto libre: porcentaje de cada tipo de clasto de LITOLOGIA_CLASTOS."
+          "nota": "Texto libre sobre los clastos: litologias fuera de la lista, rango de tamanos si el maximo de CLASTOS_TAM_MAX_CM no basta, o cualquier observacion del tipo de clasto. El porcentaje de cada litologia ya NO va aca: tiene su casilla junto a cada valor."
         },
         {
           "nombre": "FABRICA_CLASTOS",
@@ -3240,7 +3253,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v93';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v94';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -3915,7 +3928,7 @@ function tipoWidget(campo){
   const n=campo.nombre;
   if(campo.dominio) return 'select';
   if(/^(LAT|LONG)/.test(n)||/Lat$|Long$/.test(n)) return 'number';
-  if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|RUMBO|ORIENTACION|TREND|PLUNGE|ESPESOR|_PCT$/.test(n)) return 'number';
+  if(/COTA|AZIMUT|MANTEO|BUZAMIENTO|PESO|VOLUMEN|RUMBO|ORIENTACION|TREND|PLUNGE|ESPESOR|_PCT$|_CM$|_MM$/.test(n)) return 'number';
   if(n==='FECHA') return 'date';
   if(n==='HORA') return 'time';
   if(/DESCRIPCION|OBSERVACION|COMENTARIO|RELACION_LITOLOGIA|DISTRIBUCION|TEXTO|PROSA/.test(n)) return 'textarea';
@@ -4078,6 +4091,21 @@ const SEDIMENTARIA_CLASTICA = ['Arcillolita', 'Arenisca', 'Brecha sedimentaria',
 // Subconjunto de tamaño GRAVA (>2 mm) de SEDIMENTARIA_CLASTICA -- para LITOLOGIA_CLASTOS
 // (norma CDC 2016 Vol III: "Debe limitar la descripción a los clastos >2 mm de diámetro").
 const SEDIMENTARIA_GRAVOSA = ['Conglomerado', 'Brecha sedimentaria', 'Conglomerado megaclástico'];
+// "Clástico" según este modelo: depósitos (todos, incluida Tefra), rocas piroclásticas y las
+// 9 sedimentarias siliciclásticas. Es la regla que ya usaba SELECCION palabra por palabra;
+// se le da nombre para que el campo de tamaño de clasto la comparta en vez de copiarla —
+// dos copias de la misma definición es cómo se cuela una rama nueva en una sola de ellas.
+// Deliberadamente FUERA: la brecha de falla (Vol V), donde el fragmento es producto de
+// deformación y no de transporte, y tiene sus propios campos.
+// Declaración, no `const`: así queda en window y smoke.html puede probarla desde el iframe
+// (un `const` del scope del módulo no es visible desde el padre — ver la prueba de humo).
+function esClastico(v){
+  const tipo = v['TIPO_ROCA'];
+  if (tipo === 'Depósito') return true;
+  if (tipo === 'Volcánica') return v['TIPO_VOLCANICA'] === 'Rocas piroclásticas';
+  if (tipo === 'Sedimentaria') return SEDIMENTARIA_CLASTICA.includes(v['NOMBRE_ROCA']);
+  return false;
+}
 // Clases de afloramiento sin arquitectura en capas: la "arquitectura en capas" (arreglo de
 // estratos, gradación interna, espesor, geometría/extensión del cuerpo, base) no aplica a un
 // cuerpo intrusivo, metamórfico o una tectonita. Volcánico se deja AFUERA a propósito: incluye
@@ -4101,13 +4129,14 @@ const CONDICIONALES = {
   }},
   // --- Descripción litológica en detalle (v62). Mismo criterio que GRANULOMETRIA:
   // reusa la lista de 9 nombres siliciclásticos para lo que solo aplica a roca clástica.
-  SELECCION: {modo:'ocultar', regla: v => {
-    const tipo = v['TIPO_ROCA'];
-    if (tipo === 'Depósito') return true;
-    if (tipo === 'Volcánica') return v['TIPO_VOLCANICA'] === 'Rocas piroclásticas';
-    if (tipo === 'Sedimentaria') return SEDIMENTARIA_CLASTICA.includes(v['NOMBRE_ROCA']);
-    return false;
-  }},
+  SELECCION: {modo:'ocultar', regla: esClastico},
+  // Tamaño del clasto MAYOR (2026-08-26, alcance pedido explícitamente por el usuario: "la
+  // tarea 3 debe ser extensiva para todas las rocas y depósitos clásticos"). Por eso usa
+  // esClastico y NO la regla de LITOLOGIA_CLASTOS, que es solo gravosa: una arenisca o una
+  // toba también tienen un clasto mayor que vale la pena medir, aunque no se liste ninguna
+  // litología de grava. Bajo 1 cm la prosa lo dice en mm, así que el campo sirve igual para
+  // el grano más grueso de una arenisca.
+  CLASTOS_TAM_MAX_CM: {modo:'ocultar', regla: esClastico},
   REDONDEAMIENTO: {modo:'ocultar', regla: v => {
     const tipo = v['TIPO_ROCA'];
     if (tipo === 'Depósito') return true;
@@ -7007,6 +7036,19 @@ function tamFrase(mm){
   const num=x=>x.toLocaleString('es-CL',{maximumFractionDigits:2});
   return v>=10 ? ', de hasta '+num(v/10)+' cm de largo' : ', de hasta '+num(v)+' mm de largo';
 }
+// Tamaño del clasto mayor. Unidad y sustantivo verificados en el corpus (2026-08-26) y son
+// DISTINTOS de los del cristal: para clastos manda "de diámetro" (416 apariciones contra 15 de
+// "de largo") y el centímetro (759 contra 140 del milímetro). Bajo 1 cm baja a mm — así el
+// mismo campo sirve para el grano más grueso de una arenisca — y desde 1 m sube a metros,
+// que es donde empieza la escala megaclástica (Terry y Goff 2014) que adopta la norma CDC.
+// El tope de 10.000 cm (100 m) descarta el dedazo sin descartar un megaclasto real.
+function tamClastoFrase(cm){
+  const v=parseFloat(String(cm).replace(',','.'));
+  if(isNaN(v)||v<=0||v>10000) return '';
+  const num=x=>x.toLocaleString('es-CL',{maximumFractionDigits:2});
+  const [n,u] = v<1 ? [v*10,'mm'] : v>=100 ? [v/100,'m'] : [v,'cm'];
+  return 'de hasta '+num(n)+' '+u+' de diámetro';
+}
 // ---- Litología (TBL_LITOLOGIA): detalle de CADA roca/depósito individual, distinto del
 // carácter del afloramiento como conjunto (arriba). Calibrado contra un ejemplo VERBATIM
 // del corpus (Fm. Moctezuma, Carta Calama, Tomlinson et al. 2018, p.43-44):
@@ -7277,10 +7319,29 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     // igual que el corpus ("clastos mal seleccionados y subredondeados"), no fragmentos sueltos.
     // lista() (no join(' y ')) porque ahora pueden ser 3 adjetivos ("X, Y y Z").
     const clastos=[SELECCION_FRASE[l.SELECCION],REDONDEAMIENTO_FRASE[l.REDONDEAMIENTO],ESFERICIDAD_FRASE[l.ESFERICIDAD]].filter(Boolean);
-    if(clastos.length) frag.push('de clastos '+lista(clastos));
+    // El tamaño del clasto mayor se pega a esa misma enumeración ("de clastos mal
+    // seleccionados y subredondeados, de hasta 15 cm de diámetro"), que es como lo encadena el
+    // corpus. Sin adjetivos cargados abre su propia cláusula, para no perder la medición.
+    const tamClasto=tamClastoFrase(l.CLASTOS_TAM_MAX_CM);
+    if(clastos.length) frag.push('de clastos '+lista(clastos)+(tamClasto?', '+tamClasto:''));
+    else if(tamClasto) frag.push('con clastos '+tamClasto);
     if(l.COMPOSICION_CLASTICA) frag.push('de composición '+minuscula(l.COMPOSICION_CLASTICA));
+    // Litología de los clastos, cada una con su % (norma CDC Vol III "PORCENTAJE DE LOS
+    // CLASTOS"): mismo patrón de chips con números que los fenocristales. El prefijo "Clastos
+    // de…" del término del dominio se saca DESPUÉS de separar los números, no antes.
     const litoClastos=multi(l.LITOLOGIA_CLASTOS);
-    if(litoClastos.length) frag.push('con clastos de '+lista(litoClastos.map(c=>minuscula(c.replace(/^Clastos de(l)? /i,'').replace(/^Clastos /i,''))))+parentesis(l.LITOLOGIA_CLASTOS_DETALLE));
+    if(litoClastos.length){
+      const enumL=lista(litoClastos.map(c=>{
+        const p=parseValorNumerado(c);
+        const limpio=p.valor.replace(/^Clastos de(l)? /i,'').replace(/^Clastos /i,'');
+        return mineralNum(fmtValorNumerado(limpio,p.nums));
+      }));
+      // Si la cláusula anterior ya nombró los clastos ("de clastos mal seleccionados…"),
+      // repetir "con clastos de…" dice dos veces la palabra en la misma oración. El corpus
+      // enlaza con el verbo: "clastos… subredondeados… se componen de andesitas (55%)…".
+      frag.push((clastos.length?'compuestos por ':'con clastos de ')+enumL
+        +anexoDetalle(l.LITOLOGIA_CLASTOS_DETALLE,enumL));
+    }
     if(l.COMPOSICION_CLASTICA_MATRIZ) frag.push('con matriz de composición '+minuscula(l.COMPOSICION_CLASTICA_MATRIZ));
     if(l.CEMENTO) frag.push(CEMENTO_FRASE[l.CEMENTO]||('con cemento '+minuscula(l.CEMENTO)));
     if(l.SOLDADURA) frag.push(SOLDADURA_FRASE[l.SOLDADURA]||minuscula(l.SOLDADURA));
@@ -7472,6 +7533,7 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     }
     const dFeno=detalleSuelto(l.FENOCRISTALES_ESPECIE,l.FENOCRISTALES_DETALLE); if(dFeno) frases.push(dFeno);
     const dCris=detalleSuelto(l.CRISTALES_ESPECIE,l.CRISTALES_DETALLE); if(dCris) frases.push(dCris);
+    const dClas=detalleSuelto(l.LITOLOGIA_CLASTOS,l.LITOLOGIA_CLASTOS_DETALLE); if(dClas) frases.push(dClas);
     const desc=fraseLibre(l.DESCRIPCION_LITOLOGIA); if(desc) frases.push(desc);
     // OBSERVACION y RELACION_LITOLOGIA_ESTRUCTURA son dos campos de texto libre de la ficha de
     // litología que nunca llegaron al escrito (auditoría de prosa vs. corpus, 2026-08-26). El
