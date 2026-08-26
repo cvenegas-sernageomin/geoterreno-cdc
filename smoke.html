@@ -372,14 +372,24 @@ async function correr(){
       ok(/en la arenisca/.test(p), 'el dato estructural no dice en qué litología se midió');
       ok(/SMK-1 del granito/.test(p), 'la muestra no dice de qué litología salió');
       ok(/orientada N120\/40/.test(p), 'ORIENTACION_MUESTRA no llegó a la prosa');
-      // tamaño de cristales (v92): campo numérico nuevo, plantilla "de hasta N mm de largo"
+      // % y tamaño POR MINERAL (v93, norma CDC Vol IV). El valor guardado lleva los números
+      // pegados a la especie; un término del dominio con paréntesis propio no debe partirse.
       const tob = w.prosaPunto(pt, Object.assign({}, datos, {litos:[{id:'st', TIPO_ROCA:'Volcánica',
-        TIPO_VOLCANICA:'Rocas piroclásticas', NOMBRE_ROCA:'Toba', CRISTALES_ESPECIE:'Cuarzo',
-        CRISTALES_TAM_MAX_MM:'1,5', LITICOS_PCT:'5'}], estr:[], mues:[]}), null, null, 500);
-      ok(/de hasta 1,5 mm de largo/.test(tob), 'el tamaño de cristales no llegó a la prosa (¿coma decimal?)');
+        TIPO_VOLCANICA:'Rocas piroclásticas', NOMBRE_ROCA:'Toba', LITICOS_PCT:'5',
+        CRISTALES_ESPECIE:'Cuarzo (12%, 1,5 mm); Piroxeno (clinopiroxeno) (3%); Biotita'}],
+        estr:[], mues:[]}), null, null, 500);
+      ok(/cuarzo \(12%, de hasta 1,5 mm de largo\)/.test(tob), 'el % o el tamaño por mineral no llegó a la prosa');
+      ok(/piroxeno \(clinopiroxeno, 3%\)/.test(tob), 'el paréntesis propio del mineral no se fundió con sus números');
+      ok(/y biotita\b/.test(tob), 'un mineral sin números debe seguir apareciendo solo');
       ok(/5% de líticos/.test(tob), 'los componentes cuantificados cambiaron de forma');
       eq(w.etiquetaCampo('LITICOS_PCT'), 'LITICOS %', 'la etiqueta visible debe usar el símbolo %');
-      eq(w.etiquetaCampo('CRISTALES_TAM_MAX_MM'), 'CRISTALES tamaño máx. (mm)', 'etiqueta de tamaño mal formada');
+      // ida y vuelta del formato guardado
+      const pv = w.parseValorNumerado('Piroxeno (clinopiroxeno) (3%, 2 mm)');
+      eq(pv.valor, 'Piroxeno (clinopiroxeno)', 'parseValorNumerado partió el nombre del mineral');
+      eq([pv.nums['%'], pv.nums.mm], ['3','2'], 'no extrajo los dos números');
+      eq(w.fmtValorNumerado(pv.valor, pv.nums), 'Piroxeno (clinopiroxeno) (3%, 2 mm)', 'el formato no es idempotente');
+      eq(w.parseValorNumerado('Piroxeno (clinopiroxeno)').valor, 'Piroxeno (clinopiroxeno)',
+         'un valor SIN números no debe perder su paréntesis propio');
       ok(!/,\s*\./.test(p) && !/\s{2,}/.test(p), 'quedó puntuación suelta o espacios dobles');
       return p.split('. ').length + ' oraciones, concordancia y campos enlazados correctos';
     });
