@@ -4298,7 +4298,15 @@ ESPESOR_DEPOSITO_MAX_M:{modo:'bloquear', regla: v => !CLASE_AFL_NO_ESTRATIFICADA
 function formulario(store, reg, ctx){
   const cont=el('div');
   const inputs={};
-  const cs=campos(store).filter(c=> !hideField(store,c.nombre));
+  let cs=campos(store).filter(c=> !hideField(store,c.nombre));
+  // Panel Litología: NOMBRE_ROCA se muestra al final. Es la CONCLUSIÓN de la clasificación
+  // (el geólogo describe/clasifica primero y nombra la roca al final); en el modelo quedó en
+  // posición media. Solo reordena ESTE formulario (PWA); el modelo canónico y el Track B
+  // (QField/GDB), que usan campos() directo, conservan su orden.
+  if(store==='litologia'){
+    const i=cs.findIndex(c=>c.nombre==='NOMBRE_ROCA');
+    if(i>=0){const nr=cs.splice(i,1)[0];cs.push(nr);}
+  }
   const rowWrap=el('div',{class:'row'});
   cs.forEach(campo=>{
     const n=campo.nombre;
