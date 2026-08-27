@@ -495,6 +495,19 @@ const MODELO = {
           "nota": "% de fragmentos líticos respecto al total de CLASTOS del depósito piroclástico (no del total de la roca -- ver MATRIZ_PCT para eso). Junto con POMEZ_PCT/CRISTALES_PCT define la clasificación real de una toba/brecha piroclástica (vítrea/pumícea/cristalina/lítica, según el componente dominante -- tipo Fisher & Schmincke / Schmid 1981), verificada en el RAG de Cartas SGB 2026-08-25: 'esta compuesta de 1-3% de cristales... <1% de líticos andesíticos'. Reemplaza el campo cualitativo COMPONENTE_PIROCLASTICO (Vítrea/Lítica/Cristalina), retirado porque el usuario pidió porcentajes reales en vez de una etiqueta. Aplica a rocas piroclásticas y a Tefra (mismo alcance que tenía COMPONENTE_PIROCLASTICO)."
         },
         {
+          "nombre": "TIPO_LITICOS",
+          "obligatorio": false,
+          "dominio": "TIPO_LITICO",
+          "multiple": true,
+          "nota": "Tipo (litología + origen) de los fragmentos líticos del depósito piroclástico. Complementa LITICOS_PCT: ese campo fija CUÁNTOS líticos hay; este dice DE QUÉ roca son y su origen (juvenil/accidental/accesorio, eje CDC GÉNESIS DEL FRAGMENTO O ENCLAVE). Lista construida del RAG de Cartas SGB (volcánicos, andesíticos, dacíticos, riolíticos, metamórficos, graníticos, tobáceos, polimícticos/monomícticos, juveniles/accidentales/accesorios...). Aplica a rocas piroclásticas y a Tefra (mismo alcance dual que LITICOS_PCT)."
+        },
+        {
+          "nombre": "TIPO_LITICOS_DETALLE",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Texto libre: litología u origen de líticos fuera de la lista, o matices que la lista no capture. Rocas piroclásticas y Tefra."
+        },
+        {
           "nombre": "POMEZ_PCT",
           "obligatorio": false,
           "dominio": null,
@@ -512,6 +525,19 @@ const MODELO = {
           "dominio": "MATRIZ_COMPOSICION",
           "multiple": true,
           "nota": "Rocas piroclásticas y Tefra (para Lava, ver CRISTALINIDAD). Selección múltiple: la matriz suele combinar componentes (ej. vítrea y cristalina)."
+        },
+        {
+          "nombre": "TIPO_FRAGMENTO_VITREO",
+          "obligatorio": false,
+          "dominio": "FRAGMENTO_VITREO",
+          "multiple": true,
+          "nota": "Tipo de clasto de los fragmentos vítreos del depósito piroclástico (eje CDC VITROCLÁSTICO: vitroclastos, esquirlas/shards de vidrio, fiamme, pómez, vidrio fresco/desvitrificado). Complementa MATRIZ_COMPOSICION: la matriz es el intersticial; esto es el clasto vítreo. Lista construida del RAG de Cartas SGB. Aplica a rocas piroclásticas y a Tefra."
+        },
+        {
+          "nombre": "TIPO_FRAGMENTO_VITREO_DETALLE",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Texto libre: tipo de fragmento vítreo fuera de la lista, o matices (desvitrificación, aplastamiento, tamaño). Rocas piroclásticas y Tefra."
         },
         {
           "nombre": "MATRIZ_DETALLE",
@@ -3246,6 +3272,42 @@ const MODELO = {
         "Hornblenda"
       ],
       "fuente": "RAG ChromaDB 'prosa_geologica' (colección Generador de Cartas Geológicas, tipo=carta, 41.598 chunks, leído con sqlite3 directo -- chromadb.PersistentClient segfaultea en esta máquina): co-ocurrencia real de cada mineral de MINERAL dentro de ventanas de ±110 car. alrededor de 'cristal*' (excluyendo 'cristalino/a', adjetivo de textura) que a su vez caen dentro de contexto piroclástico (±220 car. de toba/ignimbrita/lapilli/tefra/...), 1.706 apariciones analizadas, 2026-08-25. Cuarzo 732, Plagioclasa 663, Biotita 482, Piroxeno-cpx 153, Piroxeno-opx 137, Circón 130, Hornblenda 75 -- caída clara frente a Clorita/Muscovita (35, 8°). Subconjunto de MINERAL (25 especies), acotado SOLO para CRISTALES_ESPECIE (rocas piroclásticas/tefra); un mineral fuera de esta lista se anota en CRISTALES_DETALLE (texto libre)."
+    },
+    "TIPO_LITICO": {
+      "tipo": "simple",
+      "valores": [
+        "Volcánico",
+        "Andesítico",
+        "Dacítico",
+        "Riolítico",
+        "Basáltico",
+        "Granítico (intrusivo)",
+        "Metamórfico",
+        "Sedimentario",
+        "Tobáceo",
+        "Porfírico",
+        "Afanítico",
+        "Polimíctico",
+        "Monomíctico",
+        "Juvenil",
+        "Accesorio",
+        "Accidental"
+      ],
+      "fuente": "RAG ChromaDB 'prosa_geologica' (colección Generador de Cartas Geológicas, tipo=carta, 122.537 chunks, leído con sqlite3 directo -- chromadb.PersistentClient segfaultea en esta máquina), 2026-08-26. Los líticos en contexto piroclástico se describen en prosa por su LITOLOGÍA (la roca de la que proviene el fragmento) y por su ORIGEN (eje del campo CDC 2016 GÉNESIS DEL FRAGMENTO O ENCLAVE). Litología real observada: 'líticos volcánicos' (269), 'líticos andesíticos' (179), dacíticos (31), riolíticos (17), 'liticos metamorficos (filitas y cuarcitas)', graníticos, tobáceos (30), porfíricos (33), afaníticos (12), polimícticos (91)/monomícticos. Origen: 'fragmentos accidentales de esquistos de cuarzo-muscovita, calizas grises', 'fragmentos juveniles de formas ameboidales y bordes de enfriamiento', 'minerales accesorios'. Un término fuera de la lista se anota en TIPO_LITICOS_DETALLE (texto libre)."
+    },
+    "FRAGMENTO_VITREO": {
+      "tipo": "simple",
+      "valores": [
+        "Vitroclasto",
+        "Esquirla (shard) de vidrio",
+        "Fiamme",
+        "Pómez",
+        "Vidrio fresco",
+        "Vidrio desvitrificado",
+        "Vidrio transparente (aplastado)",
+        "Vidrio no aplastado (bien preservado)"
+      ],
+      "fuente": "RAG ChromaDB 'prosa_geologica' (colección Generador de Cartas Geológicas, tipo=carta, 122.537 chunks, leído con sqlite3 directo -- chromadb en esta máquina segfaultea), 2026-08-26. Los fragmentos vítreos en contexto piroclástico se describen por el TIPO DE CLASTO (eje CDC VITROCLÁSTICO: Glass shards / Fiamme / Pumice). Verbatim real: 'esquirlas (\"shards\") de vidrio', 'fiammes milimétricas', 'vitroclastos pumíceos y esquirlas', 'pómez (35-40%)', 'fragmentos de vidrio transparente en la matriz', 'toba vítrea de ceniza'. Un término fuera de la lista se anota en TIPO_FRAGMENTO_VITREO_DETALLE (texto libre)."
     }
   },
   "avisos": [
@@ -3265,7 +3327,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v98';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v99';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -4226,6 +4288,24 @@ const CONDICIONALES = {
   // "tobas riolíticas, pumíceas y de cristales"). Mismo alcance dual que tenía
   // COMPONENTE_PIROCLASTICO: Rocas piroclásticas Y Tefra.
   LITICOS_PCT: {modo:'ocultar', regla: v =>
+    (v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas') ||
+    (v['TIPO_ROCA']==='Depósito' && v['NOMBRE_ROCA']==='Tefra, depósito volcánico')},
+  // TIPO_LITICOS/DETALLE (2026-08-26, lista construida del RAG): el tipo de fragmento lítico
+  // complementa a LITICOS_PCT (cuántos hay vs. de qué roca/origen son). Mismo alcance dual que
+  // LITICOS_PCT: Rocas piroclásticas Y Tefra.
+  TIPO_LITICOS: {modo:'ocultar', regla: v =>
+    (v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas') ||
+    (v['TIPO_ROCA']==='Depósito' && v['NOMBRE_ROCA']==='Tefra, depósito volcánico')},
+  TIPO_LITICOS_DETALLE: {modo:'ocultar', regla: v =>
+    (v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas') ||
+    (v['TIPO_ROCA']==='Depósito' && v['NOMBRE_ROCA']==='Tefra, depósito volcánico')},
+  // TIPO_FRAGMENTO_VITREO/DETALLE (2026-08-26, lista construida del RAG): tipo de clasto
+  // vítreo (eje CDC vitroclástico). Complementa a MATRIZ_COMPOSICION (el intersticial vs. el
+  // clasto). Mismo alcance dual: Rocas piroclásticas Y Tefra.
+  TIPO_FRAGMENTO_VITREO: {modo:'ocultar', regla: v =>
+    (v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas') ||
+    (v['TIPO_ROCA']==='Depósito' && v['NOMBRE_ROCA']==='Tefra, depósito volcánico')},
+  TIPO_FRAGMENTO_VITREO_DETALLE: {modo:'ocultar', regla: v =>
     (v['TIPO_ROCA']==='Volcánica' && v['TIPO_VOLCANICA']==='Rocas piroclásticas') ||
     (v['TIPO_ROCA']==='Depósito' && v['NOMBRE_ROCA']==='Tefra, depósito volcánico')},
   POMEZ_PCT: {modo:'ocultar', regla: v =>
@@ -7270,6 +7350,25 @@ const CONSOLIDACION_FRASE={
   'No consolidado':'de carácter no consolidado','Semiconsolidado':'de carácter semiconsolidado',
   'Consolidado / litificado':'de carácter consolidado',
 };
+// ---- Tipo de LÍTICOS y de FRAGMENTOS VÍTREOS (2026-08-26, listas del RAG de Cartas SGB) ----
+// Forma PLURAL para "con líticos …" / "con fragmentos vítreos de …", igual que los mapas de
+// arriba (REDONDEAMIENTO_FRASE): el corpus escribe "líticos andesíticos", "esquirlas de vidrio",
+// "fiamme", "pómez". Las litologías terminadas en -ico/-ejo van en plural concordando con el
+// sustantivo; los sustantivos (pómez, vitroclasto) y los de origen (juvenil/accidental) se dejan
+// tal cual porque el corpus los cita en singular o plural según el caso.
+const TIPO_LITICO_FRASE={
+  'Volcánico':'volcánicos','Andesítico':'andesíticos','Dacítico':'dacíticos','Riolítico':'riolíticos',
+  'Basáltico':'basálticos','Granítico (intrusivo)':'graníticos','Metamórfico':'metamórficos',
+  'Sedimentario':'sedimentarios','Tobáceo':'tobáceos','Porfírico':'porfíricos','Afanítico':'afaníticos',
+  'Polimíctico':'polimícticos','Monomíctico':'monomícticos','Juvenil':'juveniles',
+  'Accesorio':'accesorios','Accidental':'accidentales',
+};
+const FRAGMENTO_VITREO_FRASE={
+  'Vitroclasto':'vitroclastos','Esquirla (shard) de vidrio':'esquirlas de vidrio','Fiamme':'fiamme',
+  'Pómez':'pómez','Vidrio fresco':'vidrio fresco','Vidrio desvitrificado':'vidrio desvitrificado',
+  'Vidrio transparente (aplastado)':'vidrio transparente aplastado',
+  'Vidrio no aplastado (bien preservado)':'vidrio no aplastado y bien preservado',
+};
 // ---- Exposición del CONTACTO (dominio EXPOSICION_AFLORAMIENTO reusado en TBL_CONTACTO) ----
 // Mismos 3 valores que el afloramiento, pero el sujeto es el contacto: "con exposición de
 // afloramiento parcial" no dice nada de la traza del contacto, que es lo que importa acá.
@@ -7421,6 +7520,20 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
       fraseComp=fraseComp?fraseComp+', con '+m:'con '+m;
     }
     if(fraseComp) frag.push(fraseComp);
+    // Tipo de líticos y de fragmentos vítreos (2026-08-26, listas del RAG): complementan a
+    // LITICOS_PCT (cuántos líticos) y a MATRIZ_COMPOSICION (el intersticial). Son el "de qué"
+    // ("…líticos andesíticos y accidentales", "esquirlas de vidrio y fiamme"), como lo encadena
+    // el corpus ("fragmentos accidentales de esquistos...", "esquirlas y fiamme milimétricas").
+    const liticos=multi(l.TIPO_LITICOS);
+    if(liticos.length){
+      const enumLi=lista(liticos.map(c=>TIPO_LITICO_FRASE[c]||minuscula(c)));
+      frag.push('con líticos '+enumLi+anexoDetalle(l.TIPO_LITICOS_DETALLE,enumLi));
+    }
+    const vitreos=multi(l.TIPO_FRAGMENTO_VITREO);
+    if(vitreos.length){
+      const enumVi=lista(vitreos.map(c=>FRAGMENTO_VITREO_FRASE[c]||minuscula(c)));
+      frag.push('con fragmentos vítreos de '+enumVi+anexoDetalle(l.TIPO_FRAGMENTO_VITREO_DETALLE,enumVi));
+    }
     // clastos: selección, redondeamiento y esfericidad se funden en un solo adjetivo plural,
     // igual que el corpus ("clastos mal seleccionados y subredondeados"), no fragmentos sueltos.
     // lista() (no join(' y ')) porque ahora pueden ser 3 adjetivos ("X, Y y Z").
@@ -7640,6 +7753,8 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     const dFeno=detalleSuelto(l.FENOCRISTALES_ESPECIE,l.FENOCRISTALES_DETALLE); if(dFeno) frases.push(dFeno);
     const dCris=detalleSuelto(l.CRISTALES_ESPECIE,l.CRISTALES_DETALLE); if(dCris) frases.push(dCris);
     const dClas=detalleSuelto(l.LITOLOGIA_CLASTOS,l.LITOLOGIA_CLASTOS_DETALLE); if(dClas) frases.push(dClas);
+    const dLito=detalleSuelto(l.TIPO_LITICOS,l.TIPO_LITICOS_DETALLE); if(dLito) frases.push(dLito);
+    const dVid=detalleSuelto(l.TIPO_FRAGMENTO_VITREO,l.TIPO_FRAGMENTO_VITREO_DETALLE); if(dVid) frases.push(dVid);
     const desc=fraseLibre(l.DESCRIPCION_LITOLOGIA); if(desc) frases.push(desc);
     // OBSERVACION y RELACION_LITOLOGIA_ESTRUCTURA son dos campos de texto libre de la ficha de
     // litología que nunca llegaron al escrito (auditoría de prosa vs. corpus, 2026-08-26). El
