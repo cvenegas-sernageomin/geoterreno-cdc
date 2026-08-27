@@ -499,7 +499,7 @@ const MODELO = {
           "obligatorio": false,
           "dominio": "TIPO_LITICO",
           "multiple": true,
-          "nota": "Tipo (litología + origen) de los fragmentos líticos del depósito piroclástico. Complementa LITICOS_PCT: ese campo fija CUÁNTOS líticos hay; este dice DE QUÉ roca son y su origen (juvenil/accidental/accesorio, eje CDC GÉNESIS DEL FRAGMENTO O ENCLAVE). Lista construida del RAG de Cartas SGB (volcánicos, andesíticos, dacíticos, riolíticos, metamórficos, graníticos, tobáceos, polimícticos/monomícticos, juveniles/accidentales/accesorios...). Aplica a rocas piroclásticas y a Tefra (mismo alcance dual que LITICOS_PCT)."
+          "nota": "Nombre de roca de los fragmentos líticos del depósito piroclástico (Andesita, Basalto, Dacita, Riolita, Toba, Intrusivo, Sedimentario, Metamórfico). Complementa LITICOS_PCT: ese campo fija CUÁNTOS líticos hay; este dice DE QUÉ roca son. Lista curada del RAG de Cartas SGB; un término fuera de la lista va a TIPO_LITICOS_DETALLE. Aplica a rocas piroclásticas y a Tefra."
         },
         {
           "nombre": "TIPO_LITICOS_DETALLE",
@@ -3276,24 +3276,16 @@ const MODELO = {
     "TIPO_LITICO": {
       "tipo": "simple",
       "valores": [
-        "Volcánico",
-        "Andesítico",
-        "Dacítico",
-        "Riolítico",
-        "Basáltico",
-        "Granítico (intrusivo)",
-        "Metamórfico",
+        "Andesita",
+        "Basalto",
+        "Dacita",
+        "Riolita",
+        "Toba",
+        "Intrusivo",
         "Sedimentario",
-        "Tobáceo",
-        "Porfírico",
-        "Afanítico",
-        "Polimíctico",
-        "Monomíctico",
-        "Juvenil",
-        "Accesorio",
-        "Accidental"
+        "Metamórfico"
       ],
-      "fuente": "RAG ChromaDB 'prosa_geologica' (colección Generador de Cartas Geológicas, tipo=carta, 122.537 chunks, leído con sqlite3 directo -- chromadb.PersistentClient segfaultea en esta máquina), 2026-08-26. Los líticos en contexto piroclástico se describen en prosa por su LITOLOGÍA (la roca de la que proviene el fragmento) y por su ORIGEN (eje del campo CDC 2016 GÉNESIS DEL FRAGMENTO O ENCLAVE). Litología real observada: 'líticos volcánicos' (269), 'líticos andesíticos' (179), dacíticos (31), riolíticos (17), 'liticos metamorficos (filitas y cuarcitas)', graníticos, tobáceos (30), porfíricos (33), afaníticos (12), polimícticos (91)/monomícticos. Origen: 'fragmentos accidentales de esquistos de cuarzo-muscovita, calizas grises', 'fragmentos juveniles de formas ameboidales y bordes de enfriamiento', 'minerales accesorios'. Un término fuera de la lista se anota en TIPO_LITICOS_DETALLE (texto libre)."
+      "fuente": "RAG ChromaDB 'prosa_geologica' (colección Generador de Cartas Geológicas, tipo=carta, 122.537 chunks, leído con sqlite3 directo -- chromadb.PersistentClient segfaultea en esta máquina), 2026-08-27. El dominio es el NOMBRE DE ROCA del fragmento lítico (no adjetivos redundantes): antes mezclaba 'Volcánico' con sus subtipos (Andesítico/Dacítíco/Riolítico, redundantes) y 'Porfírico'/'Afanítico' (texturas) y 'Polimíctico'/'Monomíctico' (ensamblaje del depósito) y el eje de origen 'Juvenil/Accesorio/Accidental' (CDC GÉNESIS DEL FRAGMENTO), que se retiró a pedido del usuario. Frecuencia de soporte (chunks piroclásticos, 12.152): andesítico 2201, basáltico 751, dacítico 2038, riolítico 1681, tobáceo 396, sedimentario 1078, metamórfico 151, granítico 78. Un término fuera de la lista se anota en TIPO_LITICOS_DETALLE (texto libre)."
     },
     "FRAGMENTO_VITREO": {
       "tipo": "simple",
@@ -3327,7 +3319,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v99';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v100';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -7353,15 +7345,12 @@ const CONSOLIDACION_FRASE={
 // ---- Tipo de LÍTICOS y de FRAGMENTOS VÍTREOS (2026-08-26, listas del RAG de Cartas SGB) ----
 // Forma PLURAL para "con líticos …" / "con fragmentos vítreos de …", igual que los mapas de
 // arriba (REDONDEAMIENTO_FRASE): el corpus escribe "líticos andesíticos", "esquirlas de vidrio",
-// "fiamme", "pómez". Las litologías terminadas en -ico/-ejo van en plural concordando con el
-// sustantivo; los sustantivos (pómez, vitroclasto) y los de origen (juvenil/accidental) se dejan
-// tal cual porque el corpus los cita en singular o plural según el caso.
+// "fiamme", "pómez". El dominio TIPO_LITICO es el NOMBRE DE ROCA del lítico (Andesita, Basalto,
+// Dacita, Riolita, Toba, Intrusivo, Sedimentario, Metamórfico) y aquí se concuerda a la forma
+// adjetiva en plural que usa la prosa ("con líticos andesíticos", "con líticos tobáceos").
 const TIPO_LITICO_FRASE={
-  'Volcánico':'volcánicos','Andesítico':'andesíticos','Dacítico':'dacíticos','Riolítico':'riolíticos',
-  'Basáltico':'basálticos','Granítico (intrusivo)':'graníticos','Metamórfico':'metamórficos',
-  'Sedimentario':'sedimentarios','Tobáceo':'tobáceos','Porfírico':'porfíricos','Afanítico':'afaníticos',
-  'Polimíctico':'polimícticos','Monomíctico':'monomícticos','Juvenil':'juveniles',
-  'Accesorio':'accesorios','Accidental':'accidentales',
+  'Andesita':'andesíticos','Basalto':'basálticos','Dacita':'dacíticos','Riolita':'riolíticos',
+  'Toba':'tobáceos','Intrusivo':'intrusivos','Sedimentario':'sedimentarios','Metamórfico':'metamórficos',
 };
 const FRAGMENTO_VITREO_FRASE={
   'Vitroclasto':'vitroclastos','Esquirla (shard) de vidrio':'esquirlas de vidrio','Fiamme':'fiamme',
