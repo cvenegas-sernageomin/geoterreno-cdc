@@ -3265,7 +3265,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v96';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v97';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -6494,9 +6494,29 @@ async function exportMenu(proyectoId){
 function descargar(nombre,blob){const a=el('a');a.href=URL.createObjectURL(blob);a.download=nombre;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
 function csvCell(v){v=v==null?'':String(v);return /[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 
+// Las tablas hijas enlazan al punto por _parent (id interno) y el formulario OCULTA los campos
+// FK ID_PUNTO_CONTROL/ID_PROYECTO, así que el registro guardado NO los trae: la columna existe
+// en el modelo pero sale vacía al exportar. Para que las tablas se puedan unir (litología →
+// punto por ID_PUNTO_CONTROL), se resuelve aquí el código público del padre.
+async function mapasFKCodigos(){
+  const porPunto={}, porProyecto={};
+  for(const s of ['punto','punto_gabinete'])
+    for(const p of await all(s)) porPunto[p.id]=p.ID_PUNTO_CONTROL||p.id;
+  for(const pr of await all('proyecto')) porProyecto[pr.id]=pr.ID_PROYECTO||pr.id;
+  return {porPunto,porProyecto};
+}
+// Devuelve una copia de r con las FK rellenas (si estaban vacías) desde su _parent.
+function enriquecerFK(r,fks){
+  const o=Object.assign({},r);
+  if(!o.ID_PUNTO_CONTROL && fks.porPunto[o._parent]) o.ID_PUNTO_CONTROL=fks.porPunto[o._parent];
+  if(!o.ID_PROYECTO && fks.porProyecto[o._parent]) o.ID_PROYECTO=fks.porProyecto[o._parent];
+  return o;
+}
+
 async function exportCSV(proyectoId){
   const files=[];
   const idsPuntos = proyectoId ? await idsPuntosProyecto(proyectoId) : null;
+  const fks = await mapasFKCodigos();
   // Un CSV por tabla del modelo. Terreno y Gabinete comparten tabla y se distinguen por
   // la columna COLECCION; antes salian como dos archivos y el de gabinete iba sin columnas.
   // 'linea' entra por tablasExport(): estaba fuera de STORES y no se exportaba nunca.
@@ -6508,7 +6528,7 @@ async function exportCSV(proyectoId){
     for(const s of stores){
       let regs=await conColeccion(s);
       if(proyectoId) regs=regs.filter(r=>esDeProyecto(s,r,proyectoId,idsPuntos));
-      regs.forEach(r=>lines.push(cols.map(c=>csvCell(c.startsWith('_img')?'':r[c])).join(',')));
+      regs.forEach(r=>{r=enriquecerFK(r,fks);lines.push(cols.map(c=>csvCell(c.startsWith('_img')?'':r[c])).join(','));});
     }
     files.push({name:tbl+'.csv',data:new TextEncoder().encode('﻿'+lines.join('\r\n'))});
   }
@@ -6635,6 +6655,7 @@ const WKT4326='GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.25
 
 async function construirGPKG(proyectoId){
   const idsPuntos = proyectoId ? await idsPuntosProyecto(proyectoId) : null;
+  const fks = await mapasFKCodigos();
   if(!window.initSqlJs)await cargarLib('vendor/sql-wasm.js');
   const SQL=await initSqlJs({locateFile:f=>'vendor/'+f});
   const db=new SQL.Database();
@@ -6666,7 +6687,8 @@ async function construirGPKG(proyectoId){
    for(const store of ['punto','punto_gabinete']){
    let regs=await conColeccion(store);
    if(proyectoId)regs=regs.filter(r=>r._parent===proyectoId);
-   for(const r of regs){
+   for(let r of regs){
+     r=enriquecerFK(r,fks);
      const lat=parseFloat(latF(r)),lon=parseFloat(lonF(r));let g=null;
      if(!isNaN(lat)&&!isNaN(lon)){g=gpkgGeom(wkbPoint(lon,lat));nP++;
        env.x0=Math.min(env.x0,lon);env.x1=Math.max(env.x1,lon);env.y0=Math.min(env.y0,lat);env.y1=Math.max(env.y1,lat);}
@@ -6715,7 +6737,7 @@ async function construirGPKG(proyectoId){
     const st=crear(tbl,cs,extras,false);
     let regsS=await all(s);
     if(proyectoId)regsS=regsS.filter(r=>esDeProyecto(s,r,proyectoId,idsPuntos));
-    for(const r of regsS)st.run([txt(r.id),txt(r._parent)].concat(cs.map(c=>txt(r[c])),extras.map(e=>e[1](r))));
+    for(let r of regsS){r=enriquecerFK(r,fks);st.run([txt(r.id),txt(r._parent)].concat(cs.map(c=>txt(r[c])),extras.map(e=>e[1](r))));}
     st.free();
     db.run("INSERT INTO gpkg_contents (table_name,data_type,identifier,srs_id) VALUES (?,?,?,0)",[tbl,'attributes',tbl]);
   }
@@ -6737,7 +6759,11 @@ async function exportGDB(proyectoId){
   try{
     toast('Preparando conversor GDB…');
     if(!window.initGdalJs)await cargarLib('vendor/gdal3.js');
-    if(!window._Gdal)window._Gdal=await initGdalJs({path:'vendor',useWorker:false});
+    // path DEBE ser URL absoluta: gdal3.js antepone '/' a cualquier path relativo (su
+    // locateFile hace "/"+path+archivo), así que 'vendor' se resolvía a '/vendor/...'
+    // (raíz del dominio) y fallaba en GitHub Pages, donde la app vive en /geoterreno-cdc/.
+    // Con URL absoluta (http.../vendor/) el locateFile la devuelve tal cual.
+    if(!window._Gdal)window._Gdal=await initGdalJs({path:new URL('vendor/',location.href).href,useWorker:false});
     const Gdal=window._Gdal;
     const r=await construirGPKG(proyectoId);
     const stem='ct_'+Date.now().toString(36);   // nombre único: aísla esta corrida de restos de intentos previos en /output
