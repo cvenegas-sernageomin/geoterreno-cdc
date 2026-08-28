@@ -3319,7 +3319,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v102';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v103';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -4889,6 +4889,29 @@ let cgOn=false, cgData=null, cgOverlay=null, cgOverlayObjUrl=null, cgActivoId=nu
     cgCercaDeMi=false, cgGpsLatLon=null, cgGpsPidiendo=false;
 const cgEsc = s => String(s==null?'':s).replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 function cgUrl(path){ return CG_BASE+encodeURI(String(path||''))+(cgVer?'?v='+encodeURIComponent(cgVer):''); }
+// Orden oficial de las 16 regiones de Chile, norte a sur -- para agrupar el panel de Cartas SG
+// geograficamente en vez de alfabetico (alfabetico mezclaba "Región de Atacama" antes que
+// "Región de Antofagasta" pese a estar mas al sur, y "Región del Biobío" caia despues de
+// "Región de La Araucanía" en vez de antes). Coincide en texto exacto con lo que trae el
+// manifest de cartas-geologicas-sernageomin; cualquier region no listada aqui (ej. un valor
+// nuevo o mal escrito) cae al final ordenada alfabeticamente, nunca se pierde.
+const ORDEN_REGIONES_NS = [
+  'Región de Arica y Parinacota', 'Región de Tarapacá', 'Región de Antofagasta',
+  'Región de Atacama', 'Región de Coquimbo', 'Región de Valparaíso',
+  'Región Metropolitana de Santiago', "Región del Libertador General Bernardo O'Higgins",
+  'Región del Maule', 'Región de Ñuble', 'Región del Biobío', 'Región de La Araucanía',
+  'Región de Los Ríos', 'Región de Los Lagos', 'Región Aisén del General Carlos Ibáñez del Campo',
+  'Región de Magallanes y de la Antártica Chilena',
+];
+function cgCompararRegiones(a,b){
+  if(a==='Sin región') return 1;
+  if(b==='Sin región') return -1;
+  const ia=ORDEN_REGIONES_NS.indexOf(a), ib=ORDEN_REGIONES_NS.indexOf(b);
+  if(ia===-1 && ib===-1) return a.localeCompare(b,'es');
+  if(ia===-1) return 1;
+  if(ib===-1) return -1;
+  return ia-ib;
+}
 // Distancia en km del GPS del usuario al centro del bounds de cada carta (Haversine) — sirve para
 // que el geólogo, ya en terreno, vea rápido qué cartas descargables son relevantes para donde está
 // parado, sin tener que reconocer 56+ códigos de catálogo por región.
@@ -5116,7 +5139,7 @@ function cgCrearControl(abiertasPrevias){
     } else if(multi){
       const porRegion={};
       cgData.forEach(m=>{ const r=m.region||'Sin región'; (porRegion[r]=porRegion[r]||[]).push(m); });
-      const regiones=Object.keys(porRegion).sort((a,b)=>a==='Sin región'?1:b==='Sin región'?-1:a.localeCompare(b,'es'));
+      const regiones=Object.keys(porRegion).sort(cgCompararRegiones);
       html+=regiones.map(r=>{
         const abierta=(!!cgActivoId && porRegion[r].some(m=>m.id===cgActivoId))
                       || (abiertasPrevias||[]).includes(r);
