@@ -3319,7 +3319,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v103';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v104';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -5063,7 +5063,7 @@ function cgSyncPanel(){
   });
   const rng=d.querySelector('.cg-rng'); if(rng) rng.value=Math.round(cgOpacidad*100);
   const body=d.querySelector('.cg-body'), toggle=d.querySelector('.cg-toggle'), titulo=d.querySelector('.cg-titulo-header');
-  if(body) body.style.display=cgColapsado?'none':'block';
+  if(body) body.style.display=cgColapsado?'none':'flex';
   if(toggle) toggle.textContent=cgColapsado?'▸':'▾';
   if(titulo){ const activoMapa=(cgData||[]).find(m=>m.id===cgActivoId);
     titulo.textContent='🗺️ '+(activoMapa?(activoMapa.titulo||activoMapa.id):'Elige una carta'); }
@@ -5101,7 +5101,7 @@ function cgCrearControl(abiertasPrevias){
           style="flex:0 0 auto;background:none;border:none;color:#e8edf2;font-size:1rem;line-height:1;cursor:pointer;padding:2px 4px">${cgColapsado?'▸':'▾'}</button>`
       +'</div>';
     if(cgFuenteManifest==='local') html+='<div style="color:#ffb86b;font-size:.7rem;margin-top:4px">📴 Sin conexión — mostrando solo lo descargado</div>';
-    html+=`<div class="cg-body" style="display:${cgColapsado?'none':'flex'};flex-direction:column;min-height:0;margin-top:6px">`;
+    html+=`<div class="cg-body" style="display:${cgColapsado?'none':'flex'};flex-direction:column;flex:1;min-height:0;margin-top:6px">`;
     const distDe = m => (cgCercaDeMi && cgGpsLatLon && m.bounds)
       ? cgDistanciaKm(cgGpsLatLon[0],cgGpsLatLon[1], ...cgCentroBounds(m.bounds)) : null;
     const itemHtml = m => {
