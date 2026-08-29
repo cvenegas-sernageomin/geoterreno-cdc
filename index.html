@@ -3333,7 +3333,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v106';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v107';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -5115,6 +5115,12 @@ function cgCrearControl(abiertasPrevias){
           style="flex:0 0 auto;background:none;border:none;color:#e8edf2;font-size:1rem;line-height:1;cursor:pointer;padding:2px 4px">${cgColapsado?'▸':'▾'}</button>`
       +'</div>';
     if(cgFuenteManifest==='local') html+='<div style="color:#ffb86b;font-size:.7rem;margin-top:4px">📴 Sin conexión — mostrando solo lo descargado</div>';
+    // La opacidad va FUERA del cuerpo plegable, justo bajo el nombre de la carta: al elegir
+    // una carta el panel se contrae solo (cgMostrar), y graduar la transparencia para ver el
+    // satelital por debajo es lo que más se usa en terreno -- tenerla adentro obligaba a
+    // desplegar el panel entero, que vuelve a tapar el mapa.
+    html+='<label style="display:flex;align-items:center;gap:6px;margin-top:6px;flex:0 0 auto;font-size:.72rem">Opacidad'
+      +`<input class="cg-rng" type="range" min="0" max="100" value="${Math.round(cgOpacidad*100)}" style="flex:1"></label>`;
     html+=`<div class="cg-body" style="display:${cgColapsado?'none':'flex'};flex-direction:column;flex:1;min-height:0;margin-top:6px">`;
     const distDe = m => (cgCercaDeMi && cgGpsLatLon && m.bounds)
       ? cgDistanciaKm(cgGpsLatLon[0],cgGpsLatLon[1], ...cgCentroBounds(m.bounds)) : null;
@@ -5136,13 +5142,10 @@ function cgCrearControl(abiertasPrevias){
         +`<input class="cg-cerca" type="checkbox" ${cgCercaDeMi?'checked':''}>`
         +(cgGpsPidiendo?'📍 Ubicándote…':'📍 Ordenar por cercanía a mí')+'</label>';
     }
-    // Opacidad + Ver leyenda van ANTES de la lista (que puede tener decenas de cartas repartidas
-    // en muchas regiones) y fuera de su scroll, para que sigan a la vista sin tener que desplazarse
-    // hasta el final -- antes quedaban después de la lista completa y, con el catálogo chico
-    // (9 cartas, 1 región), no se notaba; con 53 cartas en 11 regiones quedaban efectivamente
-    // inaccesibles a simple vista.
-    html+='<label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex:0 0 auto">Opacidad'
-      +`<input class="cg-rng" type="range" min="0" max="100" value="${Math.round(cgOpacidad*100)}" style="flex:1"></label>`;
+    // "Ver leyenda" va ANTES de la lista (que puede tener decenas de cartas repartidas en muchas
+    // regiones) y fuera de su scroll, para que siga a la vista sin tener que desplazarse hasta el
+    // final -- antes quedaba después de la lista completa y, con el catálogo chico (9 cartas, 1
+    // región), no se notaba; con 53 cartas en 11 regiones quedaba inaccesible a simple vista.
     html+='<button class="cg-leg" type="button" style="width:100%;padding:6px;background:#1f6feb;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;margin-bottom:6px;flex:0 0 auto">ⓘ Ver leyenda</button>';
     html+='<div class="cg-lista" style="overflow-y:auto;flex:1;min-height:0">';
     if(multi && cgCercaDeMi && cgGpsLatLon){
