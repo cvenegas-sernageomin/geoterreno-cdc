@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GeoTerreno CDC — Prueba de humo</title>
+<title>PWA Geonotas — Prueba de humo</title>
 <style>
   :root{--verde:#2f6b4f;--rojo:#c0463a;--bd:#d5dbce;--muted:#5f6b62;--surface:#f8f9f4}
   @media (prefers-color-scheme:dark){:root{--verde:#5cbd8c;--rojo:#e0796d;--bd:#33402f;--muted:#9aab9d;--surface:#1d251f}
@@ -21,7 +21,7 @@
 </style>
 </head>
 <body>
-<h1>Prueba de humo — GeoTerreno CDC</h1>
+<h1>Prueba de humo — PWA Geonotas</h1>
 <div class="sub">Corre el ciclo completo (capturar → respaldar → borrar → restaurar → exportar) contra
 el <code>index.html</code> real, cargado en un iframe.
 <b>No toca tus datos:</b> todo lo que crea lleva el prefijo <code>smoke-</code> (los ids reales empiezan
@@ -128,9 +128,12 @@ async function leerVersiones(){           // APP_VER/CACHE son const: se leen de
   const q = '?smoke=' + Date.now();
   const html = await (await fetch('index.html' + q)).text();
   const sw   = await (await fetch('sw.js' + q)).text();
+  // Anclado a la DECLARACIÓN al principio de línea: un regex suelto tomaba la primera
+  // aparición del patrón en el archivo, así que un simple comentario que mencionara
+  // CACHE = '…' eclipsaba a la constante real y la prueba leía un valor falso.
   return {
-    appVer: (html.match(/APP_VER\s*=\s*'([^']+)'/) || [])[1],
-    cache:  (sw.match(/CACHE\s*=\s*'([^']+)'/) || [])[1]
+    appVer: (html.match(/^\s*const\s+APP_VER\s*=\s*'([^']+)'/m) || [])[1],
+    cache:  (sw.match(/^\s*const\s+CACHE\s*=\s*'([^']+)'/m) || [])[1]
   };
 }
 
@@ -156,7 +159,11 @@ async function correr(){
       const {appVer, cache} = await leerVersiones();
       ok(appVer, 'no se pudo leer APP_VER de index.html');
       ok(cache, 'no se pudo leer CACHE de sw.js');
-      eq(cache, 'geoterreno-cdc-' + appVer,
+      // Lo que importa es que el CACHE cambie junto con APP_VER: si no, el
+      // service worker sigue sirviendo el HTML viejo. NO se compara contra un
+      // prefijo de marca fijo: al renombrar la app (GeoTerreno CDC → Geonotas)
+      // esta prueba falló sin que hubiera ningún desalineamiento real.
+      ok(cache.endsWith('-' + appVer),
          'desalineados: index.html dice ' + appVer + ' y sw.js dice ' + cache + ' (el usuario verá la versión vieja)');
       return appVer + ' ↔ ' + cache;
     });

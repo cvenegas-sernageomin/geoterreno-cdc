@@ -1,0 +1,19 @@
+# Saltos de linea: LF en el repositorio Y en el working tree, en toda maquina.
+#
+# Por que existe este archivo (auditoria 2026-08-31): no habia ninguno, y el
+# comportamiento dependia del core.autocrlf de cada clon (aca estaba en true).
+# Resultado: la app completa quedo con index.html en CRLF y la light en LF, y un
+# script que reescribiera el HTML sin cuidado convertia el archivo ENTERO de una
+# forma a la otra -- 8.378 lineas de diff espurio que sepultan el cambio real.
+# En este proyecto el diff se lee entero en cada auditoria, asi que eso importa.
+#
+# Esto NO renormaliza el historial: se verifico con `git ls-files --eol` que el
+# indice ya estaba 100% en LF. Solo fija la regla para que no vuelva a depender
+# de la configuracion local de quien clone.
+* text=auto eol=lf
+
+# Binarios declarados a mano, sin depender de la heuristica de git: un CRLF
+# inyectado en un .wasm o un .png lo corrompe en silencio.
+*.png   binary
+*.wasm  binary
+*.data  binary

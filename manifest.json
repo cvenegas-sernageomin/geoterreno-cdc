@@ -1,6 +1,6 @@
 {
-  "name": "GeoTerreno CDC — Libreta geológica de campo",
-  "short_name": "GeoTerreno",
+  "name": "PWA Geonotas — Libreta geológica de campo",
+  "short_name": "Geonotas",
   "description": "Libreta digital de geología básica en terreno, offline (captura, mapa satelital y export CSV/KMZ/GeoPackage/GDB/PDF).",
   "start_url": ".",
   "scope": ".",

@@ -1,4 +1,4 @@
-# GeoTerreno CDC — Libreta geológica de campo
+# PWA Geonotas — Libreta geológica de campo
 
 PWA offline para captura de datos de **geología básica en terreno** (modelo CDC SERNAGEOMIN).
 Instalable en celular; funciona sin conexión tras la primera carga.

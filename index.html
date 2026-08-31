@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1f6f4f">
-<title>GeoTerreno CDC — Libreta geológica de campo</title>
+<title>PWA Geonotas — Libreta geológica de campo</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="vendor/leaflet.css">
@@ -187,7 +187,7 @@
 <header>
   <button class="btn sec mini" id="btnBack" style="display:none">‹</button>
   <div style="flex:1">
-    <h1 id="ttl">GeoTerreno CDC</h1>
+    <h1 id="ttl">PWA Geonotas</h1>
     <div class="ctx" id="ctx"></div>
   </div>
   <div style="margin:0 10px; display:inline-flex; gap:10px;">
@@ -3333,7 +3333,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v107';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v108';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -8267,7 +8267,7 @@ function observarReadonly(){
 // ============================ Init ============================
 function pantallaError(msg,detalle){
   const app=$('#app'); if(!app)return;
-  $('#ttl').textContent='GeoTerreno CDC';
+  $('#ttl').textContent='PWA Geonotas';
   app.innerHTML='<div class="card"><h2>⚠️ '+msg+'</h2>'
     +'<div class="muted" style="margin:6px 0">'+(detalle||'')+'</div>'
     +'<div class="btnbar"><button class="btn" onclick="location.reload()">↻ Reintentar</button></div></div>';
