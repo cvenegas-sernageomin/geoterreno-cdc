@@ -40,6 +40,11 @@ const LAT = 'Coordenadas Geográficas Decimales_Lat';
 const LON = 'Coordenadas Geográficas Decimales_Long';
 const STORES_TODOS = ['proyecto','punto','punto_gabinete','linea','linea_gabinete','litologia',
   'aflora','estructural','contacto','muestreo','foto','esquema','geomorf','fotomapa','nota'];
+// Cachés que pertenecen a ESTA app (debe coincidir con MIAS en sw.js). Todo lo demás que haya
+// en el origen es ajeno y NO se toca: la light y el modelo de voz viven en el mismo github.io.
+const PROPIAS = [/^geonotas-v\d+$/, /^geoterreno-cdc-v\d+$/];
+// Nombres de cachés ajenas que el purgado NUNCA debe capturar.
+const AJENAS = ['geonotas-light-10', 'geonotas-light-9', 'geoterreno-cdc-light-v8', 'transformers-cache'];
 
 const $out = document.getElementById('out'), $res = document.getElementById('resumen');
 let pasaron = 0, fallaron = 0;
@@ -425,13 +430,39 @@ async function correr(){
 
     await prueba('El service worker no cachea los tiles del satelital (regresión v38-D)', async () => {
       const {cache} = await leerVersiones();
-      const claves = (await caches.keys()).filter(k => k.startsWith('geoterreno-cdc-'));
-      ok(claves.length, 'el service worker no dejó ningún caché (¿no se registró?)');
-      eq(claves, [cache], 'quedaron cachés de versiones viejas sin purgar');
+      const todas = await caches.keys();
+      ok(todas.includes(cache), 'el service worker no dejó su caché "' + cache + '" (¿no se registró?)');
+      // Solo se miran las cachés de ESTA app. Antes se filtraba por el literal de marca viejo
+      // ('geoterreno-cdc-'), que tras el renombre no calzaba con ninguna: la prueba comparaba
+      // un conjunto equivocado. Y NO se puede exigir que la lista completa sea [cache]: la
+      // Cache API tiene alcance de ORIGEN y ahí conviven la light y el modelo de voz.
+      const propias = todas.filter(k => PROPIAS.some(re => re.test(k)));
+      eq(propias, [cache], 'quedaron cachés de versiones viejas de esta app sin purgar');
       const urls = (await (await caches.open(cache)).keys()).map(r => r.url);
       eq(urls.filter(u => new URL(u).origin !== location.origin), [],
          'entraron peticiones cross-origin (tiles) al caché del service worker');
       return urls.length + ' entradas, todas del mismo origen';
+    });
+
+    await prueba('REGRESIÓN: el SW purga solo lo suyo, no las cachés de la otra app', async () => {
+      // La Cache API tiene alcance de ORIGEN, no de ruta: la app completa y la light viven en
+      // el mismo github.io, igual que 'transformers-cache', donde Transformers.js guarda el
+      // modelo de voz (~78 MB) de la light. El activate borraba TODO lo que no fuera su CACHE,
+      // así que abrir una app arrasaba con el offline de la otra. Medido en vivo el 2026-08-31:
+      // caches.keys() pasó de ['geonotas-v108'] a ['geonotas-light-9'] al abrir la light.
+      const sw = await (await fetch('sw.js?smoke=' + Date.now())).text();
+      const act = (sw.match(/addEventListener\('activate'[^\n]*/) || [''])[0];
+      ok(/esMia\(/.test(act), 'el activate volvió a purgar sin restringirse a sus propias cachés');
+      // Las expresiones declaradas en sw.js no deben capturar ningún nombre ajeno.
+      const patrones = [...sw.matchAll(/\/\^([^/]+)\$\//g)].map(m => m[1]);
+      ok(patrones.length, 'no se encontró la lista MIAS de cachés propias en sw.js');
+      const capturadas = AJENAS.filter(a => patrones.some(p => new RegExp('^' + p + '$').test(a)));
+      eq(capturadas, [], 'el purgado captura cachés que no son de esta app');
+      // Y al revés: su propia caché sí tiene que estar cubierta, o nunca se limpiaría lo viejo.
+      const {cache} = await leerVersiones();
+      ok(patrones.some(p => new RegExp('^' + p + '$').test(cache)),
+         'la caché propia "' + cache + '" no calza con ningún patrón: las versiones viejas nunca se purgarían');
+      return patrones.length + ' patrones propios; ninguna de las ' + AJENAS.length + ' ajenas capturada';
     });
 
     // Borrido de proyecto al final: las pruebas de arriba usan el dataset de `sembrar()` y
