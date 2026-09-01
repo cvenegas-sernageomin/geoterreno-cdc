@@ -403,6 +403,19 @@ const MODELO = {
           "nota": "Rocas sedimentarias y depósitos."
         },
         {
+          "nombre": "CONTENIDO_FOSIL",
+          "obligatorio": false,
+          "dominio": "CONTENIDO_FOSIL",
+          "multiple": true,
+          "nota": "Taxones/restos fósiles observados en la roca (bioestratigrafía). Campo NO normativo, propuesto por el usuario. Solo rocas sedimentarias (detríticas y calizas)."
+        },
+        {
+          "nombre": "CONTENIDO_FOSIL_DETALLE",
+          "obligatorio": false,
+          "dominio": null,
+          "nota": "Texto libre: abundancia, estado de preservación o taxón fuera de la lista de CONTENIDO_FOSIL."
+        },
+        {
           "nombre": "COMPOSICION_MINERAL_PRINCIPAL",
           "obligatorio": false,
           "dominio": "MINERAL",
@@ -3314,6 +3327,22 @@ const MODELO = {
         "Vidrio no aplastado (bien preservado)"
       ],
       "fuente": "RAG ChromaDB 'prosa_geologica' (colección Generador de Cartas Geológicas, tipo=carta, 122.537 chunks, leído con sqlite3 directo -- chromadb en esta máquina segfaultea), 2026-08-26. Los fragmentos vítreos en contexto piroclástico se describen por el TIPO DE CLASTO (eje CDC VITROCLÁSTICO: Glass shards / Fiamme / Pumice). Verbatim real: 'esquirlas (\"shards\") de vidrio', 'fiammes milimétricas', 'vitroclastos pumíceos y esquirlas', 'pómez (35-40%)', 'fragmentos de vidrio transparente en la matriz', 'toba vítrea de ceniza'. Un término fuera de la lista se anota en TIPO_FRAGMENTO_VITREO_DETALLE (texto libre)."
+    },
+    "CONTENIDO_FOSIL": {
+      "tipo": "simple",
+      "valores": [
+        "Amonites",
+        "Bivalvos",
+        "Gasterópodos",
+        "Braquiópodos",
+        "Foraminíferos",
+        "Trilobites",
+        "Polen",
+        "Flora",
+        "Madera fósil",
+        "Huellas"
+      ],
+      "fuente": "Propuesta del usuario (2026-08-31), curaduría propia -- NO es un campo normativo CDC 2016 (verificado contra el Informe CDC 2016 Vol III antes de diseñar: no existe un campo 'CONTENIDO FÓSIL / bioestratigrafía'; lo más cercano es la rama carbonatada de COMPOSICIÓN CLÁSTICA-ALOQUÍMICA DEL DEPÓSITO, que es una clasificación litológica distinta y hoy sigue sin implementar para calizas). Orden tal como lo dio el usuario, sin reordenar por frecuencia."
     }
   },
   "avisos": [
@@ -3333,7 +3362,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v109';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v110';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -4260,6 +4289,12 @@ const CONDICIONALES = {
   // "se describe la matriz aparte... de depósitos sedimentarios mal seleccionados").
   COMPOSICION_CLASTICA_MATRIZ: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Sedimentaria' && v['FABRICA_CLASTOS']==='Matriz-soportada'},
   CEMENTO: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Sedimentaria' || v['TIPO_ROCA']==='Depósito'},
+  // Contenido fósil (2026-08-31, a pedido del usuario): NO es un campo normativo CDC 2016 --
+  // verificado contra la norma antes de diseñar (Vol III): lo más cercano es la rama carbonatada
+  // de COMPOSICION_CLASTICA (clasificación litológica, no nota de contenido), que sigue sin
+  // implementar para calizas. Solo rocas sedimentarias (detríticas y calizas, no Depósito).
+  CONTENIDO_FOSIL: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Sedimentaria'},
+  CONTENIDO_FOSIL_DETALLE: {modo:'ocultar', regla: v => v['TIPO_ROCA']==='Sedimentaria'},
   // Composición mineral: Intrusiva y Metamórfica tienen ensambles minerales distintos (índices
   // metamórficos como granate/estaurolita/sillimanita casi no aparecen en intrusivas -- RAG,
   // 2026-08-25), así que dejaron de compartir campo (2026-08-25, mismo criterio que
@@ -7876,6 +7911,11 @@ function prosaPunto(pt,datos,toponimo,anterior,umbral){
     const dClas=detalleSuelto(l.LITOLOGIA_CLASTOS,l.LITOLOGIA_CLASTOS_DETALLE); if(dClas) frases.push(dClas);
     const dLito=detalleSuelto(l.TIPO_LITICOS,l.TIPO_LITICOS_DETALLE); if(dLito) frases.push(dLito);
     const dVid=detalleSuelto(l.TIPO_FRAGMENTO_VITREO,l.TIPO_FRAGMENTO_VITREO_DETALLE); if(dVid) frases.push(dVid);
+    // Contenido fósil (2026-08-31): oración propia, NO vía detalleSuelto() -- ese ayudante solo
+    // muestra el detalle cuando la enumeración de valores trae paréntesis numéricos (%, mm), que
+    // este campo no usa; con detalleSuelto() el detalle habría quedado silenciado siempre.
+    if(l.CONTENIDO_FOSIL) frases.push('Presenta contenido fósil de '+lista(multi(l.CONTENIDO_FOSIL).map(minuscula))+'.');
+    const dFosil=fraseLibre(l.CONTENIDO_FOSIL_DETALLE); if(dFosil) frases.push(dFosil);
     const desc=fraseLibre(l.DESCRIPCION_LITOLOGIA); if(desc) frases.push(desc);
     // OBSERVACION y RELACION_LITOLOGIA_ESTRUCTURA son dos campos de texto libre de la ficha de
     // litología que nunca llegaron al escrito (auditoría de prosa vs. corpus, 2026-08-26). El
