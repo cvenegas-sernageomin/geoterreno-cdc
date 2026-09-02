@@ -80,6 +80,11 @@
   .fld{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;flex:1 1 220px;min-width:0}
   .fld label{font-size:11.5px;font-weight:600;color:var(--lbl);letter-spacing:.2px}
   .fld label .req{color:var(--rojo);margin-left:2px}
+  /* Piloto de revelado progresivo (litología/Volcánica, ver PILOTO_REVELADO_LITOLOGIA_VOLCANICA):
+     capa ortogonal a display:none de CONDICIONALES -- un campo puede estar oculto por su regla O
+     por no haber llegado su turno todavía; esta clase es solo lo segundo. */
+  .fld-pendiente{display:none}
+  .fld .omitir{align-self:flex-start;background:none;border:none;color:var(--lbl);font-size:12px;text-decoration:underline;padding:2px 0;cursor:pointer}
   /* font-size 16px, no 14px: bajo 16px Safari en iPhone hace zoom automatico al enfocar el
      campo (viejo comportamiento de iOS, sigue vigente) — con 35+ campos por ficha, ese zoom-y-
      vuelta a cada toque hace la app case-a-caso inusable en el telefono. */
@@ -3362,7 +3367,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v110';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v112';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -4226,6 +4231,22 @@ function esClastico(v){
 // (piroclástico)") junto con cuerpos macizos/columnares — la clase sola no alcanza para
 // decidir, y el campo es opcional (2026-08-21, a pedido explícito del usuario).
 const CLASE_AFL_NO_ESTRATIFICADA = new Set(['Intrusivo', 'Metamórfico', 'Roca de falla (tectonita)']);
+
+// ============ Revelado progresivo de campos (2026-09-01) ============
+// A pedido del usuario: en vez de mostrar TODOS los campos que aplican a la vez (una roca
+// Volcánica llega a tener ~15-20 simultáneos: color, textura, estructura, alteración,
+// mineralogía...), se revelan de a uno según se van llenando. Empezó como piloto acotado a
+// Litología + TIPO_ROCA=Volcánica; probado y confirmado, se extiende (2026-09-01) a TODAS las
+// fichas hijas de un punto (mismo conjunto que HIJAS: Afloramiento, Litología -- ya sin acotar
+// a Volcánica, cualquier TIPO_ROCA --, Estructural, Contacto, Geomorfología, Muestreo, Fotos,
+// Esquemas). NO se extiende a la ficha de Punto/Proyecto: son mayormente identidad fija, sin la
+// carga de campos condicionales que motivó esto.
+// Para apagar por completo y volver al comportamiento de siempre: REVELADO_PROGRESIVO_ACTIVO=false.
+const REVELADO_PROGRESIVO_ACTIVO = true;
+const FICHAS_CON_REVELADO = new Set(HIJAS.map(h=>h.store));
+function revelarProgresivo(store){
+  return REVELADO_PROGRESIVO_ACTIVO && FICHAS_CON_REVELADO.has(store);
+}
 const CONDICIONALES = {
   // Una litología es roca O depósito: TIPO_DEPOSITO solo con TIPO_ROCA = "Depósito".
   TIPO_DEPOSITO: {modo:'bloquear', regla: v => v['TIPO_ROCA']==='Depósito'},
@@ -4428,7 +4449,20 @@ function formulario(store, reg, ctx){
     const i=cs.findIndex(c=>c.nombre==='NOMBRE_ROCA');
     if(i>=0){const nr=cs.splice(i,1)[0];cs.push(nr);}
   }
+  // Piloto de revelado progresivo (ver PILOTO_REVELADO_LITOLOGIA_VOLCANICA): la infraestructura
+  // (botón "Omitir" por campo, mapa fld por nombre) solo se construye para las fichas de
+  // FICHAS_CON_REVELADO -- cero costo/cambio para Punto/Proyecto aunque esté prendido.
+  const activaPiloto = revelarProgresivo(store);
+  const fldPorCampo={}, omitirBtn={}, omitidos=new Set();
+  let mostrarTodo=false;
   const rowWrap=el('div',{class:'row'});
+  let btnMostrarTodo=null;
+  if(activaPiloto){
+    btnMostrarTodo=el('button',{type:'button',class:'btn sec',
+      style:'display:none;margin-bottom:8px;padding:6px 10px;font-size:12.5px'},'👁 Mostrar todos los campos');
+    btnMostrarTodo.addEventListener('click',()=>{mostrarTodo=true;actualizarRevelado();});
+    cont.append(btnMostrarTodo);
+  }
   cs.forEach(campo=>{
     const n=campo.nombre;
     const fld=el('div',{class:'fld'});
@@ -4549,6 +4583,13 @@ function formulario(store, reg, ctx){
       inp.addEventListener('change',refrescarUnidad); refrescarUnidad();
       fld.append(notaUnidad);
     }
+    if(activaPiloto){
+      const omBtn=el('button',{type:'button',class:'omitir',style:'display:none'},'Omitir »');
+      omBtn.addEventListener('click',()=>{omitidos.add(n);actualizarRevelado();});
+      fld.append(omBtn);
+      omitirBtn[n]=omBtn;
+    }
+    fldPorCampo[n]=fld;
     rowWrap.append(fld);
   });
   cont.append(rowWrap);
@@ -4603,6 +4644,52 @@ function formulario(store, reg, ctx){
       }
       else { const cd=cs.find(c=>c.nombre===cn); if(cd&&cd.obligatorio)inp.required=true; }
     }
+  }
+  // Revelado progresivo: capa aparte de aplicarCondicionales(), que ya decidió qué campo APLICA
+  // (fld.style.display). Aquí solo se decide, de los que aplican, cuáles YA se muestran -- no
+  // duplica ninguna regla de CONDICIONALES, así que ramas como Lava/Rocas piroclásticas (que
+  // habilitan conjuntos de campos distintos) quedan correctas automáticamente en cualquier ficha.
+  // Se corre siempre después de aplicarCondicionales(), nunca antes: necesita el display ya resuelto.
+  function actualizarRevelado(){
+    if(!activaPiloto) return;
+    if(btnMostrarTodo) btnMostrarTodo.style.display=mostrarTodo?'none':'';
+    if(mostrarTodo){
+      // El usuario ya pidió ver todo: nada queda pendiente por esta capa. CONDICIONALES sigue
+      // mandando sobre lo que de verdad no aplica.
+      cs.forEach(campo=>{const fld=fldPorCampo[campo.nombre];if(fld)fld.classList.remove('fld-pendiente');
+        const b=omitirBtn[campo.nombre];if(b)b.style.display='none';});
+      return;
+    }
+    let siguienteAbierto=false;
+    for(const campo of cs){
+      const n=campo.nombre, fld=fldPorCampo[n]; if(!fld) continue;
+      const inp=inputs[n], b=omitirBtn[n];
+      // CONDICIONALES lo descartó: modo 'ocultar' pone display:none; modo 'bloquear' (ej.
+      // TIPO_DEPOSITO) nunca oculta, solo deshabilita -- un campo deshabilitado tampoco es
+      // candidato, o se queda "pendiente" sin forma posible de llenarse.
+      if(fld.style.display==='none' || (inp && inp.disabled)) continue;
+      const tieneValor = omitidos.has(n) || (inp && (inp._multi ? !!valorMultichips(inp) : !!inp.value));
+      if(tieneValor){ fld.classList.remove('fld-pendiente'); if(b)b.style.display='none'; continue; }
+      if(!siguienteAbierto){
+        siguienteAbierto=true;
+        const eraNuevo=fld.classList.contains('fld-pendiente');
+        fld.classList.remove('fld-pendiente');
+        if(b) b.style.display='';
+        if(eraNuevo) enfocarCampoRevelado(fld,inp);
+      } else {
+        fld.classList.add('fld-pendiente');
+        if(b) b.style.display='none';
+      }
+    }
+  }
+  // Lleva el campo recién revelado a la vista y, si tiene sentido, lo enfoca -- así se siente
+  // guiado ("apareció y el foco está ahí") en vez de "algo apareció más abajo en una página
+  // larga". No se enfocan selects/date/time: en móvil eso dispara un picker nativo sin que el
+  // usuario haya tocado nada.
+  function enfocarCampoRevelado(fld,inp){
+    fld.scrollIntoView({behavior:'smooth',block:'center'});
+    if(inp && (inp.tagName==='INPUT'||inp.tagName==='TEXTAREA') &&
+       !['date','time'].includes(inp.type)) setTimeout(()=>inp.focus(),300);
   }
   // repuebla recursivamente los selects hijos de 'parentName' (cadena TIPO_ROCA→NOMBRE_ROCA→GRANULOMETRIA)
   function repoblarHijosDe(parentName, parentValue){
@@ -4660,6 +4747,7 @@ function formulario(store, reg, ctx){
   filtrarNombreRocaVolcanica(true);
   filtrarTexturaVolcanica(true);
   aplicarCondicionales();
+  actualizarRevelado();
 
   // cascadas: al cambiar el padre, repoblar hijos (y nietos)
   cont.addEventListener('change',e=>{
@@ -4683,6 +4771,7 @@ function formulario(store, reg, ctx){
         const opt=el('option',{value:nv},nv);e.target.insertBefore(opt,e.target.querySelector('option[value="__add__"]'));e.target.value=nv;}
       else e.target.value='';
     }
+    actualizarRevelado();
   });
 
   return {node:cont, getData(){const o={};for(const n in inputs){const i=inputs[n];
