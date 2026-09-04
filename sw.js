@@ -1,5 +1,5 @@
 // Service worker offline-first (cache estatico)
-const CACHE='geonotas-v112';
+const CACHE='geonotas-v113';
 // Caches que ESTA app puede purgar al activarse. NO se borra "todo lo que no sea CACHE":
 // la Cache API tiene alcance de ORIGEN, no de ruta, y las dos PWAs (completa y light) viven
 // en el mismo cvenegas-sernageomin.github.io. Con el filtro viejo, activar una borraba la

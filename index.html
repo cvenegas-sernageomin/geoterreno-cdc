@@ -139,6 +139,10 @@
   .thumbs img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--bd)}
   canvas.sketch{border:1px solid var(--bd);border-radius:10px;touch-action:none;background:#fff;width:100%;max-width:100%}
   .muted{color:var(--muted);font-size:12px}
+  .creditos{font-size:12px;color:var(--muted);text-align:center;line-height:1.75}
+  .creditos b{color:var(--txt);font-weight:650}
+  .creditos a{color:var(--verde);text-decoration:none;font-weight:600}
+  .creditos a:active{opacity:.6}
   .warn{background:var(--surface2);border:1px solid var(--naranja);border-radius:10px;padding:8px 11px;font-size:12px;color:var(--txt);margin-bottom:10px}
   a.link{color:var(--azul);cursor:pointer;text-decoration:underline;font-size:12px}
   select:disabled{background:var(--surface2);color:var(--muted)}
@@ -3367,7 +3371,7 @@ const MODELO = {
 </script>
 <script>
 "use strict";
-const APP_VER = 'v112';   // se muestra en Proyectos; subir junto con el cache del SW
+const APP_VER = 'v113';   // se muestra en Proyectos; subir junto con el cache del SW
 // ============================ Utilidades ============================
 const $ = s => document.querySelector(s);
 const el = (t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='html')e.innerHTML=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k]);}c.flat().forEach(x=>e.append(x&&x.nodeType?x:document.createTextNode(x==null?'':x)));return e;};
@@ -5648,8 +5652,22 @@ async function renderHome(app){
       el('span',{class:'pill'},(p._npuntos||0)+' pts')));
   });
   app.append(card);
+  app.append(creditos());
   $('#fab').append(el('button',{class:'btn',onclick:()=>editorProyecto()},'+ Nuevo proyecto'),
     el('button',{class:'btn sec',onclick:()=>exportMenu()},'⇩ Exportar'));
+}
+
+// Pie de contacto en Proyectos (la pantalla de entrada). Va aqui y no en el header, que en
+// telefono ya esta lleno, ni en las fichas, que son el flujo de captura en terreno.
+// El mailto lleva asunto con APP_VER para saber desde que app y version escribe el colega.
+function creditos(){
+  const c=el('div',{class:'card creditos'});
+  c.append(el('div',{},'Desarrollador: ',el('b',{},'Carlos Venegas'),' · SERNAGEOMIN'));
+  const asunto=encodeURIComponent('Geonotas '+APP_VER+' — comentarios');
+  c.append(el('div',{},'Comentarios y/o consultas a: ',
+    el('a',{href:'mailto:carlos.venegas@sernageomin.cl?subject='+asunto},
+      'carlos.venegas@sernageomin.cl')));
+  return c;
 }
 
 function editorProyecto(p){
