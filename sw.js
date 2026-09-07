@@ -33,17 +33,25 @@ self.addEventListener('install', e => { self.skipWaiting(); });
 
 self.addEventListener('activate', e => e.waitUntil((async () => {
   const base = new URL('./', self.location).href;   // .../geoterreno-cdc/
-  for (const nombre of await caches.keys()) {
-    const c = await caches.open(nombre);
-    const claves = await c.keys();
-    let borradas = 0;
-    for (const req of claves) {
-      if (req.url.startsWith(base)) { await c.delete(req); borradas++; }
+  const barrer = async () => {
+    for (const nombre of await caches.keys()) {
+      const c = await caches.open(nombre);
+      let borradas = 0;
+      for (const req of await c.keys()) {
+        if (req.url.startsWith(base)) { await c.delete(req); borradas++; }
+      }
+      // Solo se elimina el cache entero si era exclusivamente de la ruta vieja.
+      if (borradas > 0 && (await c.keys()).length === 0) await caches.delete(nombre);
     }
-    // Solo se elimina el cache entero si era exclusivamente de la ruta vieja.
-    if (borradas > 0 && (await c.keys()).length === 0) await caches.delete(nombre);
-  }
+  };
+  await barrer();
   await self.registration.unregister();
+  // Segunda pasada: el SW viejo sigue vivo hasta que termina de darse de baja y su
+  // rama cache-first alcanza a guardar la respuesta de red DESPUES del primer barrido.
+  // Medido el 2026-09-07 contra el sitio: quedaba un cache 'geonotas-v113' con una
+  // sola entrada, la propia pagina de redireccion. Es inerte (ya nadie lo lee), pero
+  // se limpia igual para no dejar basura en el dispositivo del geologo.
+  await barrer();
   // Recargar las ventanas abiertas: ya sin SW, caen a la red y ven el redirect.
   const clientes = await self.clients.matchAll({ type: 'window' });
   for (const cl of clientes) { try { await cl.navigate(cl.url); } catch (_) {} }

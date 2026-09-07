@@ -60,9 +60,10 @@
   document.getElementById('destino').textContent = destino;
   document.getElementById('ir').href = destino;
 
-  // Da de baja el service worker viejo, que es cache-first y por si solo nunca
-  // dejaria llegar hasta aca. Se registra el sw.js de autodestruccion de esta
-  // misma ruta para alcanzar tambien a quien entre por el icono instalado.
+  // Da de baja aqui mismo el service worker viejo de esta ruta: es cache-first, y
+  // por si solo nunca habria dejado llegar hasta esta pagina. A quien entre por el
+  // icono instalado lo alcanza el sw.js de autodestruccion, que el navegador pide
+  // por red en su chequeo de actualizacion; esto es el atajo para quien ya llego.
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(function (rs) {
       rs.forEach(function (r) {
